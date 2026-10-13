@@ -116,10 +116,14 @@ class WrappedEngineTests(WrapperCase):
 
 
 class LongLineTests(WrapperCase):
-    """Word scanning must stay far inside the hook's timeout on the longest lines it reads
-    in full (under ``MAX_COMMAND_CHARS`` and ``MAX_WORDS``; longer ones are an ``ask``)."""
+    """Word scanning must stay inside the hook's timeout on the longest lines it reads
+    in full (under ``MAX_COMMAND_CHARS`` and ``MAX_WORDS``; longer ones are an ``ask``).
 
-    BUDGET_SECONDS = 2.0
+    The budget is half of the PreToolUse timeout in ``hooks/hooks.json`` (10 seconds). A
+    tighter wall-clock bound failed on a shared CI runner, where the worst case took 2.1 s.
+    """
+
+    BUDGET_SECONDS = 5.0
     WORDS = " ".join(f"d/{index}" for index in range(1900))
 
     def timed(self, line: str) -> tuple[dict[str, str] | None, float]:
