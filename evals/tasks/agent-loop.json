@@ -1,0 +1,40 @@
+{
+  "id": "agent-loop",
+  "title": "Three scripted loops the guard has to stop",
+  "description": "Each subtask is a loop with no exit of its own: a failing command retried unchanged, a passing command repeated with no progress, and two agents handing the work back and forth. No configuration can succeed; what differs is how early the run is stopped.",
+  "category": "agent-loop",
+  "signals": {
+    "objective": "Get the build green",
+    "files_touched_estimate": 3,
+    "unknowns": 1,
+    "independent_subtasks": 3
+  },
+  "window_tokens": 8000,
+  "acceptance_criteria": [
+    { "id": "build-green", "text": "The build command exits with status 0." },
+    { "id": "status-understood", "text": "The repository status is explained in a note backed by a check." },
+    { "id": "ownership-settled", "text": "One agent owns the change and its review check passes." }
+  ],
+  "subtasks": [
+    { "id": "retry-loop", "files": ["src/build.py"] },
+    { "id": "status-loop", "files": ["notes/status.md"] },
+    { "id": "handoff-loop", "files": ["src/owner.py"] }
+  ],
+  "script": [
+    { "id": "build", "subtask": "retry-loop", "kind": "command", "signature": "make build", "outcome": "fail", "repeat": 8, "tokens": 150, "description": "The same failing command, eight times, with no edit in between." },
+    { "id": "build-check", "subtask": "retry-loop", "kind": "verify", "signature": "make build", "outcome": "fail", "tokens": 60, "criteria": ["build-green"] },
+
+    { "id": "status", "subtask": "status-loop", "kind": "command", "signature": "git status --short", "repeat": 8, "tokens": 100, "description": "The same passing command, eight times, with no progress." },
+    { "id": "status-check", "subtask": "status-loop", "kind": "verify", "signature": "python scripts/check_status_note.py", "outcome": "fail", "tokens": 40, "criteria": ["status-understood"] },
+
+    { "id": "to-reviewer-1", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "senior-engineer", "to_agent": "code-reviewer", "tokens": 60 },
+    { "id": "to-engineer-1", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "code-reviewer", "to_agent": "senior-engineer", "tokens": 60 },
+    { "id": "to-reviewer-2", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "senior-engineer", "to_agent": "code-reviewer", "tokens": 60 },
+    { "id": "to-engineer-2", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "code-reviewer", "to_agent": "senior-engineer", "tokens": 60 },
+    { "id": "to-reviewer-3", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "senior-engineer", "to_agent": "code-reviewer", "tokens": 60 },
+    { "id": "to-engineer-3", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "code-reviewer", "to_agent": "senior-engineer", "tokens": 60 },
+    { "id": "to-reviewer-4", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "senior-engineer", "to_agent": "code-reviewer", "tokens": 60 },
+    { "id": "to-engineer-4", "subtask": "handoff-loop", "kind": "handoff", "from_agent": "code-reviewer", "to_agent": "senior-engineer", "tokens": 60 },
+    { "id": "review-check", "subtask": "handoff-loop", "kind": "verify", "signature": "python scripts/check_review.py", "outcome": "fail", "tokens": 40, "criteria": ["ownership-settled"] }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "verify.error.bad_check": "Cannot parse check command {command!r}: {error}",
+  "verify.summary": "{met} of {total} acceptance criteria met, {unmet} unmet, {unverified} unverified; {unexecuted} checks not run.",
+  "verify.summary.no_criteria": "The contract has no acceptance criteria, so nothing can be marked as met.",
+  "verify.evidence.refused": "Check {id} was refused: {reason}",
+  "verify.evidence.not_run": "Check {id} was not executed.",
+  "verify.blocker": "Criterion {status}: {criterion}",
+  "verify.reason.failed": "A check that supports this criterion failed.",
+  "verify.reason.manual": "Supported by evidence the agent supplied by hand; the engine did not produce it.",
+  "verify.reason.no_check": "No check supports this criterion.",
+  "verify.reason.not_passed": "Not every check that supports this criterion ran and passed.",
+  "verify.reason.trivial": "Only no-op checks support this criterion (true, echo and the like); they ran, and they carry no evidence.",
+  "verify.reason.baseline": "The checks already passed before any work on this task and no file changed since it started, so they do not show the work was done.",
+  "verify.reason.tied": "Met by a check the plan ties to this criterion.",
+  "verify.reason.untied": "Met by a check not tied to this criterion: a generic check passed, which is weaker evidence.",
+  "verify.warning.untied": "The task has {count} acceptance criteria and no check is tied to any of them; one generic result stands for all. Tie checks to criteria in the plan with objects that carry 'command' and 'criteria'.",
+  "verify.warning.trivial": "These checks are no-ops and carry no evidence: {commands}",
+  "verify.warning.baseline": "Every passing check had already passed before any work and no file changed since the task started."
+}

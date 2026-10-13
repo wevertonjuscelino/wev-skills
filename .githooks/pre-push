@@ -1,0 +1,52 @@
+#!/bin/sh
+# pre-push: run the test suite and the linters before anything leaves the machine, and refuse a
+# push to main while tracked files have uncommitted changes.
+#
+# Git passes "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin. Needs a POSIX
+# shell, git and make. Deleting a remote branch skips the suite.
+set -u
+
+ZERO=0000000000000000000000000000000000000000
+
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+
+pushes_main=0
+pushes_content=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -n "${local_ref:-}" ] || continue
+    if [ "$local_sha" != "$ZERO" ]; then
+        pushes_content=1
+    fi
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        pushes_main=1
+    fi
+done
+
+if [ "$pushes_main" -eq 1 ]; then
+    dirty=$(git status --porcelain --untracked-files=no)
+    if [ -n "$dirty" ]; then
+        {
+            echo "pre-push: refusing to push to main with uncommitted changes to tracked files:"
+            printf '%s\n' "$dirty" | sed 's/^/  /'
+            echo "Commit or stash them first, or push from a branch and open a pull request."
+        } >&2
+        exit 1
+    fi
+fi
+
+if [ "$pushes_content" -eq 0 ]; then
+    exit 0
+fi
+
+echo "pre-push: running make test" >&2
+if ! make test >/dev/null; then
+    echo "pre-push: make test failed; run it again to see the output." >&2
+    exit 1
+fi
+echo "pre-push: running make lint" >&2
+if ! make lint >/dev/null; then
+    echo "pre-push: make lint failed; run it again to see the output." >&2
+    exit 1
+fi
+exit 0

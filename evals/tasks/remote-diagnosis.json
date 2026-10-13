@@ -1,0 +1,32 @@
+{
+  "id": "remote-diagnosis",
+  "title": "Read-only diagnosis of a remote service",
+  "description": "Polling a remote status command is marked as polling and must not be mistaken for a loop. The diagnosis accumulates long notes, which elision cannot remove (it only elides tool output); only summarization keeps this run inside the window.",
+  "category": "remote-diagnosis",
+  "signals": {
+    "objective": "Diagnose why the staging worker stopped consuming its queue",
+    "files_touched_estimate": 0,
+    "touches_remote": true,
+    "unknowns": 2,
+    "independent_subtasks": 1
+  },
+  "window_tokens": 3000,
+  "acceptance_criteria": [
+    { "id": "cause-identified", "text": "The diagnosis names the cause and is backed by a read-only check on the host." }
+  ],
+  "subtasks": [
+    { "id": "diagnose" }
+  ],
+  "script": [
+    { "id": "delegate", "subtask": "diagnose", "kind": "handoff", "from_agent": "orchestrator", "to_agent": "remote-ops", "tokens": 40 },
+    { "id": "wait-for-dump", "subtask": "diagnose", "kind": "command", "signature": "ssh staging-worker systemctl is-active queue-dump", "polling": true, "repeat": 5, "tokens": 10, "description": "Polling a long-running remote process: exempt from the identical-command rule." },
+    { "id": "journal", "subtask": "diagnose", "kind": "tool_output", "tokens": 300 },
+    { "id": "note-queue", "subtask": "diagnose", "kind": "note", "tokens": 520 },
+    { "id": "note-broker", "subtask": "diagnose", "kind": "note", "tokens": 520 },
+    { "id": "note-worker", "subtask": "diagnose", "kind": "note", "tokens": 520 },
+    { "id": "note-network", "subtask": "diagnose", "kind": "note", "tokens": 520 },
+    { "id": "note-config", "subtask": "diagnose", "kind": "note", "tokens": 520 },
+    { "id": "note-conclusion", "subtask": "diagnose", "kind": "note", "tokens": 400 },
+    { "id": "confirm", "subtask": "diagnose", "kind": "verify", "signature": "ssh staging-worker journalctl -u worker --since -1h", "tokens": 60, "criteria": ["cause-identified"] }
+  ]
+}

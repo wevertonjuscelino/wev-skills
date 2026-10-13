@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wev-skills"
+version = "0.1.0"
+description = "Evidence-oriented orchestration system for AI coding agents."
+requires-python = ">=3.14"
+authors = [{ name = "Weverton Juscelino" }]
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.14",
+  "License :: OSI Approved :: MIT License",
+  "Development Status :: 3 - Alpha",
+]
+license = { text = "MIT" }
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/wevertonjuscelino/wev-skills"
+Repository = "https://github.com/wevertonjuscelino/wev-skills"
+Issues = "https://github.com/wevertonjuscelino/wev-skills/issues"
+Changelog = "https://github.com/wevertonjuscelino/wev-skills/blob/main/CHANGELOG.md"
+
+[project.scripts]
+wev = "wev_skills.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+wev_skills = ["schemas/*.json", "locales/*.json", "adapters/claude_code/guidelines/*.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+files = ["src/wev_skills"]
+python_version = "3.14"

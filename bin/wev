@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Launcher that runs the wev CLI from a source checkout without pip install.
+
+The version check below runs before the package is imported and is written so that an old
+interpreter can still parse this file (no f-strings, no annotations, no walrus).
+"""
+import os
+import sys
+
+MINIMUM = (3, 14)
+HOOK_GROUP = "hook"
+VALUE_OPTIONS = ("--lang", "--config")
+
+
+def first_word(args):
+    """The command group: the first argument that is not a global option or its value."""
+    skip = False
+    for arg in args:
+        if skip:
+            skip = False
+            continue
+        if arg in VALUE_OPTIONS:
+            skip = True
+            continue
+        if not arg.startswith("-"):
+            return arg
+    return ""
+
+
+def version_guard(version, args, stream):
+    """None when the interpreter is new enough, else the exit code after one line on stream.
+
+    A hook must never break the session it runs in, so under an old interpreter a hook
+    exits 0 without a decision (nothing is checked: say so). Any other command fails.
+    """
+    if tuple(version[:2]) >= MINIMUM:
+        return None
+    found = "%d.%d" % (version[0], version[1])
+    needed = "%d.%d" % MINIMUM
+    if first_word(args) == HOOK_GROUP:
+        stream.write("wev hook: Python %s is too old (needs %s); nothing was checked.\n" % (found, needed))
+        return 0
+    stream.write("wev needs Python %s or newer; this interpreter is %s.\n" % (needed, found))
+    return 1
+
+
+def main():
+    code = version_guard(sys.version_info, sys.argv[1:], sys.stderr)
+    if code is not None:
+        return code
+    src = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "src")
+    sys.path.insert(0, src)
+    from wev_skills.cli import main as cli_main
+
+    return cli_main()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

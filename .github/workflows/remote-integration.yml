@@ -1,0 +1,45 @@
+# Manual only. This workflow never runs automatically.
+#
+# It runs a real tmux smoke test locally on the runner: no SSH and no external
+# host. It is the place to verify tmux behavior that the simulated-host tests
+# cannot. It must never be pointed at a real server from CI.
+#
+# Action references are pinned to full commit SHAs (the version is the trailing comment).
+# Looked up on 2026-10-13 with `git ls-remote https://github.com/actions/<name>`; both tags are
+# lightweight tags, so the listed SHA is the commit itself.
+#
+# No step interpolates github.event.* or github.head_ref into a run: script.
+# If one is ever needed, pass it through env: and quote the variable.
+#
+# This workflow has never been run.
+name: Remote integration (local tmux)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tmux-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Install tmux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux
+          tmux -V
+      - name: Run local tmux integration test
+        run: |
+          if [ -f tests/integration/test_tmux_local.py ]; then
+            PYTHONPATH=src python -m unittest tests.integration.test_tmux_local -v
+          else
+            echo "tests/integration/test_tmux_local.py not found; skipping."
+          fi

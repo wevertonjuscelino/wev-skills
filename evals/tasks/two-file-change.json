@@ -1,0 +1,26 @@
+{
+  "id": "two-file-change",
+  "title": "Small change across two files",
+  "description": "Control scenario for capability profiles: the task is classified simple (two files, low risk), so automatic planning makes a plan for an economy executor and none for a standard or premium one. Nothing else in the script depends on the configuration.",
+  "category": "simple-fix",
+  "signals": {
+    "objective": "Rename a configuration key and update its single caller",
+    "files_touched_estimate": 2,
+    "unknowns": 0,
+    "independent_subtasks": 1
+  },
+  "window_tokens": 8000,
+  "acceptance_criteria": [
+    { "id": "key-renamed", "text": "The key is renamed in the settings module and its caller, and the settings test passes." }
+  ],
+  "subtasks": [
+    { "id": "rename", "files": ["src/settings.py", "src/loader.py"] }
+  ],
+  "script": [
+    { "id": "read-settings", "subtask": "rename", "kind": "tool_output", "tokens": 250, "description": "Read src/settings.py." },
+    { "id": "read-loader", "subtask": "rename", "kind": "tool_output", "tokens": 250, "description": "Read src/loader.py." },
+    { "id": "edit-settings", "subtask": "rename", "kind": "edit", "tokens": 40 },
+    { "id": "edit-loader", "subtask": "rename", "kind": "edit", "tokens": 40 },
+    { "id": "settings-test", "subtask": "rename", "kind": "verify", "signature": "python -m unittest tests.test_settings", "tokens": 60, "criteria": ["key-renamed"] }
+  ]
+}

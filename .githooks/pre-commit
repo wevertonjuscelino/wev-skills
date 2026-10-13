@@ -1,0 +1,72 @@
+#!/bin/sh
+# pre-commit: refuse to commit secrets, private key files and oversized files.
+#
+#   1. Staged files with obviously private names (private keys, dot-env files, certificate
+#      stores, credentials JSON) are rejected.
+#   2. Staged files larger than 1 MiB are rejected (size of the staged content).
+#   3. scripts/scan_secrets.py --staged runs over the staged files.
+#
+# Needs only a POSIX shell, git and python3. This is a tripwire, not a full scanner.
+set -u
+
+MAX_BYTES=1048576
+
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$staged" ]; then
+    exit 0
+fi
+
+# Prints one line per offending file. It is a function, not an inline command substitution,
+# because old shells mis-parse case patterns inside $( ).
+check_staged() {
+    printf '%s\n' "$staged" | while IFS= read -r path; do
+        base=$(basename "$path" | tr 'A-Z' 'a-z')
+        case "$base" in
+            .env | .env.* )
+                case "$base" in
+                    *.example | *.sample | *.template) ;;
+                    *) echo "$path: dot-env file (may hold secrets)" ;;
+                esac ;;
+            *.pem | *.p12 | *.pfx | *.jks | *.keystore | *.ppk | *.key)
+                echo "$path: private key or certificate store file" ;;
+            id_rsa* | id_dsa* | id_ecdsa* | id_ed25519*)
+                echo "$path: SSH private key name" ;;
+            credentials.json | *-credentials.json | *_credentials.json | service-account*.json | service_account*.json | client_secret*.json)
+                echo "$path: credentials file" ;;
+            .netrc | .pgpass)
+                echo "$path: credentials file" ;;
+        esac
+        size=$(git cat-file -s ":$path" 2>/dev/null) || size=
+        if [ -z "$size" ]; then
+            echo "$path: cannot read the staged size"
+        elif [ "$size" -gt "$MAX_BYTES" ]; then
+            echo "$path: $size bytes is larger than 1 MiB"
+        fi
+    done
+}
+
+problems=$(check_staged)
+
+if [ -n "$problems" ]; then
+    {
+        echo "pre-commit: refusing to commit these staged files:"
+        printf '%s\n' "$problems" | sed 's/^/  /'
+        echo "Unstage them with 'git restore --staged <file>'. Keep real secrets out of the repository."
+    } >&2
+    exit 1
+fi
+
+if [ ! -f scripts/scan_secrets.py ]; then
+    echo "pre-commit: scripts/scan_secrets.py not found; cannot scan the staged files." >&2
+    exit 1
+fi
+
+if ! python3 scripts/scan_secrets.py --staged; then
+    echo "pre-commit: credential patterns found in staged files (values are not printed)." >&2
+    exit 1
+fi
+
+exit 0

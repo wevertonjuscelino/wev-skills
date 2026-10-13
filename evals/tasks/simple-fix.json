@@ -1,0 +1,25 @@
+{
+  "id": "simple-fix",
+  "title": "One-line fix in a single file",
+  "description": "Control scenario: nothing in the script depends on the configuration, so every configuration should pass and only the simulated cost and duration differ.",
+  "category": "simple-fix",
+  "signals": {
+    "objective": "Fix an off-by-one error in the pagination helper",
+    "files_touched_estimate": 1,
+    "unknowns": 0,
+    "independent_subtasks": 1
+  },
+  "window_tokens": 8000,
+  "acceptance_criteria": [
+    { "id": "pagination-fixed", "text": "The pagination helper returns the last page and its unit test passes." }
+  ],
+  "subtasks": [
+    { "id": "fix", "files": ["src/pagination.py"] }
+  ],
+  "script": [
+    { "id": "read-helper", "subtask": "fix", "kind": "tool_output", "tokens": 300, "description": "Read src/pagination.py." },
+    { "id": "apply-fix", "subtask": "fix", "kind": "edit", "tokens": 40, "description": "Change the range bound." },
+    { "id": "lint", "subtask": "fix", "kind": "command", "signature": "ruff check src/pagination.py", "tokens": 20 },
+    { "id": "unit-test", "subtask": "fix", "kind": "verify", "signature": "python -m unittest tests.test_pagination", "tokens": 60, "criteria": ["pagination-fixed"] }
+  ]
+}

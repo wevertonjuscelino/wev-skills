@@ -1,0 +1,17 @@
+{
+  "state.help": "Inspeciona as execuções registradas.",
+  "state.show.help": "Mostra o estado de uma execução (a mais recente, por padrão).",
+  "state.list.help": "Lista as execuções registradas no diretório de estado.",
+  "state.drift.help": "Compara uma execução registrada com o repositório real.",
+  "state.arg.run": "Id da execução. O padrão é a execução gravada mais recentemente.",
+  "state.drift.no_root": "Esta execução não tem raiz de repositório registrada; o estado do git e os arquivos não foram verificados.",
+  "state.drift.no_snapshot": "A execução não tem um retrato do repositório registrado; HEAD, branch e arquivos modificados não puderam ser comparados.",
+  "state.drift.repo_unavailable": "O repositório registrado em {root} não pôde ser lido com o git agora.",
+  "state.drift.head_changed": "O HEAD mudou de {old} para {new}.",
+  "state.drift.branch_changed": "A branch mudou de '{old}' para '{new}'.",
+  "state.drift.new_dirty": "{count} arquivo(s) estão modificados agora e estavam limpos quando a execução foi registrada.",
+  "state.drift.missing_files": "{count} arquivo(s) informados como alterados por tarefas não existem mais.",
+  "state.drift.outside_root": "Arquivos informados fora da raiz do repositório não foram verificados: {files}.",
+  "state.drift.stale_running": "Tarefas registradas como em execução precisam ser verificadas de novo, não dadas como concluídas: {tasks}.",
+  "state.error.lock_timeout": "Outro processo wev manteve o bloqueio de {path} por mais de {seconds} segundos. Nada foi alterado; tente de novo e, se continuar, verifique se há um processo wev travado."
+}

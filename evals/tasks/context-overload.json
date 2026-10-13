@@ -1,0 +1,47 @@
+{
+  "id": "context-overload",
+  "title": "Long investigation that outgrows a small window",
+  "description": "'investigate' reads six large tool outputs: without compaction the window overflows; with default elision it fits and the needed trace stays verbatim; aggressive elision removes the trace. 'handover' fits the window untouched, but summarization replaces a note that a later step needs.",
+  "category": "context-overload",
+  "signals": {
+    "objective": "Find and fix the cause of an intermittent cache corruption",
+    "files_touched_estimate": 2,
+    "unknowns": 1,
+    "independent_subtasks": 1
+  },
+  "window_tokens": 4000,
+  "acceptance_criteria": [
+    { "id": "corruption-fixed", "text": "The cache corruption regression test passes." },
+    { "id": "handover-accurate", "text": "The handover summary states the root cause recorded during the investigation." }
+  ],
+  "subtasks": [
+    { "id": "investigate", "files": ["src/cache.py"] },
+    { "id": "handover", "depends_on": ["investigate"], "files": ["docs/incident.md"] }
+  ],
+  "script": [
+    { "id": "log-1", "subtask": "investigate", "kind": "tool_output", "tokens": 900 },
+    { "id": "log-2", "subtask": "investigate", "kind": "tool_output", "tokens": 900 },
+    { "id": "log-3", "subtask": "investigate", "kind": "tool_output", "tokens": 900 },
+    { "id": "stack-trace", "subtask": "investigate", "kind": "tool_output", "tokens": 900, "needed_later": true, "description": "The trace the fix must be written from." },
+    { "id": "log-5", "subtask": "investigate", "kind": "tool_output", "tokens": 900 },
+    { "id": "log-6", "subtask": "investigate", "kind": "tool_output", "tokens": 900 },
+    {
+      "id": "write-fix", "subtask": "investigate", "kind": "edit", "tokens": 80,
+      "conditions": { "requires_verbatim": ["stack-trace"] },
+      "description": "Scripted: fails when the trace is no longer verbatim in context."
+    },
+    { "id": "regression-test", "subtask": "investigate", "kind": "verify", "signature": "python -m unittest tests.test_cache", "tokens": 60, "criteria": ["corruption-fixed"] },
+
+    { "id": "root-cause", "subtask": "handover", "kind": "note", "tokens": 700, "needed_later": true, "description": "Detailed root cause notes." },
+    { "id": "timeline", "subtask": "handover", "kind": "note", "tokens": 700 },
+    { "id": "impact", "subtask": "handover", "kind": "note", "tokens": 700 },
+    { "id": "mitigations", "subtask": "handover", "kind": "note", "tokens": 700 },
+    { "id": "follow-ups", "subtask": "handover", "kind": "note", "tokens": 600 },
+    {
+      "id": "write-handover", "subtask": "handover", "kind": "edit", "tokens": 80,
+      "conditions": { "requires_verbatim": ["root-cause"] },
+      "description": "Scripted: fails when the root cause note was replaced by a summary."
+    },
+    { "id": "check-handover", "subtask": "handover", "kind": "verify", "signature": "python scripts/check_incident.py docs/incident.md", "tokens": 40, "criteria": ["handover-accurate"] }
+  ]
+}

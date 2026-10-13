@@ -1,0 +1,49 @@
+{
+  "objective": "Add a parser module and document it",
+  "tasks": [
+    {
+      "id": "parser",
+      "title": "Add parser",
+      "objective": "Create parser.py with a parse function that returns a list of tokens",
+      "files": [
+        "parser.py",
+        "tests/test_parser.py"
+      ],
+      "risk": "low",
+      "acceptance_criteria": [
+        "parser.py exists and the test suite passes"
+      ],
+      "checks": [
+        {
+          "command": "make test",
+          "criteria": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "title": "Document parser",
+      "objective": "Write parser-notes.md describing the parse function",
+      "depends_on": [
+        "parser"
+      ],
+      "files": [
+        "parser-notes.md"
+      ],
+      "risk": "low",
+      "acceptance_criteria": [
+        "parser-notes.md exists and the test suite passes"
+      ],
+      "checks": [
+        {
+          "command": "make test",
+          "criteria": [
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+#!/bin/sh
+# commit-msg: enforce the commit subject format.
+#
+#   <type>: <description>   or   <type>(<scope>): <description>
+#
+# Types: feat, fix, refactor, docs, test, chore, perf, ci, build, revert.
+# The subject is at most 72 characters and has no trailing period. Merge and revert commits that
+# git generates itself are allowed. Needs only a POSIX shell and grep.
+set -u
+
+MAX_SUBJECT=72
+TYPES='feat|fix|refactor|docs|test|chore|perf|ci|build|revert'
+PATTERN="^(${TYPES})(\\([a-z0-9._/-]+\\))?: [^ ].*\$"
+
+message_file=${1:-}
+if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
+    echo "commit-msg: expected the path of the commit message file as the first argument." >&2
+    exit 1
+fi
+
+# The subject is the first line that is not a comment.
+subject=$(grep -v '^#' "$message_file" | sed -n '1p')
+
+explain() {
+    cat >&2 <<MSG
+commit-msg: $1
+
+  Subject: $subject
+
+Expected format:
+  <type>: <description>
+  <type>(<scope>): <description>
+
+  type: feat, fix, refactor, docs, test, chore, perf, ci, build or revert
+  The subject is at most ${MAX_SUBJECT} characters and does not end with a period.
+  Example: fix(hooks): ask before a recursive delete
+
+This hook is enabled by 'make hooks'. See CONTRIBUTING.md.
+MSG
+    exit 1
+}
+
+case "$subject" in
+    "Merge "* | 'Revert "'*) exit 0 ;;
+esac
+
+if [ -z "$subject" ]; then
+    explain "the commit message is empty."
+fi
+
+if ! printf '%s\n' "$subject" | grep -Eq "$PATTERN"; then
+    explain "the subject does not match the commit format."
+fi
+
+if [ "${#subject}" -gt "$MAX_SUBJECT" ]; then
+    explain "the subject has ${#subject} characters; the limit is ${MAX_SUBJECT}."
+fi
+
+case "$subject" in
+    *.) explain "the subject ends with a period." ;;
+esac
+
+exit 0

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "wev plan",
+  "type": "object",
+  "required": ["objective", "tasks"],
+  "additionalProperties": false,
+  "properties": {
+    "objective": { "type": "string", "minLength": 1 },
+    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } }
+  },
+  "$defs": {
+    "stringList": { "type": "array", "items": { "type": "string" } },
+    "check": {
+      "$comment": "A command string (supports every criterion, untied), or an object tying the command to criteria by zero-based index or exact text.",
+      "type": ["string", "object"],
+      "required": ["command", "criteria"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "string", "minLength": 1 },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": ["string", "integer"] }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "objective"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 64 },
+        "title": { "type": "string", "minLength": 1 },
+        "objective": { "type": "string" },
+        "depends_on": { "$ref": "#/$defs/stringList" },
+        "files": { "$ref": "#/$defs/stringList" },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "acceptance_criteria": { "$ref": "#/$defs/stringList" },
+        "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+        "check_links": {
+          "$comment": "The stored form of checks given as objects: criteria as exact texts.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/check" }
+        },
+        "agent_hint": { "type": "string" },
+        "read_only": { "type": "boolean" },
+        "status": {
+          "enum": ["pending", "ready", "running", "verified", "partial", "blocked", "failed", "not_executed"]
+        }
+      }
+    }
+  }
+}

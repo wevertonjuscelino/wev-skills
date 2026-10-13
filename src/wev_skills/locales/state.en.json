@@ -1,0 +1,17 @@
+{
+  "state.help": "Inspect recorded runs.",
+  "state.show.help": "Print the state of a run (the latest one by default).",
+  "state.list.help": "List the runs recorded under the state directory.",
+  "state.drift.help": "Compare a recorded run with the real repository.",
+  "state.arg.run": "Run id. Defaults to the most recently written run.",
+  "state.drift.no_root": "No repository root is recorded for this run, so git state and files were not checked.",
+  "state.drift.no_snapshot": "The run has no recorded repository snapshot, so HEAD, branch and dirty files could not be compared.",
+  "state.drift.repo_unavailable": "The recorded repository at {root} could not be read with git now.",
+  "state.drift.head_changed": "HEAD changed from {old} to {new}.",
+  "state.drift.branch_changed": "Branch changed from '{old}' to '{new}'.",
+  "state.drift.new_dirty": "{count} file(s) are modified now that were clean when the run was recorded.",
+  "state.drift.missing_files": "{count} file(s) reported as changed by tasks no longer exist.",
+  "state.drift.outside_root": "Reported files outside the repository root were not checked: {files}.",
+  "state.drift.stale_running": "Tasks recorded as running must be verified again, not assumed finished: {tasks}.",
+  "state.error.lock_timeout": "Another wev process held the lock on {path} for more than {seconds} seconds. Nothing was changed; retry, and if it keeps happening check for a stuck wev process."
+}

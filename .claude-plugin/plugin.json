@@ -1,0 +1,19 @@
+{
+  "name": "wev-skills",
+  "version": "0.1.0",
+  "description": "Evidence-oriented orchestration for AI coding agents: skills that drive a local JSON CLI for run state, plans, task contracts, permissions, approvals, loop detection, verification evidence, custom agents, remote tmux control and a scripted evaluation harness.",
+  "author": {
+    "name": "Weverton Juscelino"
+  },
+  "homepage": "https://github.com/wevertonjuscelino/wev-skills",
+  "repository": "https://github.com/wevertonjuscelino/wev-skills",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "agents",
+    "subagents",
+    "verification",
+    "governance",
+    "evaluation"
+  ]
+}

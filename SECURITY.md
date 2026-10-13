@@ -1,0 +1,125 @@
+# Security policy
+
+Portuguese version: [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
+
+## Supported versions
+
+| Version | Status |
+|---|---|
+| 0.1.x | Pre-release. Receives security fixes. |
+
+No other versions exist.
+
+## Reporting a vulnerability
+
+Do not open a public issue for a vulnerability.
+
+- Use GitHub's private vulnerability reporting on this repository: the Security tab, then "Report a vulnerability", or <https://github.com/wevertonjuscelino/wev-skills/security/advisories/new>.
+- The owner has to enable that feature in the repository settings. If the "Report a vulnerability" option is missing, it has not been enabled yet; in that case open a public issue that asks for a private way to reach the maintainer and contains no detail of the vulnerability.
+- No email address is published for reports.
+
+Include what you found, the steps or command to reproduce it, the version or commit, and the impact you expect. Do not include real secrets or private data. This is a one-person project; there is no committed response time, but reports are read and acknowledged.
+
+## Threat model
+
+wev-skills is a guardrail for a fallible agent and a recorder of decisions. It is not a security boundary against an adversarial agent.
+
+The reason is structural. The engine runs in the same user account as the agent it constrains. Inside one account the CLI cannot authenticate who is typing, and every file the engine keeps (run state, approvals, audit log, configuration) can be rewritten by the agent with its own tools. No key stored in that account would change this, because the agent could read the key too.
+
+What follows from that:
+
+- The engine catches mistakes: a destructive command run by accident, a command in the wrong mode, a secret pasted into a log, a remote start on the wrong host.
+- The human gate that exists is Claude Code's own permission prompt. The plugin's `PreToolUse` hook answers `ask` for the sensitive Bash command lines it can read, and the person's answer in that prompt is the approval for that call. A command line it cannot read (the inside of a script file or of a program) is not asked about; see "Known limits".
+- Without the plugin's hooks, approvals are records, not gates. `wev approval grant` asks for a terminal and a typed word, which a determined process can supply through a pseudo-terminal.
+- An agent that sets out to defeat the engine can. Isolation has to come from outside: a container, a separate user, operating-system permissions, the permission settings of the agent platform.
+
+### In scope for reports
+
+- The Python engine in `src/wev_skills/` and its CLI (`wev`), the hooks in `hooks/hooks.json`, the scripts and the workflows in this repository.
+- A mistake-class bypass of a control listed under "What each control does": a command the classifier should recognize and does not, a hook that stays silent where this document says it asks, a secret shape that redaction says it covers and misses.
+
+### Out of scope
+
+- Anything listed under "Known limits".
+- Vulnerabilities in Claude Code, tmux, OpenSSH, Python or other software the project calls; report those to their maintainers.
+- Findings that need an attacker who already controls the machine or the user account, beyond what this document already states an agent in that account can do.
+
+## What each control does
+
+### The Bash hook (`wev hook pre-tool-use`)
+
+- Judges each Bash command under the active run's pinned configuration, mode and risk. It answers `deny` or `ask`, never `allow`, and it never reads the approval store: a destructive command is `ask` every time.
+- Finds the run from the hook's directory and from every path the command names, so a command started in `/tmp` or in a nested repository that touches a run's tree is judged by that run. `cd`, `pushd` and `git -C` are followed.
+- Answers `ask` (and `deny` in plan mode) for any environment assignment before a command, for `env`, and for `export` and similar shell words.
+- Answers `ask` for anything it cannot read with certainty: parameter and command expansion, `$'...'` and `$"..."` quoting, globs, brace lists, `~user`, `eval`, `source`, `exec`, `command`, `builtin`, `script`, `expect`, `xargs`, `find -exec`, `git -c`, `git --exec-path`, `git --config-env`, `git -C` outside the run root, a shell running a script file, and one argument that holds a whole command line.
+- Answers `ask` for these engine commands when the command line is one it can read: `approval grant`, `approval deny`, `approval request` (with or without `--reopen-denied`, because a run is active), `guard acknowledge`, `task reopen`, `run start`, `run finish`, `agent create`, `agent export`, `remote start`, `remote stop` and anything carrying `--config`. It recognizes them by words wherever they appear: the engine's launcher by real path, the bare word `wev`, or `-m wev_skills`, followed by the sensitive subcommand. This holds when the engine is called directly, behind a wrapper the classifier knows (`nohup`, `nice`, `timeout`, `time`, `stdbuf`, `setsid`, `env`, `xargs` and the rest of its wrapper list), inside an inline `sh -c`, `bash -c` or `zsh -c` script, or as arguments handed to another program. The exemption from the ordinary policy still applies only to a program that resolves by real path to the plugin's `bin/wev` or to the running interpreter with `-m wev_skills`.
+- Also answers `ask` for `rm` with abbreviated long options (`--recursiv`, `--forc`), `git rm -r` or `-f`, any `git clean` that is not a dry run, `rsync --delete*` and `--remove-source-files`, and for a recursive reader (`grep -r`, `rg` with `--hidden` or `-uu`, `find`, `tar`, `zip`, `cp -r` or `-a`, `rsync -r` or `-a`) given a directory that contains a protected path. A direct read of the protected file is still denied. This is a heuristic over a fixed list of programs and options: it looks at directories that exist when the command is judged, walks at most 20,000 entries (a larger tree is treated as holding a protected path), does not read exclusion options, and `rg` without `--hidden` is not asked about hidden protected names because it skips hidden files.
+- Finds a run for `rm -rf <parent of the repository>` too: a path that is a parent of a registered run root counts as touching that run.
+- Fails safe once a run is known: an unreadable state, an internal error, oversized or malformed input and a command too long to analyze all become `ask`. It is silent only when no run can be found.
+
+### The engine's own gate (`wev exec`)
+
+- Runs an argv without a shell. Refuses shell syntax, a leading `NAME=value`, and (in plan mode) anything that is not on the read-only list.
+- In an execute run a command acts for a task that is `RUNNING`. `--task` must name a running task (a pending, finished or unknown id is refused, and the error names the running tasks). Without `--task` the only running task is used and the output says so (`task_implied: true` and a `task_note`). With no task running, or with several running and no `--task`, only read-only commands are accepted. So an agent's `may_mutate: false` and the task's risk do not depend on the caller naming the task. With two tasks running the caller still chooses which one a command is for; the engine cannot tell which agent is typing.
+- An agent with `may_mutate: false` may run read-only commands, the task's own declared checks and the check commands discovered in the repository at `run start` (for example `make test`, `make lint`), by exact argv match; everything else is refused with `agent_read_only`. Those commands still go through the policy, so one that needs approval still needs it.
+- Looks a bare program name up only in `permissions.exec_path`, never in `$PATH`, records the resolved path, and refuses a program that resolves inside the run's working tree. A program named by a relative path needs approval.
+- Classifies commands as destructive, privileged, network, external-effect or unanalyzable, including unique-prefix abbreviations of git long options, git configuration given on the command line, unknown git subcommands, and wrappers such as `nohup`, `timeout`, `script` and `nice`.
+- Denies a literal or glob argument that names a protected path (`.git`, the dot-env file, the state directory, and what the configuration adds).
+
+### Approvals
+
+- A grant covers one exact argv, in one resolved working directory, in one run (for a remote action, on one host alias). It is single-use, it expires after `permissions.approval_ttl_seconds` (default 900) and the execution that uses it consumes it.
+- A denial is final for that action in that run. "The same action" for a denial means the same words in the same order within the same run: every token of the argv is split like a command line and blank tokens are dropped, so the working directory (`--cwd`), the stated risk, the reason, quoting, whitespace and how words are grouped into tokens do not produce a fresh request. `wev approval request` returns the denied record and `wev exec` answers denied. For a remote action the host alias is the first word, so a denial is per host. A new run starts clean. The comparison is on words and does not resolve paths (`build` and `./build` are different actions), and the record is a file in the agent's account (see "Known limits"). Only `wev approval request --reopen-denied`, a human-operator command that needs a terminal and the typed confirmation word, replaces it with a fresh pending request. A grant is unchanged: bound to the exact argv, the resolved working directory and the run (and host for remote), single use, expiring.
+- An action whose text redaction would alter is refused instead of being shown masked, so the operator sees exactly what would run. Pass the secret through a file or an environment variable.
+- `approval grant`, `approval deny`, `guard acknowledge` and `task reopen` need a terminal on stdin and stdout, show the full action and ask for a word printed on screen. The record holds the operating-system user, the terminal device and the time. It does not hold an identity. A request records `requested_by`, a name the caller supplies (self-declared). A decision records the operating-system user, the terminal device and the time. Nothing compares the two, because inside one account the engine cannot tell requester from operator.
+- Tamper evidence: every decision is also appended to the audit log, a grant is honored only when a matching `approval.granted` event exists, and `wev approval verify` lists mismatches. This catches accidents and a grant written straight into `approvals.json`. It does not catch an agent that rewrites both files.
+
+### Configuration and agents
+
+- A run pins its configuration when it starts. Every command uses the pinned one and refuses a different `--config`. Commands outside a run print which source they used.
+- `decision.jev.command` must be a bare program name (not a shell or an interpreter) or an absolute path outside the repository. `agents.directories` must stay inside the repository or the user's configuration directory. A spec outside the built-in catalog cannot reuse a built-in agent id unless `agents.allow_override` is set.
+- `wev agent create` and `wev agent export` write only inside the repository, never into the state directory, `.git`, `.claude` or a protected path, and do not overwrite a file that is not already an agent spec or a generated subagent file. The one exception is `wev agent export --out .claude/agents` (exactly `<repository root>/.claude/agents`): only `<id>.md` files, never through a symlinked `.claude` or `agents`, and over an existing file only if it carries the generated-file marker; every other path under `.claude` stays refused. The check runs at call time and is a guardrail, not a boundary against an agent that can write files itself.
+
+### Remote module
+
+- Hosts come from the run's inventory of SSH aliases, with strict host-key checking. Mode and risk come from the active run and cannot be widened on the command line. A task must be assigned to an agent with `may_use_remote`.
+- Status reports PASSED or FAILED only with evidence that the session belongs to that task; otherwise UNKNOWN with the reason. Sessions the module did not create are left alone.
+
+### Untrusted text and redaction
+
+- Command output, remote capture and other external text are stripped of control characters and escape sequences and fenced as data before the CLI returns them. Pattern scanning for instruction-like text only informs.
+- Redaction masks recognizable secrets in logs, audit records, guard events and approval records, including values after secret-named flags, `Authorization` headers, URLs with credentials or token-like query parameters, and well-known webhook URLs. It is best effort. Whole-argv redaction (the value after `--password`, credentials in URLs and similar) also applies on refused paths. `tests/integration/test_refused_redaction.py` searches every file under the state directory for a canary after allowed, denied, approval-required and guard-refused executions, for these event types: `exec.ran`, `exec.denied`, `exec.approval_requested`, `guard.tripped`, `task.checked`, `approval.requested` and `task.recorded`. In addition, any audit event that stores a list under the key `argv` is masked as one command line.
+- Directories under the state directory are created with mode 0700 and files, including lock files, with mode 0600.
+
+## Known limits
+
+These are open. Do not rely on the engine for any of them.
+
+- **Other tools.** Only the Bash tool passes through the hook. A file edit with Claude Code's own tools is not seen, and that includes edits to the state directory, the approvals file, the audit log, the configuration and the per-user run registry. An agent can forge a grant and the matching audit event, mark a run finished, or remove a registry entry so that the hook finds no run.
+- **The terminal prompt.** A process can allocate a pseudo-terminal, read the confirmation word and type it. Without the hook routing these commands to Claude Code's prompt, nothing stands in the way. The hook cannot see inside a script file or a program: a script that types into a pseudo-terminal (for example `python3 pty_type.py`, where the script itself starts the engine on a pseudo-terminal and types the confirmation word) names nothing on the command line the hook reads, so it is not asked about.
+- **Scripts and interpreters.** `python3 script.py`, `node x.js`, `make`, `npm test` and any program the classifier does not know run whatever their files say, in execute mode, with no question. A shell running a script file is asked about only when the file is the first operand. The contents of a script are never analyzed.
+- **Ordinary mutation in execute mode.** `mv`, `cp`, `sed -i`, redirections and similar commands are how work gets done, so they pass without a question unless they touch a protected path.
+- **Unknown programs.** A program at an absolute path outside the working tree is classified by its name only. A renamed or wrapped binary is not recognized.
+- **Classification is a heuristic.** It knows a fixed list of programs, subcommands and options. Anything outside the list may be treated as lower risk than it is.
+- **The child's environment.** `wev exec` resolves the program on the safe path but the program inherits the caller's environment, including `PATH` for whatever it starts itself.
+- **Time of check.** Paths are resolved when a command is judged. A symlink swapped in afterwards is not covered.
+- **Hooks can be absent or old.** The hooks act only when the plugin is installed and enabled. Under a Python older than 3.14 the hook exits without checking anything and says so on stderr (one line). The stock macOS `/usr/bin/python3` is 3.9 and is not supported, so the plugin needs the `python3` on `PATH` to be 3.14 or newer. Check with `python3 --version`, and with `command -v python3` to see which one is used.
+- **Plan amendments are recorded, not prevented.** `wev plan set` refuses to change the acceptance criteria, checks, files, risk or `read_only` flag of a task that has ever been started, unless it is given `--amend --reason <text>`. Whoever can run `plan set` can amend. An amendment is recorded as a decision and a `plan.amended` audit event, resets that task's verification (a running task must be checked again, a verified one goes back to pending) and is listed in the delivery report under "Plan amendments" with before and after. The engine does not judge whether the new criteria are weaker. Adding tasks and changing tasks never started stays free.
+- **The fingerprint and ignored files.** The tree fingerprint covers the commit, the status, staged and unstaged diffs and the size and modification time of untracked files git does not ignore. Files git ignores are outside it by design: a change to them is not seen as work and does not invalidate a verification. `wev plan set` prints a warning when a task's `files` or a check's arguments name an ignored path, and `task check` and the report carry a notice.
+- **Run lookup for paths built from variables.** The hook finds the run from its directory, enclosing directories, the paths a command names, and a path that is a parent of a registered run root. A path built from a variable cannot be matched; when no run is found and any run is registered for the user, a command with a `$` expansion in a word is answered `ask`. Command substitution, here-documents and globs issued where no run is found are not covered: the hook stays silent there.
+- **The report is recomputed at report time, not continuously.** At `wev run report` and `wev run finish` the tree is compared with the one seen at the latest `verified` record. If it differs and no task is running, every verified task whose checks have not passed on the current tree is reported as "verified, then changed" and the overall status is `incomplete` until `wev task check <id>` passes again (the report's `next_step` says so). A change made and reverted between two reports is not seen; while a task is running, changes count as that task's work; for a finished run the report shows what `run finish` recorded.
+- **Decision provider.** A configured `decision.jev.command` is run as given; the engine does not verify what that program is.
+- **Remote hosts.** Once a remote command starts, the host is outside the engine's control. Remote run records live in the state directory and share its limits.
+- **Redaction misses**: secrets with no recognizable shape or name (a bare cloud secret key, a value in a whitespace-separated table, netrc and pgpass lines, PuTTY keys); base64 or hex encoded values; prose such as "the password is X"; unquoted values after a space, comma, semicolon or ampersand; YAML next-line and TOML multi-line values; URL passwords containing `@`; short URL user tokens and short bearer tokens; names such as `pw=`, `pass:`, `key=`, `otp`, `pin`, `DSN`; option values that start with a hyphen; clients not on the list (`mongosh -p`, `psql -W`, `zip -P`, `ldapsearch -w`, `curl -d` bodies) and positional passwords; names obfuscated with zero-width or full-width characters; secrets in file names.
+- **Untrusted text.** Fencing and scanning do not make instruction-like wording harmless. Paraphrases, other languages and encodings get through the scanner.
+- **`scripts/scan_secrets.py`** is a tripwire for obvious mistakes: it misses low-entropy passwords, secrets with no prefix or telling name, UTF-16 without a byte-order mark, split or encoded values, and files under `tests/`.
+- **Workflows** pin their actions to commit SHAs (looked up on 2026-10-13) and Dependabot is configured to propose updates weekly, but no workflow has completed a run yet, so what they check on a GitHub runner is unverified. A pinned SHA is not a review of the action's code.
+
+## Operating advice
+
+- Run agents with least privilege: a dedicated user or a container, a limited working directory, and no production credentials in the environment.
+- Keep the plugin's hooks enabled and answer Claude Code's permission prompts yourself. Read the exact command before you allow it.
+- Review the diff before you accept work. The engine records what it was told; the diff shows what happened.
+- Never point an agent, or the remote module, at production without a person watching each impactful operation.
+- Treat the configuration file and the state directory as sensitive: they decide the policy and hold the record. Keep them out of shared or world-writable locations, and run `wev approval verify` when something looks off.
+- Do not put secrets on command lines. Use files or environment variables.

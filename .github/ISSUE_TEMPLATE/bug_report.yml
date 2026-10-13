@@ -1,0 +1,69 @@
+name: Bug report
+description: Something does not behave as documented. / Algo nao se comporta como documentado.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report vulnerabilities here; see SECURITY.md. / Nao relate vulnerabilidades aqui; veja SECURITY.pt-BR.md.
+        Do not paste secrets, tokens, host names or private data. / Nao cole segredos, tokens, nomes de hosts ou dados privados.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened / O que aconteceu
+      description: Describe the observed behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce / Passos para reproduzir
+      description: Exact commands, starting from a clean clone if possible.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output / Saida
+      description: Relevant output or traceback, with any secrets removed.
+      render: text
+  - type: input
+    id: python
+    attributes:
+      label: Python version / Versao do Python
+      placeholder: "3.14.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system / Sistema operacional
+      placeholder: "macOS 15, Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: wev-skills version or commit / Versao ou commit
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / Area
+      options:
+        - CLI
+        - Decisions and model routing
+        - Agent specs / registry / factory
+        - Security and governance
+        - State and context
+        - Execution guard / executor / verification
+        - Remote (SSH, tmux)
+        - Evaluation harness
+        - Skills / plugin
+        - Documentation
+        - Other
+    validations:
+      required: false

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report / Relato de seguranca
+    url: https://github.com/wevertonjuscelino/wev-skills/security/advisories/new
+    about: Do not open a public issue for a vulnerability. Read SECURITY.md in the repository root for how to report it privately. / Nao abra uma issue publica para uma vulnerabilidade. Leia o SECURITY.pt-BR.md na raiz do repositorio.

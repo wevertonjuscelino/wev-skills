@@ -1,0 +1,19 @@
+{
+  "verify.error.bad_check": "Não foi possível interpretar o comando de verificação {command!r}: {error}",
+  "verify.summary": "{met} de {total} critérios de aceitação atendidos, {unmet} não atendidos, {unverified} não verificados; {unexecuted} verificações não executadas.",
+  "verify.summary.no_criteria": "O contrato não tem critérios de aceitação, então nada pode ser marcado como atendido.",
+  "verify.evidence.refused": "A verificação {id} foi recusada: {reason}",
+  "verify.evidence.not_run": "A verificação {id} não foi executada.",
+  "verify.blocker": "Critério {status}: {criterion}",
+  "verify.reason.failed": "Uma verificação que sustenta este critério falhou.",
+  "verify.reason.manual": "Sustentado por evidência fornecida manualmente pelo agente; o motor não a produziu.",
+  "verify.reason.no_check": "Nenhuma verificação sustenta este critério.",
+  "verify.reason.not_passed": "Nem toda verificação que sustenta este critério rodou e passou.",
+  "verify.reason.trivial": "Apenas verificações sem efeito sustentam este critério (true, echo e semelhantes); elas rodaram e não trazem evidência.",
+  "verify.reason.baseline": "As verificações já passavam antes de qualquer trabalho nesta tarefa e nenhum arquivo mudou desde o início, então não mostram que o trabalho foi feito.",
+  "verify.reason.tied": "Atendido por uma verificação que o plano vincula a este critério.",
+  "verify.reason.untied": "Atendido por uma verificação não vinculada a este critério: uma verificação genérica passou, o que é evidência mais fraca.",
+  "verify.warning.untied": "A tarefa tem {count} critérios de aceitação e nenhuma verificação está vinculada a eles; um único resultado genérico vale por todos. Vincule verificações a critérios no plano com objetos que tragam 'command' e 'criteria'.",
+  "verify.warning.trivial": "Estas verificações não têm efeito e não trazem evidência: {commands}",
+  "verify.warning.baseline": "Toda verificação que passou já passava antes de qualquer trabalho e nenhum arquivo mudou desde o início da tarefa."
+}

@@ -1,0 +1,15 @@
+{
+  "context.help": "Compacta e recupera itens de contexto montados pelo motor.",
+  "context.compact.help": "Compacta os itens de um arquivo JSON e mostra o resultado e o relatório.",
+  "context.recall.help": "Mostra o original arquivado de um item omitido.",
+  "context.arg.items_file": "Arquivo JSON com uma lista de itens (ou um objeto com a lista 'items').",
+  "context.arg.budget": "Orçamento de tokens. O padrão é context.budget_tokens da configuração.",
+  "context.arg.archive_dir": "Diretório onde os textos originais são arquivados.",
+  "context.arg.id": "Id do item de contexto.",
+  "context.stub.archived": "[saída de ferramenta {id} omitida: cerca de {tokens} tokens arquivados em {ref}; recupere pelo id '{id}']",
+  "context.stub.unarchived": "[saída de ferramenta {id} omitida: cerca de {tokens} tokens, não arquivada porque nenhum diretório de arquivo foi definido]",
+  "context.stage2.no_summarizer": "A sumarização foi pulada: nenhum sumarizador está configurado.",
+  "context.stage2.nothing_to_summarize": "A sumarização foi pulada: não restam itens não fixados e não recentes para resumir.",
+  "context.stage2.summarizer_failed": "A sumarização foi pulada: o sumarizador falhou ({error}). Os itens ficaram inalterados.",
+  "context.stage2.summary_not_smaller": "A sumarização foi pulada: o resumo não ficou menor do que os itens que substituiria."
+}

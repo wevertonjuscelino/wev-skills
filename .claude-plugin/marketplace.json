@@ -1,0 +1,14 @@
+{
+  "name": "wev-skills-marketplace",
+  "description": "Marketplace for the wev-skills plugin: orchestration skills and subagents for Claude Code.",
+  "owner": {
+    "name": "Weverton Juscelino"
+  },
+  "plugins": [
+    {
+      "name": "wev-skills",
+      "source": "./",
+      "description": "Evidence-oriented orchestration skills and subagents for Claude Code, backed by the wev CLI."
+    }
+  ]
+}

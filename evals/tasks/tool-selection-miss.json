@@ -1,0 +1,31 @@
+{
+  "id": "tool-selection-miss",
+  "title": "Tool selection: a narrowed review and a dropped tool that is restored",
+  "description": "Mechanics of per-task tool selection. The 'review' subtask changes no file, so the local policy leaves out the edit tools. The 'split' subtask is scripted to need Write for a new module, while its text gives no reason for Write: the local policy drops it, the step reports the miss and the tool is restored from the agent's own list. With selection off no step checks its tool. The script decides which tool a step needs; no tool is called.",
+  "category": "tool-selection",
+  "signals": {
+    "objective": "Move the retry helper into its own module after reviewing its call sites",
+    "files_touched_estimate": 3,
+    "unknowns": 0,
+    "independent_subtasks": 1
+  },
+  "window_tokens": 8000,
+  "acceptance_criteria": [
+    { "id": "call-sites-listed", "text": "Every call site of the retry helper is listed and the retry test passes before the move." },
+    { "id": "helper-moved", "text": "The retry helper lives in its own module, the callers use it and the retry test passes." }
+  ],
+  "subtasks": [
+    { "id": "review", "objective": "Review the retry helper and list its call sites", "read_only": true },
+    { "id": "split", "depends_on": ["review"], "objective": "Move the retry helper into its own module and update the callers", "files": ["src/retry.py", "src/client.py", "src/worker.py"] }
+  ],
+  "script": [
+    { "id": "review-read", "subtask": "review", "kind": "tool_output", "tokens": 300, "needs_tool": "Read" },
+    { "id": "review-grep", "subtask": "review", "kind": "tool_output", "tokens": 200, "needs_tool": "Grep" },
+    { "id": "review-test", "subtask": "review", "kind": "verify", "signature": "python -m unittest tests.test_retry", "tokens": 60, "needs_tool": "Bash", "criteria": ["call-sites-listed"] },
+
+    { "id": "split-read", "subtask": "split", "kind": "tool_output", "tokens": 300, "needs_tool": "Read" },
+    { "id": "split-new-module", "subtask": "split", "kind": "edit", "tokens": 80, "needs_tool": "Write", "description": "Scripted: the new module needs Write, which nothing in the subtask text asks for." },
+    { "id": "split-callers", "subtask": "split", "kind": "edit", "tokens": 80, "needs_tool": "Edit" },
+    { "id": "split-test", "subtask": "split", "kind": "verify", "signature": "python -m unittest tests.test_retry", "tokens": 60, "needs_tool": "Bash", "criteria": ["helper-moved"] }
+  ]
+}

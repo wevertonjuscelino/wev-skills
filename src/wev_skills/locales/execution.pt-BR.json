@@ -1,0 +1,8 @@
+{
+  "exec.error.empty_command": "O comando deve ser uma lista não vazia de strings não vazias.",
+  "exec.error.string_command": "O comando deve ser uma lista argv, não uma string de shell.",
+  "exec.error.denied": "Comando negado: {reason}",
+  "exec.error.approval": "O comando precisa de aprovação: {reason}",
+  "exec.error.cwd": "O diretório de trabalho não existe: {cwd}",
+  "exec.evidence.summary": "{command} terminou com status {status} (código de saída {code})."
+}

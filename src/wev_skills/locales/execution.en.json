@@ -1,0 +1,8 @@
+{
+  "exec.error.empty_command": "The command must be a non-empty list of non-empty strings.",
+  "exec.error.string_command": "The command must be an argv list, not a shell string.",
+  "exec.error.denied": "Command denied: {reason}",
+  "exec.error.approval": "Command needs approval: {reason}",
+  "exec.error.cwd": "Working directory does not exist: {cwd}",
+  "exec.evidence.summary": "{command} finished with status {status} (exit code {code})."
+}

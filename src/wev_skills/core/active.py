@@ -1,0 +1,223 @@
+"""Which run is active for a directory, for hooks and every other entry point.
+
+``find_active_run`` only reads. It never creates a file and never raises: when a state
+directory holds a run that cannot be read, the answer is a run with ``state_error`` set and
+the most restrictive values (plan mode, high risk), so the caller can fail safe instead of
+acting as if there were no run.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+from wev_skills.config import (
+    CONFIG_FILE_NAME,
+    Config,
+    explicit_language,
+    find_repo_root,
+    parse_config,
+)
+from wev_skills.core import run_registry
+from wev_skills.core.contracts import Mode, RiskLevel, TaskStatus, higher_risk
+from wev_skills.core.errors import WevError
+from wev_skills.core.run_registry import RegistryEntry
+from wev_skills.state.model import Phase, RunState
+from wev_skills.state.store import StateStore, run_dir, runs_by_recency, runs_dir
+
+UNREADABLE = "state_unreadable"
+
+
+@dataclass(frozen=True)
+class ActiveRun:
+    """The active run of a repository. ``phase`` is ``None`` when the state is unreadable."""
+
+    root: Path
+    state_dir: Path
+    run_id: str
+    mode: Mode
+    risk: RiskLevel
+    config: Config
+    phase: Phase | None
+    state_error: str | None = None
+    language: str | None = None
+    """The ``language`` the run's configuration set explicitly, if it did."""
+
+
+def pinned_config(state: RunState) -> Config:
+    """The configuration the run was started with (defaults for a state without a snapshot)."""
+    return Config.from_dict(dict(state.config)) if state.config else Config()
+
+
+def run_risk(state: RunState) -> RiskLevel:
+    """The highest risk among the run classification and every RUNNING task."""
+    base = state.classification.risk if state.classification else RiskLevel.LOW
+    tasks = state.plan.tasks if state.plan else ()
+    running = (
+        task.risk
+        for task in tasks
+        if task.id in state.tasks and state.tasks[task.id].status is TaskStatus.RUNNING
+    )
+    return higher_risk(base, *running)
+
+
+def _resolved(path: Path) -> Path:
+    try:
+        return Path(path).resolve()
+    except OSError, RuntimeError:
+        return Path(path).absolute()
+
+
+def _restricted(root: Path, state_dir: Path, run_id: str, error: str) -> ActiveRun:
+    return ActiveRun(root, state_dir, run_id, Mode.PLAN, RiskLevel.HIGH, Config(), None, error)
+
+
+def _load(root: Path, state_dir: Path, run_id: str) -> ActiveRun:
+    """One run as an ``ActiveRun``; an unreadable state gives the restricted form."""
+    try:
+        state = StateStore(run_dir(state_dir, run_id)).load()
+        config = pinned_config(state)
+    except WevError as exc:
+        return _restricted(root, state_dir, run_id, exc.code)
+    except Exception as exc:  # noqa: BLE001 - a lookup must fail safe, whatever the file holds
+        return _restricted(root, state_dir, run_id, f"{UNREADABLE}: {type(exc).__name__}")
+    language = state.config.get("language")
+    return ActiveRun(
+        root,
+        state_dir,
+        run_id,
+        state.mode,
+        run_risk(state),
+        config,
+        state.phase,
+        language=language if isinstance(language, str) else None,
+    )
+
+
+def inspect_state_dir(root: Path, state_dir: Path) -> ActiveRun | None:
+    """The active run under ``state_dir``: the latest readable run that is not finished,
+    else the latest unreadable one (restricted), else ``None``."""
+    try:
+        names = runs_by_recency(state_dir)
+    except OSError:
+        return None
+    unreadable: ActiveRun | None = None
+    for name in names:
+        found = _load(root, state_dir, name)
+        if found.state_error is not None:
+            unreadable = unreadable or found
+        elif found.phase is not Phase.DONE:
+            return found
+    return unreadable
+
+
+def _configured_state_dir(directory: Path) -> str | None:
+    candidate = directory / CONFIG_FILE_NAME
+    try:
+        return parse_config(str(candidate)).state_dir if candidate.is_file() else None
+    except WevError, OSError:
+        return None
+
+
+def _candidates(directory: Path, entries: Sequence[RegistryEntry]) -> tuple[Path, ...]:
+    """State directories ``directory`` may hold: the default, its config file's, registered."""
+    names = [Config().state_dir, _configured_state_dir(directory)]
+    found = [directory / name for name in names if name]
+    found += [Path(entry.state_dir) for entry in entries if Path(entry.root) == directory]
+    unique = dict.fromkeys(_resolved(path) for path in found)
+    return tuple(path for path in unique if _is_dir(runs_dir(path)))
+
+
+def _is_dir(path: Path) -> bool:
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
+def _in_directory(directory: Path, entries: Sequence[RegistryEntry]) -> ActiveRun | None:
+    for state_dir in _candidates(directory, entries):
+        found = inspect_state_dir(directory, state_dir)
+        if found is not None:
+            return found
+    return None
+
+
+def _contains(root: Path, path: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def find_active_run(
+    cwd: Path, paths: Sequence[Path] = (), targets: Sequence[Path] = ()
+) -> ActiveRun | None:
+    """The active run that governs ``cwd`` or any of ``paths``; ``None`` when there is none.
+
+    Every ancestor of ``cwd`` is checked and the outermost one with an active run wins, so
+    a nested ``git init`` cannot hide the run of the repository around it. Failing that, the
+    per-user registry is consulted for a run whose root contains ``cwd`` or one of ``paths``,
+    or whose root lies inside one of ``targets`` (a command aimed at a parent directory).
+    """
+    start = _resolved(Path(cwd))
+    entries = run_registry.read_entries()
+    outermost: ActiveRun | None = None
+    for directory in (start, *start.parents):
+        outermost = _in_directory(directory, entries) or outermost
+    if outermost is not None:
+        return outermost
+    inside = (start, *(_resolved(Path(path)) for path in paths))
+    around = tuple(_resolved(Path(path)) for path in targets)
+    for entry in entries:
+        root = _resolved(Path(entry.root))
+        hit = any(_contains(root, path) for path in inside)
+        if hit or any(_contains(path, root) for path in around):
+            found = inspect_state_dir(root, _resolved(Path(entry.state_dir)))
+            if found is not None:
+                return found
+    return None
+
+
+def registered_run() -> ActiveRun | None:
+    """Any run the per-user registry lists that is still active (the first one found)."""
+    for entry in run_registry.read_entries():
+        found = inspect_state_dir(_resolved(Path(entry.root)), _resolved(Path(entry.state_dir)))
+        if found is not None:
+            return found
+    return None
+
+
+def ambient_language(cwd: Path, config_path: str | None = None) -> str | None:
+    """The language a command run from ``cwd`` takes from its configuration, if one is set.
+
+    The active run's pinned configuration when there is one, else ``config_path`` (the
+    global ``--config``), else ``<repository root>/wev.config.json``. Only a ``language``
+    written in a file counts; the built-in default does not. A lookup that fails gives
+    ``None``: the command itself reports the real error.
+    """
+    found = find_active_run(cwd)
+    if found is not None:
+        return found.language
+    if config_path is not None:
+        return explicit_language(config_path)
+    return explicit_language(str(find_repo_root(cwd) / CONFIG_FILE_NAME))
+
+
+def _still_active(entry: RegistryEntry) -> bool:
+    return inspect_state_dir(Path(entry.root), Path(entry.state_dir)) is not None
+
+
+def register_run(root: Path, state_dir: Path, run_id: str) -> None:
+    """Record ``root`` as holding an active run; entries that are no longer active go."""
+    entry = RegistryEntry(str(_resolved(root)), str(_resolved(state_dir)), run_id)
+    same_place = (entry.root, entry.state_dir)
+    run_registry.update(
+        lambda old: (old.root, old.state_dir) != same_place and _still_active(old), entry
+    )
+
+
+def unregister_run(state_dir: Path, run_id: str) -> None:
+    """Drop the entry of a finished run (and every other entry that is no longer active)."""
+    target = str(_resolved(state_dir))
+    run_registry.update(
+        lambda old: (old.state_dir, old.run_id) != (target, run_id) and _still_active(old)
+    )

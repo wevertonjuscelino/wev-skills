@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose a change or addition. / Proponha uma mudanca ou adicao.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The core is dependency-free and independent of any one agent platform. Proposals that need a runtime dependency or tie the core to a platform need a strong justification.
+        O nucleo nao tem dependencias e independe de plataforma. Propostas que exigem dependencia em tempo de execucao precisam de justificativa forte.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Problema
+      description: What are you trying to do, and what blocks you today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal / Proposta
+      description: What should change? Include the interface or command you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / Alternativas consideradas
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / Evidencias
+      description: Links, measurements or examples that support the need. Do not claim improvements without measurements.
+    validations:
+      required: false

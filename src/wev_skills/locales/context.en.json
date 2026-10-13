@@ -1,0 +1,15 @@
+{
+  "context.help": "Compact and recall context items assembled by the engine.",
+  "context.compact.help": "Compact the items in a JSON file and print the result and the report.",
+  "context.recall.help": "Print the archived original of an elided item.",
+  "context.arg.items_file": "JSON file with a list of items (or an object with an 'items' list).",
+  "context.arg.budget": "Token budget. Defaults to context.budget_tokens from the configuration.",
+  "context.arg.archive_dir": "Directory where original texts are archived.",
+  "context.arg.id": "Id of the context item.",
+  "context.stub.archived": "[tool output {id} elided: about {tokens} tokens archived at {ref}; recall it by id '{id}']",
+  "context.stub.unarchived": "[tool output {id} elided: about {tokens} tokens, not archived because no archive directory is set]",
+  "context.stage2.no_summarizer": "Summarization was skipped: no summarizer is configured.",
+  "context.stage2.nothing_to_summarize": "Summarization was skipped: no unpinned, non-recent items are left to summarize.",
+  "context.stage2.summarizer_failed": "Summarization was skipped: the summarizer failed ({error}). The items were left unchanged.",
+  "context.stage2.summary_not_smaller": "Summarization was skipped: the summary was not smaller than the items it would replace."
+}

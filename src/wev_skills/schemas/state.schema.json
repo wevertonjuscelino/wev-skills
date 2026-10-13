@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "wev run state",
+  "type": "object",
+  "required": [
+    "schema_version", "revision", "run_id", "objective", "mode", "phase", "created_at",
+    "updated_at", "classification", "strategy", "plan", "tasks", "decisions", "commands",
+    "evidence", "blockers", "pending_approvals", "next_step", "repo", "discovery", "guard_events",
+    "verifications", "reviews", "config", "config_digest", "config_source", "approval_notes",
+    "guard_trips"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "run_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "objective": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["plan", "execute", "auto", "resume"] },
+    "phase": { "$ref": "#/$defs/phase" },
+    "created_at": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "minLength": 1 },
+    "classification": { "$ref": "#/$defs/nullableClassification" },
+    "strategy": { "$ref": "#/$defs/nullableStrategy" },
+    "plan": { "$ref": "#/$defs/nullablePlan" },
+    "tasks": { "type": "object", "additionalProperties": { "$ref": "#/$defs/taskRecord" } },
+    "decisions": { "type": "array", "items": { "$ref": "#/$defs/decision" } },
+    "commands": { "type": "array", "items": { "$ref": "#/$defs/command" } },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/taskEvidence" } },
+    "blockers": { "$ref": "#/$defs/stringList" },
+    "pending_approvals": { "$ref": "#/$defs/stringList" },
+    "next_step": { "type": "string" },
+    "repo": { "$ref": "#/$defs/nullableRepo" },
+    "discovery": { "type": "object" },
+    "guard_events": { "type": "array", "items": { "type": "object" } },
+    "verifications": { "type": "array", "items": { "$ref": "#/$defs/verification" } },
+    "reviews": { "type": "array", "items": { "$ref": "#/$defs/review" } },
+    "config": { "type": "object" },
+    "config_digest": { "type": "string" },
+    "config_source": { "type": "string" },
+    "approval_notes": { "type": "array", "items": { "$ref": "#/$defs/approvalNote" } },
+    "guard_trips": { "type": "array", "items": { "$ref": "#/$defs/guardTrip" } },
+    "remote_runs": { "type": "array", "items": { "$ref": "#/$defs/remoteRun" } },
+    "plan_amendments": { "type": "array", "items": { "$ref": "#/$defs/planAmendment" } }
+  },
+  "$defs": {
+    "stringList": { "type": "array", "items": { "type": "string" } },
+    "phase": {
+      "enum": [
+        "request", "discover", "classify", "plan", "decide", "execute", "verify", "review",
+        "deliver", "done"
+      ]
+    },
+    "taskStatus": {
+      "enum": [
+        "pending", "ready", "running", "verified", "partial", "blocked", "failed", "not_executed"
+      ]
+    },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "nullableClassification": {
+      "type": ["object", "null"],
+      "required": ["complexity", "risk", "uncertainty", "parallelizable", "reasons", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "complexity": { "enum": ["trivial", "simple", "moderate", "complex"] },
+        "risk": { "$ref": "#/$defs/risk" },
+        "uncertainty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "parallelizable": { "type": "boolean" },
+        "reasons": { "$ref": "#/$defs/stringList" },
+        "source": { "type": "string" }
+      }
+    },
+    "nullableStrategy": {
+      "type": ["object", "null"],
+      "required": [
+        "flow", "needs_plan", "needs_independent_review", "needs_approval", "max_parallel",
+        "max_attempts", "reasons"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "flow": { "enum": ["direct", "planned", "gated"] },
+        "needs_plan": { "type": "boolean" },
+        "needs_independent_review": { "type": "boolean" },
+        "needs_approval": { "type": "boolean" },
+        "max_parallel": { "type": "integer" },
+        "max_attempts": { "type": "integer" },
+        "reasons": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "nullablePlan": {
+      "type": ["object", "null"],
+      "required": ["objective", "tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "objective": { "type": "string" },
+        "tasks": { "type": "array", "items": { "$ref": "#/$defs/planTask" } }
+      }
+    },
+    "planTask": {
+      "type": "object",
+      "required": ["id", "title", "objective"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "objective": { "type": "string" },
+        "depends_on": { "$ref": "#/$defs/stringList" },
+        "files": { "$ref": "#/$defs/stringList" },
+        "risk": { "$ref": "#/$defs/risk" },
+        "acceptance_criteria": { "$ref": "#/$defs/stringList" },
+        "checks": { "$ref": "#/$defs/stringList" },
+        "agent_hint": { "type": "string" },
+        "read_only": { "type": "boolean" },
+        "check_links": { "type": "array", "items": { "$ref": "#/$defs/checkLink" } },
+        "status": { "$ref": "#/$defs/taskStatus" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["kind", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string" },
+        "summary": { "type": "string" },
+        "ref": { "type": "string" },
+        "exit_code": { "type": ["integer", "null"] },
+        "label": { "enum": ["tested", "untested", "mocked", "documented_only", "blocked"] }
+      }
+    },
+    "taskEvidence": {
+      "type": "object",
+      "required": ["task_id", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string" },
+        "evidence": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "nullableTaskResult": {
+      "type": ["object", "null"],
+      "required": ["task_id", "status", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string" },
+        "status": { "$ref": "#/$defs/taskStatus" },
+        "summary": { "type": "string" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "changed_files": { "$ref": "#/$defs/stringList" },
+        "blockers": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "required": ["task_id", "attempt", "status", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "status": { "$ref": "#/$defs/taskStatus" },
+        "model": { "type": "string" },
+        "error_signature": { "type": "string" }
+      }
+    },
+    "taskRecord": {
+      "type": "object",
+      "required": [
+        "status", "agent_id", "model", "attempts", "result", "started_at", "finished_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/$defs/taskStatus" },
+        "agent_id": { "type": "string" },
+        "model": { "type": "string" },
+        "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
+        "result": { "$ref": "#/$defs/nullableTaskResult" },
+        "started_at": { "type": "string" },
+        "finished_at": { "type": "string" },
+        "starts": { "type": "integer", "minimum": 0 },
+        "baseline": { "$ref": "#/$defs/nullableBaseline" },
+        "tree_changed": { "type": ["boolean", "null"] },
+        "block_reason": { "type": "string" },
+        "tool_selection": { "$ref": "#/$defs/nullableToolSelection" },
+        "tool_misses": { "type": "array", "items": { "$ref": "#/$defs/toolMiss" } }
+      }
+    },
+    "nullableToolSelection": {
+      "type": ["object", "null"],
+      "required": ["offered", "selected", "dropped", "profile"],
+      "additionalProperties": false,
+      "properties": {
+        "offered": { "$ref": "#/$defs/stringList" },
+        "selected": { "$ref": "#/$defs/stringList" },
+        "dropped": { "$ref": "#/$defs/stringList" },
+        "profile": { "enum": ["structured", "lean"] },
+        "reasons": { "$ref": "#/$defs/stringList" },
+        "source": { "type": "string" },
+        "estimated_tokens_offered": { "type": "integer", "minimum": 0 },
+        "estimated_tokens_selected": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "toolMiss": {
+      "type": "object",
+      "required": ["at", "tool", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string" },
+        "tool": { "type": "string" },
+        "reason": { "type": "string" },
+        "attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "nullableBaseline": {
+      "type": ["object", "null"],
+      "required": ["at", "fingerprint", "taken"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "taken": { "type": "boolean" },
+        "passed": { "$ref": "#/$defs/stringList" },
+        "failed": { "$ref": "#/$defs/stringList" },
+        "skipped": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "approvalNote": {
+      "type": "object",
+      "required": ["id", "task_id", "kind", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "task_id": { "type": "string" },
+        "kind": { "enum": ["task", "command"] },
+        "at": { "type": "string" }
+      }
+    },
+    "remoteRun": {
+      "type": "object",
+      "required": [
+        "task_id", "alias", "session", "argv", "started_at", "log_path", "exit_path",
+        "owner_token"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string" },
+        "alias": { "type": "string" },
+        "session": { "type": "string" },
+        "argv": { "$ref": "#/$defs/stringList" },
+        "started_at": { "type": "number" },
+        "log_path": { "type": "string" },
+        "exit_path": { "type": "string" },
+        "owner_token": { "type": "string" }
+      }
+    },
+    "planAmendment": {
+      "type": "object",
+      "required": ["at", "task_id", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string" },
+        "task_id": { "type": "string" },
+        "reason": { "type": "string" },
+        "status_before": { "type": "string" },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field"],
+            "additionalProperties": false,
+            "properties": {
+              "field": { "type": "string" },
+              "before": { "$ref": "#/$defs/stringList" },
+              "after": { "$ref": "#/$defs/stringList" }
+            }
+          }
+        }
+      }
+    },
+    "guardTrip": {
+      "type": "object",
+      "required": ["at", "task_id", "action", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string" },
+        "task_id": { "type": "string" },
+        "action": { "type": "string" },
+        "rule": { "type": "string" },
+        "reasons": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "checkLink": {
+      "type": "object",
+      "required": ["command", "criteria"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "string", "minLength": 1 },
+        "criteria": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["at", "phase", "decision", "reasons", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string" },
+        "phase": { "$ref": "#/$defs/phase" },
+        "decision": { "type": "string" },
+        "reasons": { "$ref": "#/$defs/stringList" },
+        "source": { "type": "string" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["at", "task_id", "argv", "cwd", "exit_code", "duration_ms", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string" },
+        "task_id": { "type": "string" },
+        "argv": { "$ref": "#/$defs/stringList" },
+        "cwd": { "type": "string" },
+        "exit_code": { "type": ["integer", "null"] },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["running", "passed", "failed", "blocked", "unknown"] },
+        "stdout_ref": { "type": "string" },
+        "stderr_ref": { "type": "string" },
+        "baseline": { "type": "boolean" }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["task_id", "at", "all_met", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string" },
+        "at": { "type": "string" },
+        "all_met": { "type": "boolean" },
+        "summary": { "type": "string" },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["check_id", "argv", "state"],
+            "additionalProperties": false,
+            "properties": {
+              "check_id": { "type": "string" },
+              "argv": { "$ref": "#/$defs/stringList" },
+              "state": { "enum": ["passed", "failed", "inconclusive", "blocked", "refused"] },
+              "exit_code": { "type": ["integer", "null"] },
+              "log_ref": { "type": "string" },
+              "reason": { "type": "string" },
+              "tied": { "type": "boolean" },
+              "trivial": { "type": "boolean" },
+              "required": { "type": "boolean" },
+              "baseline_passed": { "type": "boolean" }
+            }
+          }
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["criterion", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "criterion": { "type": "string" },
+              "status": { "enum": ["met", "unmet", "unverified"] },
+              "evidence_refs": { "$ref": "#/$defs/stringList" },
+              "support": { "enum": ["", "tied", "untied", "manual", "none"] },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "unexecuted_checks": { "$ref": "#/$defs/stringList" },
+        "fingerprint": { "type": "string" },
+        "baseline": { "enum": ["", "taken", "not_taken"] },
+        "tree_changed": { "type": ["boolean", "null"] },
+        "warnings": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["task_id", "at", "reviewer", "accepted", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": { "type": "string" },
+        "at": { "type": "string" },
+        "reviewer": { "type": "string" },
+        "accepted": { "type": "boolean" },
+        "summary": { "type": "string" }
+      }
+    },
+    "nullableRepo": {
+      "type": ["object", "null"],
+      "required": ["root", "branch", "head", "dirty_files"],
+      "additionalProperties": false,
+      "properties": {
+        "root": { "type": "string" },
+        "branch": { "type": "string" },
+        "head": { "type": "string" },
+        "dirty_files": { "$ref": "#/$defs/stringList" }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "planning": "on",
+    "context_policy": "elide",
+    "elide_at": 0.6,
+    "summarize_at": 0.85,
+    "min_elide_tokens": 200,
+    "keep_recent": 3,
+    "max_attempts": 3,
+    "max_parallel": 1,
+    "routing": "policy",
+    "guard_enabled": true
+  },
+  "configs": [
+    { "id": "baseline", "description": "Reference point: planning on, elision, 3 attempts, sequential, policy routing, guard on." },
+    { "id": "planning-off", "planning": "off", "description": "No plan: subtasks run in declaration order with no dependency resolution." },
+    { "id": "planning-auto", "planning": "auto", "description": "Plan only when the local decision policy asks for one." },
+    { "id": "context-none", "context_policy": "none", "description": "Unmanaged context: nothing is ever compacted." },
+    { "id": "context-elide-aggressive", "elide_at": 0.3, "keep_recent": 0, "min_elide_tokens": 50, "description": "Elision that starts early and protects no recent tool output." },
+    { "id": "context-elide-summarize", "context_policy": "elide_and_summarize", "description": "Elision, then summarization by a stub that truncates. The summarizer is a stub, not a model." },
+    { "id": "routing-fixed-standard", "routing": "fixed", "fixed_tier": "standard", "description": "Every attempt at the standard tier." },
+    { "id": "routing-fixed-premium", "routing": "fixed", "fixed_tier": "premium", "description": "Every attempt at the premium tier." },
+    { "id": "parallel-3", "max_parallel": 3, "description": "Up to 3 subtasks at once when the plan and the decision policy allow it." },
+    { "id": "attempts-1", "max_attempts": 1, "description": "One attempt per subtask." },
+    { "id": "attempts-2", "max_attempts": 2, "description": "Two attempts per subtask." },
+    { "id": "attempts-4", "max_attempts": 4, "description": "Four attempts per subtask." },
+    { "id": "guard-off", "guard_enabled": false, "description": "Every guard rule disabled; only the attempt limit bounds a loop." },
+    { "id": "profile-economy", "planning": "auto", "executor_tier": "economy", "routing": "fixed", "fixed_tier": "economy", "tool_profile": "auto", "description": "Capability profile of an economy executor: plan for anything above trivial, structured tools, every attempt at the economy tier." },
+    { "id": "profile-premium", "planning": "auto", "executor_tier": "premium", "routing": "fixed", "fixed_tier": "premium", "tool_profile": "auto", "description": "Capability profile of a premium executor: plan only from moderate complexity up or above low risk, lean tools, every attempt at the premium tier." },
+    { "id": "tools-lean", "tool_profile": "lean", "description": "Lean tool profile: the reference agent is offered the shell plus one read and one edit tool. The script calls no tool, so only the listed tools differ." },
+    { "id": "tools-selection-off", "tool_selection": "off", "description": "Per-task tool selection off: every subtask is handed the reference agent's whole tool list. Same settings as baseline, named to be read next to tools-selection-local." },
+    { "id": "tools-selection-local", "tool_selection": "local", "description": "Per-task tool selection by the local policy: each subtask is handed the floor plus the tools its text gives a reason for. A scripted step whose tool was dropped records a miss and the tool is restored. Token figures are estimates from rough per-tool constants." }
+  ]
+}

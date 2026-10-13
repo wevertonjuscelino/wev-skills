@@ -1,0 +1,33 @@
+{
+  "id": "failing-test",
+  "title": "Make a failing test pass, second attempt succeeds",
+  "description": "The verification is scripted to pass only from the second attempt, so the attempt limit decides the outcome.",
+  "category": "failing-test",
+  "signals": {
+    "objective": "Make the failing date parsing test pass",
+    "files_touched_estimate": 2,
+    "unknowns": 1,
+    "independent_subtasks": 1
+  },
+  "window_tokens": 8000,
+  "acceptance_criteria": [
+    { "id": "test-passes", "text": "tests/test_dates.py passes without changing the test." }
+  ],
+  "subtasks": [
+    { "id": "repair", "files": ["src/dates.py"] }
+  ],
+  "script": [
+    { "id": "read-test", "subtask": "repair", "kind": "tool_output", "tokens": 400, "description": "Read the failing test." },
+    { "id": "reproduce", "subtask": "repair", "kind": "command", "signature": "python -m unittest tests.test_dates", "outcome": "fail", "tokens": 200, "description": "Reproduce the failure." },
+    { "id": "read-source", "subtask": "repair", "kind": "tool_output", "tokens": 500, "description": "Read src/dates.py." },
+    { "id": "patch", "subtask": "repair", "kind": "edit", "tokens": 60 },
+    { "id": "lint", "subtask": "repair", "kind": "command", "signature": "ruff check src/dates.py", "tokens": 20 },
+    {
+      "id": "rerun-test", "subtask": "repair", "kind": "verify",
+      "signature": "python -m unittest tests.test_dates", "tokens": 80,
+      "criteria": ["test-passes"],
+      "conditions": { "pass_from_attempt": 2 },
+      "description": "Scripted: the first patch is wrong, the second attempt's patch is right."
+    }
+  ]
+}

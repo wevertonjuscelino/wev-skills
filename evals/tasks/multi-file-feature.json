@@ -1,0 +1,55 @@
+{
+  "id": "multi-file-feature",
+  "title": "Feature across model, API, CLI, tests and docs",
+  "description": "Subtasks are declared out of dependency order (tests first), so running without a plan blocks the tests. 'api' and 'cli' share src/registry.py and may not run together. The API verification is scripted to pass only at the premium tier.",
+  "category": "multi-file-feature",
+  "signals": {
+    "objective": "Add an export feature with model, API endpoint, CLI command, tests and docs",
+    "files_touched_estimate": 6,
+    "unknowns": 1,
+    "independent_subtasks": 3
+  },
+  "window_tokens": 8000,
+  "acceptance_criteria": [
+    { "id": "model-works", "text": "The export model serializes a record and its unit test passes." },
+    { "id": "api-works", "text": "The export endpoint returns the serialized record." },
+    { "id": "cli-works", "text": "The export CLI command writes the serialized record to a file." },
+    { "id": "feature-tests-pass", "text": "The end-to-end feature tests pass." }
+  ],
+  "subtasks": [
+    { "id": "tests", "depends_on": ["api", "cli"], "files": ["tests/test_export.py"] },
+    { "id": "model", "files": ["src/export_model.py"] },
+    { "id": "api", "depends_on": ["model"], "files": ["src/api.py", "src/registry.py"] },
+    { "id": "cli", "depends_on": ["model"], "files": ["src/cli.py", "src/registry.py"] },
+    { "id": "docs", "files": ["docs/export.md"] }
+  ],
+  "script": [
+    { "id": "tests-read", "subtask": "tests", "kind": "tool_output", "tokens": 400 },
+    { "id": "tests-write", "subtask": "tests", "kind": "edit", "tokens": 80 },
+    { "id": "tests-run", "subtask": "tests", "kind": "verify", "signature": "python -m unittest tests.test_export", "tokens": 80, "criteria": ["feature-tests-pass"] },
+
+    { "id": "model-read", "subtask": "model", "kind": "tool_output", "tokens": 500 },
+    { "id": "model-design", "subtask": "model", "kind": "decision", "tokens": 60 },
+    { "id": "model-write", "subtask": "model", "kind": "edit", "tokens": 80 },
+    { "id": "model-test", "subtask": "model", "kind": "verify", "signature": "python -m unittest tests.test_export_model", "tokens": 60, "criteria": ["model-works"] },
+
+    { "id": "api-read", "subtask": "api", "kind": "tool_output", "tokens": 600 },
+    { "id": "api-write", "subtask": "api", "kind": "edit", "tokens": 80 },
+    { "id": "api-lint", "subtask": "api", "kind": "command", "signature": "ruff check src/api.py", "tokens": 20 },
+    {
+      "id": "api-test", "subtask": "api", "kind": "verify",
+      "signature": "python -m unittest tests.test_api", "tokens": 80,
+      "criteria": ["api-works"],
+      "conditions": { "min_tier": "premium" },
+      "description": "Scripted: passes only when the attempt runs at the premium tier."
+    },
+
+    { "id": "cli-read", "subtask": "cli", "kind": "tool_output", "tokens": 400 },
+    { "id": "cli-write", "subtask": "cli", "kind": "edit", "tokens": 80 },
+    { "id": "cli-test", "subtask": "cli", "kind": "verify", "signature": "python -m unittest tests.test_cli", "tokens": 60, "criteria": ["cli-works"] },
+
+    { "id": "docs-read", "subtask": "docs", "kind": "tool_output", "tokens": 300 },
+    { "id": "docs-write", "subtask": "docs", "kind": "edit", "tokens": 120 },
+    { "id": "docs-note", "subtask": "docs", "kind": "note", "tokens": 40, "description": "No verification is scripted for docs, so the subtask ends 'partial'." }
+  ]
+}

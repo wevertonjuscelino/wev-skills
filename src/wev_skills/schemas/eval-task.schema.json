@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "wev eval task",
+  "description": "A scenario plus the scripted trajectory the deterministic eval agent replays.",
+  "type": "object",
+  "required": [
+    "id", "title", "category", "signals", "window_tokens",
+    "acceptance_criteria", "subtasks", "script"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "category": {
+      "enum": [
+        "simple-fix", "multi-file-feature", "failing-test",
+        "context-overload", "agent-loop", "remote-diagnosis", "tool-selection"
+      ]
+    },
+    "signals": { "$ref": "#/$defs/signals" },
+    "window_tokens": { "type": "integer", "minimum": 1 },
+    "acceptance_criteria": {
+      "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/criterion" }
+    },
+    "subtasks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/subtask" } },
+    "script": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 64 },
+    "idList": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "signals": {
+      "type": "object",
+      "required": ["objective"],
+      "additionalProperties": false,
+      "properties": {
+        "objective": { "type": "string", "minLength": 1 },
+        "files_touched_estimate": { "type": "integer", "minimum": 0 },
+        "touches_remote": { "type": "boolean" },
+        "touches_production": { "type": "boolean" },
+        "destructive": { "type": "boolean" },
+        "external_side_effects": { "type": "boolean" },
+        "has_tests": { "type": "boolean" },
+        "reversible": { "type": "boolean" },
+        "unknowns": { "type": "integer", "minimum": 0 },
+        "independent_subtasks": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "required": ["id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "text": { "type": "string", "minLength": 1 }
+      }
+    },
+    "subtask": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "depends_on": { "$ref": "#/$defs/idList" },
+        "files": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "objective": { "type": "string" },
+        "read_only": { "type": "boolean" }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requires_verbatim": { "$ref": "#/$defs/idList" },
+        "pass_from_attempt": { "type": "integer", "minimum": 1 },
+        "min_tier": { "enum": ["economy", "standard", "premium"] }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["id", "subtask", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "subtask": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": [
+            "tool_output", "command", "note", "requirement",
+            "decision", "edit", "verify", "handoff"
+          ]
+        },
+        "description": { "type": "string" },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "needed_later": { "type": "boolean" },
+        "signature": { "type": "string" },
+        "outcome": { "enum": ["pass", "fail"] },
+        "repeat": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "polling": { "type": "boolean" },
+        "flaky": { "type": "boolean" },
+        "criteria": { "$ref": "#/$defs/idList" },
+        "from_agent": { "type": "string" },
+        "to_agent": { "type": "string" },
+        "needs_tool": { "type": "string" },
+        "conditions": { "$ref": "#/$defs/conditions" }
+      }
+    }
+  }
+}
