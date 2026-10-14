@@ -11,7 +11,7 @@ from typing import Any, TypeVar
 from wev_skills import i18n
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.agents.tool_profile import resolve_profile, tier_of
-from wev_skills.core import agent_rules, planning, progress, steps
+from wev_skills.core import agent_rules, planning, progress, run_budget, steps
 from wev_skills.core.contracts import TaskContract, TaskStatus
 from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, ValidationError, WevError
 from wev_skills.core.fingerprint import tree_fingerprint
@@ -187,7 +187,11 @@ class Engine:
         """``next_step`` and the full ``next_steps`` list for a payload."""
         found = list(steps.next_steps(state, self.suggest_reviewer, self.denied_gates(state)))
         ordered = [first, *(s for s in found if s != first)] if first else found
-        return {"next_step": ordered[0], "next_steps": ordered}
+        return {
+            "next_step": ordered[0],
+            "next_steps": ordered,
+            "budget": run_budget.payload(state, self.services.config.limits),
+        }
 
     def contract(self, state: RunState, task_id: str) -> TaskContract:
         task = progress.plan_task(state, task_id)
@@ -201,8 +205,14 @@ class Engine:
         return planning.build_contract(state, task, spec, protected, profile, chosen)
 
     def run_verdict(self, state: RunState) -> GuardVerdict:
+        budget = run_budget.verdict(state, self.services.config.limits)
+        if budget.action.value == "stop":
+            return budget
         return progress.run_verdict(
-            state, self.limits(), self.now(), lambda task_id: self.task_limits(state, task_id)
+            state,
+            replace(self.limits(), budget_units=self.services.config.limits.run_budget_units),
+            self.now(),
+            lambda task_id: self.task_limits(state, task_id),
         )
 
     def task_verdict(self, state: RunState, task_id: str, now: float | None = None) -> GuardVerdict:

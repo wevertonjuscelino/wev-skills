@@ -141,14 +141,14 @@ class GuardWiringTests(RulesCase):
         self.assertEqual(kinds(self.state(), "a").count("budget"), 4)
 
     def test_the_run_budget_counts_commands_of_every_task(self) -> None:
-        self.overrides = {"limits": {"budget_units": 2}}
+        self.overrides = {"limits": {"run_budget_units": 4}}
         self.start()
         self.run_task()
         codes = [self.orch().exec_command(("echo", str(index)))[1] for index in range(3)]
         self.assertEqual(codes[:2], [0, 0])
         with self.assertRaises(GuardTripped) as caught:
             self.orch().exec_command(("echo", "x"))
-        self.assertEqual(caught.exception.details["verdict"]["rule"], "budget")
+        self.assertEqual(caught.exception.details["verdict"]["rule"], "run_budget")
 
     def test_baseline_commands_are_logged_as_such_and_never_count_for_the_guard(self) -> None:
         self.start()

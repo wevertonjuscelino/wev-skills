@@ -28,6 +28,8 @@ CONFIG_FILE_NAME = "wev.config.json"
 SOURCE_DEFAULTS = "defaults"
 GIT_MARKER = ".git"
 USER_CONFIG_DIR = "wev-skills"
+DEFAULT_PROJECT_DIR = "wev-specialists"
+RESERVED_PROJECT_DIRS = frozenset({GIT_MARKER, ".claude"})
 UNTRUSTED_PROGRAMS = frozenset(
     {"sh", "bash", "zsh", "dash", "ksh", "fish", "env", "xargs", "python", "node", "ruby", "perl"}
 )
@@ -85,6 +87,10 @@ class LimitsConfig(Serializable):
     """Consecutive ``--polling`` commands of one task before a person is asked."""
     lock_timeout_seconds: float = 30.0
     """How long a command waits for another process to release the state file."""
+    run_budget_units: float = 400.0
+    """Engine units a whole run may spend before new work is refused (``core.run_budget``)."""
+    run_max_attempts_total: int = 12
+    """Task starts a whole run may make, over all its tasks."""
 
 
 @dataclass(frozen=True)
@@ -125,6 +131,24 @@ class AgentsConfig(Serializable):
     """Who gets a task that matches no agent's specialties or description."""
     allow_override: bool = False
     """Let a spec from a configured directory replace a built-in agent with the same id."""
+    project_dir: str = DEFAULT_PROJECT_DIR
+    """Where the project's own specialists live, relative to the repository root."""
+
+
+@dataclass(frozen=True)
+class IntakeConfig(Serializable):
+    max_rounds: int = 3
+    """Rounds of at most three questions ``wev intake next`` may ask before assumptions."""
+
+
+@dataclass(frozen=True)
+class SpecialistsConfig(Serializable):
+    max_per_project: int = 5
+    max_lessons_rendered: int = 12
+    """Active lessons shown in an exported subagent and in a task contract."""
+    max_lessons: int = 30
+    """Active lessons one specialist may hold; beyond it one must be retired first."""
+    stale_after_runs: int = 20
 
 
 @dataclass(frozen=True)
@@ -164,6 +188,8 @@ class Config(Serializable):
     remote: RemoteConfig = field(default_factory=RemoteConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
     harness: HarnessSettings = field(default_factory=HarnessSettings)
+    intake: IntakeConfig = field(default_factory=IntakeConfig)
+    specialists: SpecialistsConfig = field(default_factory=SpecialistsConfig)
 
 
 DEFAULT_CONFIG: dict[str, Any] = Config().to_dict()
@@ -331,7 +357,19 @@ def trust_errors(config: Config, root: str | os.PathLike[str]) -> list[str]:
         resolved = (base / entry).resolve()
         if not any(_inside(place, resolved) for place in allowed):
             errors.append(f"/agents/directories/{index}: must be inside the repository root")
-    return errors
+    return [*errors, *_project_dir_errors(config, base)]
+
+
+def _project_dir_errors(config: Config, base: Path) -> list[str]:
+    """``agents.project_dir`` is a directory below the root, outside ``.git``, ``.claude``
+    and the state directory: specialists are written there and exported from there."""
+    entry = config.agents.project_dir
+    resolved, state = (base / entry).resolve(), (base / config.state_dir).resolve()
+    parts = {part.casefold() for part in Path(entry).parts}
+    inside = base in resolved.parents and not os.path.isabs(entry)
+    if inside and not parts & RESERVED_PROJECT_DIRS and not _inside(state, resolved):
+        return []
+    return ["/agents/project_dir: must be a directory below the repository root"]
 
 
 def protect_state_dir(config: Config, base: str | os.PathLike[str] | None = None) -> Config:

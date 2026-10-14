@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from wev_skills import i18n
-from wev_skills.core import exec_target, progress, steps
+from wev_skills.core import exec_target, progress, run_budget, steps
 from wev_skills.core.baseline import log_entry
 from wev_skills.core.contracts import (
     EvidenceLabel,
@@ -143,6 +143,7 @@ def exec_command(
     engine.refuse_tripped(state, target or None)
     exec_target.refuse_read_only_agent(engine, state, found, argv)
     accepted = polling and polling_accepted(state, task_id, target)
+    run_budget.require(engine, state, units=COMMAND_UNITS)
     before = engine.fingerprint(state)
     record = _run(engine, state, argv, target, risk, timeout)
     after_tree = engine.fingerprint(state)

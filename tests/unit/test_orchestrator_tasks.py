@@ -216,4 +216,4 @@ class GuardRefusalTests(OrchestratorCase):
         for call in (self.orch().next_tasks, lambda: self.orch().start_task("task-1")):
             with self.assertRaises(GuardTripped) as caught:
                 call()
-            self.assertEqual(caught.exception.details["verdict"]["action"], "ask_human")
+            self.assertEqual(caught.exception.details["verdict"]["action"], "stop")

@@ -16,7 +16,7 @@ The run line, the approval lines and the next step, which the engine writes, sta
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from wev_skills import i18n
 from wev_skills.core import progress
@@ -84,7 +84,32 @@ def _criteria_lines(state: RunState, lang: str) -> list[Line]:
 def data_lines(state: RunState, lang: str) -> list[Line]:
     """Lines made of recorded text: objective, tasks, the current task's criteria."""
     objective = i18n.t("orch.brief.objective", lang, objective=one_line(state.objective))
-    return [(PRIORITY_CONTEXT, objective), *_task_lines(state, lang), *_criteria_lines(state, lang)]
+    return [
+        (PRIORITY_CONTEXT, objective),
+        *_intake_lines(state, lang),
+        *_task_lines(state, lang),
+        *_criteria_lines(state, lang),
+    ]
+
+
+def _intake_lines(state: RunState, lang: str) -> list[Line]:
+    intake = state.discovery.get("intake")
+    if not isinstance(intake, Mapping) or not isinstance(intake.get("brief"), Mapping):
+        return []
+    recorded = intake["brief"]
+    lines: list[Line] = []
+    for field in ("scope", "constraints"):
+        value = recorded.get(field)
+        if isinstance(value, str) and value:
+            text = i18n.t(f"intake.brief.{field}", lang, value=one_line(value))
+            lines.append((PRIORITY_CONTEXT, text))
+    criteria = recorded.get("done", ())
+    if isinstance(criteria, (tuple, list)):
+        for value in criteria:
+            if isinstance(value, str):
+                text = i18n.t("intake.brief.done", lang, value=one_line(value))
+                lines.append((PRIORITY_CRITERIA, text))
+    return lines
 
 
 def _approval_lines(state: RunState, lang: str) -> list[Line]:

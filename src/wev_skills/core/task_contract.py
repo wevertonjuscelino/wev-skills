@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from wev_skills import i18n
+from wev_skills.agents.experience import lead_line, rendered_lessons
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.agents.tool_profile import STRUCTURED, apply_profile
 from wev_skills.core import agent_rules, progress
@@ -119,7 +120,7 @@ def build_contract(
     return TaskContract(
         task_id=task.id,
         objective=task.objective or task.title,
-        context=_context(state, task, selection),
+        context=_with_experience(_context(state, task, selection), state, spec),
         scope=task.files,
         exclusions=_exclusions(state, task, protected),
         constraints=constraints,
@@ -142,3 +143,11 @@ def build_contract(
         stop_conditions=view.stop_conditions,
         escalation=_escalation(spec),
     )
+
+
+def _with_experience(context: str, state: RunState, spec: AgentSpec) -> str:
+    from wev_skills.config import parse_config
+
+    limit = parse_config(overrides=state.config).specialists.max_lessons_rendered
+    lessons = rendered_lessons(spec.experience, limit)
+    return "\n".join((context, lead_line(), *lessons)) if lessons else context

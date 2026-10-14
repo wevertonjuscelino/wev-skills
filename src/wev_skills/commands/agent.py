@@ -35,6 +35,7 @@ from wev_skills.core.wiring import CATALOG_SUBDIRS, REPO_ROOT, catalog_directori
 def _directories(args: argparse.Namespace, scope: Scope) -> list[Path]:
     """The catalog, the configured directories (relative to the root), then ``--dir``."""
     configured = [scope.root / d for d in scope.config.agents.directories]
+    configured.append(scope.root / scope.config.agents.project_dir)
     extra = [Path(d) for d in (getattr(args, "dir", None) or [])]
     return [*catalog_directories(), *(d for d in configured if d.is_dir()), *extra]
 

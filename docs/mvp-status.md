@@ -25,6 +25,12 @@ All checks passed!
 Success: no issues found in 146 source files
 ```
 
+## Follow-up capabilities
+
+The objective interview and project specialists were added after the original MVP verification above. [Objective intake](guides/intake.md) caps each round at three questions and attaches a finished brief to the run. [Project specialists](guides/specialists.md) retain permission ceilings, rebuild up to 30 lessons from engine records for the same repository and warn at 80% of whole-run limits. Command units and task-start attempts are separate budgets; these are not model tokens or currency.
+
+Focused CLI, persistence, learning, routing and budget regression tests cover these additions. Their full-suite result belongs to the later commit and must be read from its CI/check output rather than inferred from the historical counts above. Live model interviews and exported specialists in a live session remain unvalidated. The [local security review](security-review-2026-10-13.md) records the append-permission and explicit Git-helper fixes and their remaining limits.
+
 ## Summary
 
 | # | Criterion | Status |

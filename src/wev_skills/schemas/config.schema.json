@@ -47,7 +47,9 @@
         "task_timeout_seconds": { "type": "number", "minimum": 1 },
         "budget_units": { "type": "number", "minimum": 0 },
         "max_polling_commands": { "type": "integer", "minimum": 1 },
-        "lock_timeout_seconds": { "type": "number", "minimum": 0 }
+        "lock_timeout_seconds": { "type": "number", "minimum": 0 },
+        "run_budget_units": { "type": "number", "minimum": 1 },
+        "run_max_attempts_total": { "type": "integer", "minimum": 1 }
       }
     },
     "context": {
@@ -101,7 +103,8 @@
           "maxLength": 64,
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
         },
-        "allow_override": { "type": "boolean" }
+        "allow_override": { "type": "boolean" },
+        "project_dir": { "type": "string", "minLength": 1, "maxLength": 200 }
       }
     },
     "harness": {
@@ -115,6 +118,23 @@
         "tool_profile": { "enum": ["auto", "structured", "lean"] },
         "tool_selection": { "enum": ["off", "local", "provider"] },
         "baseline_checks": { "type": "boolean" }
+      }
+    },
+    "intake": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_rounds": { "type": "integer", "minimum": 1, "maximum": 10 }
+      }
+    },
+    "specialists": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_per_project": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "max_lessons_rendered": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "max_lessons": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "stale_after_runs": { "type": "integer", "minimum": 1 }
       }
     }
   },

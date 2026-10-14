@@ -25,6 +25,12 @@ All checks passed!
 Success: no issues found in 146 source files
 ```
 
+## Recursos acrescentados depois do MVP
+
+A entrevista de objetivo e os especialistas de projeto foram acrescentados depois da verificação original do MVP acima. A [entrada de objetivos](guides/intake.pt-BR.md) limita cada rodada a três perguntas e associa o brief concluído à execução. Os [especialistas de projeto](guides/specialists.pt-BR.md) mantêm os limites de permissão, recalculam até 30 lições a partir de registros do motor para o mesmo repositório e avisam a 80% dos limites globais. Unidades de comando e tentativas de início de tarefa são orçamentos separados; não representam tokens de modelo nem dinheiro.
+
+Testes focados de CLI, persistência, aprendizado, roteamento e orçamento cobrem esses acréscimos. O resultado da suíte completa pertence ao commit posterior e deve ser consultado na saída de CI/checks dele, não inferido dos números históricos acima. Entrevistas conduzidas por modelos e especialistas exportados numa sessão real continuam sem validação. A [revisão local de segurança](security-review-2026-10-13.pt-BR.md) registra as correções de permissões na escrita incremental e helpers Git explícitos, com os limites restantes.
+
 ## Resumo
 
 | # | Critério | Situação |

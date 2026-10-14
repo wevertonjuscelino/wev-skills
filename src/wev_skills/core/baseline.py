@@ -4,13 +4,15 @@ A check that passed before the task's work, on a tree that has not changed since
 nothing about the work. The engine runs the task's checks once when the task starts, through
 the same executor and policy, without spending any approval. The commands are marked as
 baseline in the command log and are not guard events, so they never count as a loop or
-against a budget. With ``harness.baseline_checks`` off only the starting tree is recorded.
+against the task budget. Their command records count against the whole-run budget.
+With ``harness.baseline_checks`` off only the starting tree is recorded.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
 
+from wev_skills.core import run_budget
 from wev_skills.core.contracts import RunStatus
 from wev_skills.core.engine import Engine
 from wev_skills.core.errors import ApprovalRequired, PermissionDenied
@@ -52,6 +54,7 @@ def _run_checks(
 ) -> tuple[list[str], list[str], list[str], list[CommandLogEntry]]:
     """``(passed, failed, skipped, log entries)`` of the task's checks, run once."""
     contract = engine.contract(state, task_id)
+    run_budget.require(engine, state, units=len(checks_from_contract(contract)))
     executor = engine.services.grantless_executor(engine.log_dir())
     passed: list[str] = []
     failed: list[str] = []

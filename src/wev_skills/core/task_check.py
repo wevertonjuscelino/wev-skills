@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from wev_skills import i18n
-from wev_skills.core import progress
+from wev_skills.core import progress, run_budget
 from wev_skills.core.baseline import log_entry
 from wev_skills.core.contracts import Mode, PermissionOutcome, TaskContract
 from wev_skills.core.engine import REQUESTER, Change, Engine
@@ -197,6 +197,8 @@ def check_task(engine: Engine, task_id: str, stop_on_failure: bool) -> dict[str,
     state = engine.load()
     _refuse_unstarted(state, task_id)
     engine.refuse_tripped(state, task_id)
+    maximum = len(checks_from_contract(engine.contract(state, task_id)))
+    run_budget.require(engine, state, units=maximum * COMMAND_UNITS)
     done = _verify(engine, state, task_id, stop_on_failure)
     report = done.report
     data = {"task_id": task_id, "all_met": report.all_met, "summary": report.summary}

@@ -50,3 +50,9 @@ class RemoteError(WevError):
 
 class ProviderError(WevError):
     exit_code = 8
+
+
+class BudgetExhausted(WevError):
+    """The run spent its budget: new work is refused and the run is delivered as it is."""
+
+    exit_code = 9

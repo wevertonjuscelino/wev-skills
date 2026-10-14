@@ -19,8 +19,9 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.commands import Subparsers
 from wev_skills.commands._scope import Scope, resolve_scope
-from wev_skills.core import wiring
+from wev_skills.core import fsutil, run_budget, wiring
 from wev_skills.core.contracts import Mode, RiskLevel
+from wev_skills.core.engine import Engine
 from wev_skills.core.errors import PermissionDenied, ValidationError
 from wev_skills.core.ports import Runner, SubprocessRunner
 from wev_skills.remote import run_scope
@@ -88,7 +89,17 @@ def _start(args: argparse.Namespace) -> dict[str, Any]:
     argv = list(args.argv)
     if argv[:1] == ["--"]:
         argv = argv[1:]
-    run = build_controller(scope).start(args.host, args.task, argv, mode, risk, args.timeout)
+    if scope.active is None:
+        run = build_controller(scope).start(args.host, args.task, argv, mode, risk, args.timeout)
+        return _with_source(scope, run.to_dict())
+    store = StateStore(run_dir(scope.state_dir, scope.active.run_id))
+    services = wiring.build_services(scope.config, scope.root)
+    engine = Engine(store, services)
+    with fsutil.locked(store.run_dir / "execution", scope.config.limits.lock_timeout_seconds):
+        state = store.load()
+        engine.refuse_tripped(state, args.task)
+        run_budget.require(engine, state, units=1)
+        run = build_controller(scope).start(args.host, args.task, argv, mode, risk, args.timeout)
     return _with_source(scope, run.to_dict())
 
 

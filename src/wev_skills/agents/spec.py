@@ -11,6 +11,7 @@ from functools import lru_cache
 from typing import Any
 
 from wev_skills import i18n, schema
+from wev_skills.agents.experience import Lesson
 from wev_skills.config import TIER_NAMES
 from wev_skills.core._codec import Serializable
 from wev_skills.core.contracts import GuardAction, Mode, RiskLevel
@@ -118,6 +119,7 @@ _NESTED: dict[str, type[_Sparse]] = {
     "escalation": Escalation,
 }
 _TUPLE_FIELDS = ("specialties", "skills", "required_checks")
+EXPERIENCE_KEY = "experience"
 _SCALAR_FIELDS = ("schema_version", "id", "extends", "model", "timeout_seconds", "max_attempts")
 
 
@@ -162,6 +164,8 @@ class AgentSpec:
     required_checks: tuple[str, ...] = ()
     output_format: LocalText | None = None
     stop_conditions: tuple[LocalText, ...] = ()
+    experience: tuple[Lesson, ...] = ()
+    """Reviewed lessons (``agents.experience``): advisory text, never inherited."""
 
     @classmethod
     def from_dict(cls, data: Any) -> AgentSpec:
@@ -184,6 +188,10 @@ class AgentSpec:
         for key, klass in _NESTED.items():
             if key in data:
                 kwargs[key] = klass.from_dict(data[key], _path=f"/{key}")
+        lessons = enumerate(data.get(EXPERIENCE_KEY, ()))
+        kwargs[EXPERIENCE_KEY] = tuple(
+            Lesson.from_dict(item, _path=f"/{EXPERIENCE_KEY}/{i}") for i, item in lessons
+        )
         return cls(**kwargs)
 
     def to_dict(self) -> dict[str, Any]:
@@ -254,6 +262,9 @@ def _cross_field_errors(data: Mapping[str, Any]) -> list[str]:
     policy = data.get("model_policy", {})
     if tier_order_violation(policy.get("min_tier"), policy.get("max_tier")):
         errors.append(f"/model_policy: {i18n.t('agents.error.tier_order')}")
+    ids = [item["id"] for item in data.get(EXPERIENCE_KEY, ())]
+    if len(ids) != len(set(ids)):
+        errors.append(f"/{EXPERIENCE_KEY}: {i18n.t('agents.error.duplicate_lesson')}")
     return [*errors, *_pattern_errors(data), *_number_errors(data)]
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from typing import Any
 
 from wev_skills import i18n
@@ -11,21 +12,48 @@ from wev_skills.commands import Subparsers
 from wev_skills.commands._fence import fence_discovery
 from wev_skills.commands._orchestration import (
     add_run_argument,
+    locate,
     new_orchestrator,
     orchestrator_for,
 )
 from wev_skills.commands.decide import add_signal_args, signals_from
 from wev_skills.core.contracts import Mode
+from wev_skills.core.errors import ValidationError
 from wev_skills.core.orchestrator import START_MODES
 from wev_skills.core.report_markdown import render_markdown
+from wev_skills.intake.store import load_brief
+from wev_skills.state.model import with_discovery
 
 FORMATS = ("json", "md")
 
 
 def _start(args: argparse.Namespace) -> dict[str, Any]:
+    intake_id = args.from_intake
+    brief = load_brief(locate(args).state_dir, intake_id) if intake_id else None
+    if brief is not None:
+        if args.objective is not None and args.objective != brief.goal:
+            raise ValidationError(
+                "intake_objective_mismatch", i18n.t("intake.error.objective_mismatch")
+            )
+        args.objective = brief.goal
     signals = signals_from(args)
+    if brief is not None:
+        signals = replace(
+            signals,
+            external_side_effects=signals.external_side_effects or brief.kind == "operations",
+            unknowns=max(signals.unknowns, len(brief.assumptions)),
+        )
     orchestrator, run_id = new_orchestrator(args, args.run_id)
     started = orchestrator.start(signals.objective, Mode(args.mode), signals, run_id)
+    if brief is not None:
+        orchestrator.commit(
+            lambda state: with_discovery(
+                state, "intake", {"id": intake_id, "brief": brief.to_dict()}
+            ),
+            "run.intake_attached",
+            {"intake_id": intake_id, "brief": brief.to_dict()},
+        )
+        started.update(intake_id=intake_id, intake_brief=brief.to_dict())
     return fence_discovery(started)
 
 
@@ -67,6 +95,7 @@ def register(subparsers: Subparsers) -> None:
         help=i18n.t("orch.arg.mode"),
     )
     start.add_argument("--run-id", default=None, help=i18n.t("orch.arg.run_id"))
+    start.add_argument("--from-intake", default=None, help=i18n.t("intake.arg.from_intake"))
     start.set_defaults(handler=_start)
 
     for name, handler in (("status", _status), ("resume", _resume)):

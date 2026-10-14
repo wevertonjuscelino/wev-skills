@@ -21,6 +21,8 @@ The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Co
 | Plans, task contracts, state, resume and delivery reports | Implemented and tested | Local tests use no model |
 | Permissions, single-use approvals and verification gates | Implemented and tested | Heuristics and audit records; no sandbox |
 | Agent registry, inheritance and subagent export | Implemented and tested | Exported agents have not been loaded in a live session |
+| Objective interview: at most three questions per round | Implemented and tested | Local CLI and stored briefs; model-led interview unvalidated |
+| Project specialists, bounded experience and run budgets | Implemented and tested | Engine records only; advisory lessons; command units, not tokens or money |
 | Skills, hooks and plugin manifests | Implemented and tested | Format and subprocess tests; live integration untested |
 | Optional JEV, SSH/tmux and evaluation adapters | Simulated with mocks | A recorded JEV response and simulated remote hosts |
 | Other agent environments and Windows support | Documented only / blocked | Future adapters; POSIX file locks today |
@@ -70,6 +72,8 @@ claude --plugin-dir "$WEV_HOME"
 ```
 
 The [installation guide](docs/guides/installation.md) covers persistent plugin installation, updates and removal. The [orchestration guide](docs/guides/orchestration.md) walks through starting a run, executing tasks, recording checks and generating a report.
+
+Objective intake is documented in [the interview guide](docs/guides/intake.md). Project roles, evidence-based experience and the 80%/100% command-budget limits are documented in [the specialists guide](docs/guides/specialists.md).
 
 ## Features and documentation
 

@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 
 from wev_skills import i18n
+from wev_skills.agents import experience
 from wev_skills.agents.output import refuse_case_collision
 from wev_skills.agents.spec import MAX_BUDGET_UNITS, AgentSpec, LocalizedAgent, number_in_range
 from wev_skills.core.errors import PermissionDenied, ValidationError
@@ -27,6 +28,8 @@ A Markdown link reference definition, which renders as nothing. It is not an HTM
 on purpose: the body keeps exactly one comment terminator, the one of the generated line.
 """
 FRONTMATTER_FENCE = "---"
+DEFAULT_MAX_LESSONS = 12
+"""``specialists.max_lessons_rendered`` when the caller has no configuration at hand."""
 _COMMENT_UNSAFE = re.compile(r"-->|[\x00-\x1f\x7f]")
 _SAFE_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _SAFE_MODEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
@@ -135,7 +138,15 @@ def _generated_line(source: str, lang: str) -> str:
     return f"<!-- {i18n.t('agents.export.generated', lang, source=shown)} -->"
 
 
-def _body(spec: AgentSpec, view: LocalizedAgent, lang: str, source: str) -> list[str]:
+def _experience(spec: AgentSpec, lang: str, max_lessons: int) -> list[str]:
+    """The capped, advisory list of lessons, led by the line that says what they are."""
+    shown = experience.rendered_lessons(spec.experience, max_lessons, lang=lang)
+    return [experience.lead_line(lang), "", *_bullets(shown)] if shown else []
+
+
+def _body(
+    spec: AgentSpec, view: LocalizedAgent, lang: str, source: str, max_lessons: int
+) -> list[str]:
 
     def h(key: str) -> str:
         return i18n.t(f"agents.export.h.{key}", lang)
@@ -157,11 +168,17 @@ def _body(spec: AgentSpec, view: LocalizedAgent, lang: str, source: str) -> list
     parts += _section(h("escalation"), _escalation(spec, lang))
     parts += _section(h("limits"), _limits(spec, lang))
     parts += _section(h("output"), [view.output_format.strip()] if view.output_format else [])
+    parts += _section(h("experience"), _experience(spec, lang, max_lessons))
     parts += _section(h("contract"), [i18n.t("agents.export.contract", lang)])
     return parts
 
 
-def render_subagent(spec: AgentSpec, lang: str = "en", source: str = "") -> str:
+def render_subagent(
+    spec: AgentSpec,
+    lang: str = "en",
+    source: str = "",
+    max_lessons: int = DEFAULT_MAX_LESSONS,
+) -> str:
     """The subagent file for a *resolved* spec: YAML frontmatter, then the system prompt.
 
     ``source`` is the path of the spec file as it should be shown (relative to the
@@ -174,7 +191,9 @@ def render_subagent(spec: AgentSpec, lang: str = "en", source: str = "") -> str:
     code = i18n.resolve_language(lang)
     view = spec.localized(code)
     front = [FRONTMATTER_FENCE, *_frontmatter(spec, view), FRONTMATTER_FENCE]
-    return "\n".join([*front, *_body(spec, view, code, source)]).rstrip("\n") + "\n"
+    with i18n.use_language(code):
+        body = _body(spec, view, code, source, max_lessons)
+    return "\n".join([*front, *body]).rstrip("\n") + "\n"
 
 
 def is_generated_subagent(text: str) -> bool:
@@ -190,6 +209,7 @@ def export_all(
     lang: str = "en",
     sources: Mapping[str, str] | None = None,
     check: Callable[[Path], object] | None = None,
+    max_lessons: int = DEFAULT_MAX_LESSONS,
 ) -> list[Path]:
     """Write ``<id>.md`` for each resolved spec atomically; never outside ``out_dir``.
 
@@ -202,7 +222,7 @@ def export_all(
     shown = sources or {}
     rendered: list[tuple[Path, str]] = []
     for spec in specs:
-        text = render_subagent(spec, lang, shown.get(spec.id, ""))
+        text = render_subagent(spec, lang, shown.get(spec.id, ""), max_lessons)
         rendered.append((_target(root, spec.id), text))
     for path, _ in rendered:
         if check is not None:

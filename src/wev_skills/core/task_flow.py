@@ -12,6 +12,7 @@ from wev_skills.core import (
     plan_flow,
     planning,
     progress,
+    run_budget,
     steps,
     tool_select,
 )
@@ -29,6 +30,7 @@ from wev_skills.state.model import (
     with_task_status,
     without_pending_approval,
 )
+from wev_skills.verification.engine import checks_from_contract
 
 
 def _refuse_plan_mode(state: RunState) -> None:
@@ -184,6 +186,9 @@ def _refuse_agent(engine: Engine, state: RunState, task: PlanTask) -> None:
 
 def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunState, int]:
     """One read-validate-write: validate against ``state`` and mark the task RUNNING."""
+    checks = checks_from_contract(engine.contract(state, task.id))
+    units = len(checks) if engine.services.config.harness.baseline_checks else 0
+    run_budget.require(engine, state, units=units, attempts=1)
     _refuse_unstartable(engine, state, task)
     _refuse_agent(engine, state, task)
     action = _approval_needed(engine, state, task)

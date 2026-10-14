@@ -1,0 +1,136 @@
+"""Experience of a project specialist: reviewed lessons, shown as advisory text.
+
+A lesson is derived from the engine's own records of a run (``learning.derive``) and
+stored in the specialist's spec by an explicit learning command. It is text the agent reads:
+nothing in
+this module, in the factory or in the exporter lets a lesson change tools, permissions or
+any other field of the spec, and experience is not inherited through ``extends``.
+
+The lesson's own text is built from structured fields and shown as one cleaned line. Text a
+person or an agent wrote (a criterion, a review summary, the optional note) is kept apart in
+``authored`` and ``note`` and is always shown inside the untrusted-data fence.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from collections.abc import Iterable
+from dataclasses import dataclass
+
+from wev_skills import i18n
+from wev_skills.core._codec import Serializable
+from wev_skills.core.textsafe import clean_text
+from wev_skills.security import untrusted
+
+KIND_PRACTICE, KIND_PITFALL, KIND_NEED = "practice", "pitfall", "need"
+LESSON_KINDS = (KIND_PRACTICE, KIND_PITFALL, KIND_NEED)
+ACTIVE, STALE, RETIRED = "active", "stale", "retired"
+LESSON_STATUSES = (ACTIVE, STALE, RETIRED)
+LESSON_TEXT_MAX = 600
+"""The schema's bound on a lesson's text; rendering cleans the text to the same length."""
+AUTHORED_MAX = 240
+"""Cut for one authored excerpt and for the agent note, applied where they are created."""
+MAX_EXPERIENCE_CHARS = 6000
+"""Characters the rendered list may take in an exported file or a task contract."""
+NOTE_LABEL = "agent note, unverified"
+_NONCE_LENGTH = 16
+
+
+@dataclass(frozen=True)
+class RecordRef(Serializable):
+    """One engine record a lesson came from: its type and how to find it in the run."""
+
+    type: str
+    id: str
+
+
+@dataclass(frozen=True)
+class LessonEvidence(Serializable):
+    run_id: str
+    task_id: str
+    records: tuple[RecordRef, ...] = ()
+
+
+@dataclass(frozen=True)
+class AuthoredText(Serializable):
+    """Text a person or an agent wrote (criterion, review summary): data, shown fenced."""
+
+    label: str
+    text: str
+
+
+@dataclass(frozen=True)
+class Lesson(Serializable):
+    id: str
+    kind: str
+    text: str
+    evidence: LessonEvidence
+    created_at: str
+    accepted_by: str
+    confirmations: int = 0
+    contradictions: int = 0
+    last_seen_run: str = ""
+    status: str = ACTIVE
+    derivation: str = ""
+    key: tuple[str, ...] = ()
+    """With ``derivation``, what makes a later candidate the same lesson (deduplication)."""
+    contains_authored_text: bool = False
+    authored: tuple[AuthoredText, ...] = ()
+    note: str = ""
+    """The calling model's note, kept only when the operator accepted it explicitly."""
+
+
+def _fenced(lesson_id: str, label: str, text: str) -> str:
+    """``text`` in the untrusted-data fence, with a marker id derived from the lesson so the
+    same lesson always renders the same bytes (the export is compared with the file)."""
+    digest = hashlib.sha256(f"{lesson_id}\0{label}".encode()).hexdigest()
+    return untrusted.wrap(clean_text(text, AUTHORED_MAX), label, digest[:_NONCE_LENGTH])
+
+
+def render_lesson(lesson: Lesson, lang: str | None = None) -> str:
+    """One lesson as advisory text: a cleaned line, then any authored text, fenced."""
+    counts = i18n.t(
+        "agents.experience.counts",
+        lang,
+        confirmations=lesson.confirmations,
+        contradictions=lesson.contradictions,
+    )
+    kind = i18n.t(f"agents.experience.kind.{lesson.kind}", lang)
+    head = f"[{kind}] {clean_text(lesson.text, LESSON_TEXT_MAX)} ({counts})"
+    blocks = [_fenced(lesson.id, item.label, item.text) for item in lesson.authored]
+    if lesson.note:
+        blocks.append(_fenced(lesson.id, NOTE_LABEL, lesson.note))
+    return "\n".join([head, *blocks])
+
+
+def active_lessons(lessons: Iterable[Lesson]) -> list[Lesson]:
+    """Active lessons, most confirmed first; ties go to the older lesson, then to the id."""
+    found = [lesson for lesson in lessons if lesson.status == ACTIVE]
+    return sorted(found, key=lambda item: (-item.confirmations, item.created_at, item.id))
+
+
+def rendered_lessons(
+    lessons: Iterable[Lesson],
+    max_lessons: int,
+    max_chars: int = MAX_EXPERIENCE_CHARS,
+    lang: str | None = None,
+) -> tuple[str, ...]:
+    """The capped list an exported subagent and a task contract show.
+
+    At most ``max_lessons`` active lessons, most confirmed first; the first lesson that
+    would take the list past ``max_chars`` ends it, so the list never grows without bound.
+    """
+    shown: list[str] = []
+    used = 0
+    for lesson in active_lessons(lessons)[: max(0, max_lessons)]:
+        text = render_lesson(lesson, lang)
+        if used + len(text) > max_chars:
+            break
+        shown.append(text)
+        used += len(text)
+    return tuple(shown)
+
+
+def lead_line(lang: str | None = None) -> str:
+    """What the list is, said before it: observations, below the contract in authority."""
+    return i18n.t("agents.experience.lead", lang)

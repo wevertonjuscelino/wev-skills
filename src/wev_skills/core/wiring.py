@@ -150,6 +150,7 @@ class AgentCatalog:
 
 def _agent_directories(config: Config, root: Path) -> list[Path]:
     configured = [root / directory for directory in config.agents.directories]
+    configured.append(root / config.agents.project_dir)
     return [*catalog_directories(), *(d for d in configured if d.is_dir())]
 
 

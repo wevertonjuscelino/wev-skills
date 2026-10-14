@@ -9,8 +9,9 @@ after its session has ended.
 
 from __future__ import annotations
 
+from wev_skills.guards.events import budget_event
 from wev_skills.remote.session import RemoteRun
-from wev_skills.state.model import with_remote_run
+from wev_skills.state.model import with_guard_event, with_remote_run
 from wev_skills.state.records import RemoteRunRecord
 from wev_skills.state.store import StateStore
 
@@ -28,7 +29,8 @@ class StateRunRecords:
     def record(self, run: RemoteRun) -> None:
         """Store ``run``, replacing an earlier start of the same task on the same host."""
         record = RemoteRunRecord.from_dict(run.to_dict())
-        self._store.update(lambda state: with_remote_run(state, record))
+        event = budget_event(run.task_id, run.started_at, 1).to_dict()
+        self._store.update(lambda state: with_guard_event(with_remote_run(state, record), event))
 
     def find(self, task_id: str, alias: str) -> RemoteRun | None:
         for item in self._store.load().remote_runs:

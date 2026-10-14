@@ -14,6 +14,7 @@ from wev_skills import i18n
 from wev_skills.core import (
     active,
     brief,
+    fsutil,
     guard_ack,
     plan_flow,
     plan_warnings,
@@ -213,7 +214,10 @@ class Orchestrator(Engine):
         return self.retry(lambda: task_flow.next_tasks(self))
 
     def start_task(self, task_id: str) -> dict[str, Any]:
-        return self.retry(lambda: task_flow.start_task(self, task_id))
+        with fsutil.locked(
+            self.store.run_dir / "execution", self.services.config.limits.lock_timeout_seconds
+        ):
+            return self.retry(lambda: task_flow.start_task(self, task_id))
 
     def exec_command(
         self,
@@ -223,10 +227,16 @@ class Orchestrator(Engine):
         polling: bool = False,
         flaky: bool = False,
     ) -> tuple[dict[str, Any], int]:
-        return task_exec.exec_command(self, argv, task_id, timeout, polling, flaky)
+        with fsutil.locked(
+            self.store.run_dir / "execution", self.services.config.limits.lock_timeout_seconds
+        ):
+            return task_exec.exec_command(self, argv, task_id, timeout, polling, flaky)
 
     def check_task(self, task_id: str, stop_on_failure: bool = True) -> dict[str, Any]:
-        return task_check.check_task(self, task_id, stop_on_failure)
+        with fsutil.locked(
+            self.store.run_dir / "execution", self.services.config.limits.lock_timeout_seconds
+        ):
+            return task_check.check_task(self, task_id, stop_on_failure)
 
     def record_task(
         self,

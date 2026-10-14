@@ -67,7 +67,9 @@ class AcknowledgeCase(unittest.TestCase):
     def trip(self) -> None:
         """Overrun the budget, which asks for a human (ASK_HUMAN)."""
         self.run_cli("task", "next")
-        event = budget_event("task-1", 1.0, 1e9).to_dict()
+        # Trip the task budget (100) without exhausting the whole-run budget (400).
+        # The latter is intentionally not clearable by a human acknowledgement.
+        event = budget_event("task-1", 1.0, 101.0).to_dict()
         store = StateStore(run_dir(self.work / "state", RUN), SystemClock())
         store.update(lambda state: with_guard_event(state, event))
         self.assertEqual(self.run_cli("guard", "check")[1]["action"], "ask_human")
@@ -160,7 +162,7 @@ class AcknowledgeTests(AcknowledgeCase):
     def test_the_guard_counts_again_from_the_reset(self) -> None:
         self.trip()
         self.acknowledge()
-        event = budget_event("task-1", 2.0, 1e9).to_dict()
+        event = budget_event("task-1", 2.0, 101.0).to_dict()
         store = StateStore(run_dir(self.work / "state", RUN), SystemClock())
         store.update(lambda state: with_guard_event(state, event))
         self.assertEqual(self.run_cli("guard", "check")[1]["action"], "ask_human")

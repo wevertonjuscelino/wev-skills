@@ -21,6 +21,8 @@ O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um
 | Planos, contratos de tarefa, estado, retomada e relatórios de entrega | Implementado e testado | Testes locais não usam modelo |
 | Permissões, aprovações de uso único e portões de verificação | Implementado e testado | Heurísticas e registros de auditoria; sem sandbox |
 | Registro de agentes, herança e exportação de subagentes | Implementado e testado | Agentes exportados não foram carregados em sessão real |
+| Entrevista de objetivo: até três perguntas por rodada | Implementado e testado | CLI local e briefs armazenados; entrevista conduzida por modelo não validada |
+| Especialistas de projeto, experiência limitada e orçamento de execução | Implementado e testado | Só registros do motor; lições consultivas; unidades de comando, não tokens ou dinheiro |
 | Skills, hooks e manifestos do plugin | Implementado e testado | Testes de formato e subprocesso; integração real não testada |
 | Adaptadores opcionais JEV, SSH/tmux e avaliação | Simulado com mocks | Uma resposta JEV gravada e hosts remotos simulados |
 | Outros ambientes de agentes e suporte a Windows | Apenas documentado / bloqueado | Adaptadores futuros; travas de arquivo POSIX hoje |
@@ -70,6 +72,8 @@ claude --plugin-dir "$WEV_HOME"
 ```
 
 O [guia de instalação](docs/guides/installation.pt-BR.md) cobre instalação persistente do plugin, atualizações e remoção. O [guia de orquestração](docs/guides/orchestration.pt-BR.md) mostra como iniciar uma execução, executar tarefas, registrar verificações e gerar um relatório.
+
+A entrada de objetivos está documentada no [guia de entrevista](docs/guides/intake.pt-BR.md). Papéis de projeto, experiência baseada em evidência e os limites de 80%/100% do orçamento de comandos estão no [guia de especialistas](docs/guides/specialists.pt-BR.md).
 
 ## Recursos e documentação
 

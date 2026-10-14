@@ -33,5 +33,7 @@
   "hooks.reason.state_error": "O estado registrado desta execução não pode ser lido ({error}); nada pode ser verificado, então uma pessoa decide. Inspecione o diretório de estado antes de continuar.",
   "hooks.reason.internal_error": "O motor falhou ao verificar este comando ({error}); ele não foi verificado, então uma pessoa decide.",
   "hooks.reason.unreadable_input": "A entrada do hook não pôde ser lida (grande demais ou JSON inválido), então o comando não foi verificado e uma pessoa decide.",
-  "hooks.reason.unknown_target": "Este comando indica um caminho por meio de uma variável, então o alvo não pode ser conhecido aqui, e há uma execução wev ativa em {root}. Ele pode tocar a árvore dessa execução, então uma pessoa decide."
+  "hooks.reason.unknown_target": "Este comando indica um caminho por meio de uma variável, então o alvo não pode ser conhecido aqui, e há uma execução wev ativa em {root}. Ele pode tocar a árvore dessa execução, então uma pessoa decide.",
+  "orch.budget.warning": "A execução consumiu ao menos 80% do orçamento do motor; revise o escopo restante.",
+  "orch.budget.stop": "Orçamento da execução esgotado ou o trabalho solicitado excederia o limite; inicie outra execução com limites revisados."
 }

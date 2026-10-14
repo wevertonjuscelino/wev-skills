@@ -55,6 +55,65 @@
       "type": "array",
       "maxItems": 64,
       "items": { "$ref": "#/$defs/short_text" }
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "text", "evidence", "created_at", "accepted_by"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "kind": { "enum": ["practice", "pitfall", "need"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run_id", "task_id"],
+          "properties": {
+            "run_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "task_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "records": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "id"],
+                "properties": {
+                  "type": { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "id": { "type": "string", "minLength": 1, "maxLength": 200 }
+                }
+              }
+            }
+          }
+        },
+        "created_at": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "accepted_by": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "confirmations": { "type": "integer", "minimum": 0 },
+        "contradictions": { "type": "integer", "minimum": 0 },
+        "last_seen_run": { "type": "string", "maxLength": 64 },
+        "status": { "enum": ["active", "stale", "retired"] },
+        "derivation": { "type": "string", "maxLength": 64 },
+        "key": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string", "maxLength": 400 }
+        },
+        "contains_authored_text": { "type": "boolean" },
+        "authored": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "text"],
+            "properties": {
+              "label": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "text": { "type": "string", "maxLength": 400 }
+            }
+          }
+        },
+        "note": { "type": "string", "maxLength": 400 }
+      }
     }
   },
   "properties": {
@@ -160,6 +219,11 @@
       "items": { "type": "string", "minLength": 1, "maxLength": 512 }
     },
     "output_format": { "$ref": "#/$defs/long_text" },
-    "stop_conditions": { "$ref": "#/$defs/text_list" }
+    "stop_conditions": { "$ref": "#/$defs/text_list" },
+    "experience": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/lesson" }
+    }
   }
 }
