@@ -92,6 +92,10 @@ def _discards(sub: str, rest: Argv) -> bool:
 
 
 def _runs_programs(sub: str, rest: Argv) -> bool:
+    if sub in ("diff", "show", "log", "blame", "grep", "cat-file") and has_long(
+        rest, ("--textconv", "--ext-diff")
+    ):
+        return True
     if sub not in RUNS_PROGRAMS:
         return False
     word = RUN_WORDS.get(sub)

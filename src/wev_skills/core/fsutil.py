@@ -72,11 +72,10 @@ def atomic_write_text(path: Path, text: str) -> None:
 def append_line(path: Path, line: str) -> None:
     """Append one line under an exclusive lock so concurrent writers do not interleave."""
     ensure_private_dir(path.parent)
-    with locked(path), open(path, "a", encoding="utf-8") as handle:
+    with locked(path), os.fdopen(_open_private_append_file(path), "a", encoding="utf-8") as handle:
         handle.write(line.rstrip("\n") + "\n")
         handle.flush()
         os.fsync(handle.fileno())
-    os.chmod(path, PRIVATE_FILE_MODE)
 
 
 def ensure_ignored_dir(path: Path) -> Path:
@@ -91,9 +90,9 @@ def ensure_ignored_dir(path: Path) -> Path:
     return path
 
 
-def _open_lock_file(lock_path: Path) -> int:
-    """Open (creating it private) the lock file and tighten one of ours that is too open."""
-    descriptor = os.open(lock_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, PRIVATE_FILE_MODE)
+def _open_private_append_file(path: Path) -> int:
+    """Create privately and tighten existing owned files before any content is written."""
+    descriptor = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, PRIVATE_FILE_MODE)
     try:
         status = os.fstat(descriptor)
         is_too_open = stat.S_IMODE(status.st_mode) & ~PRIVATE_FILE_MODE != 0
@@ -128,7 +127,7 @@ def locked(path: Path, timeout: float = LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
     ``StateConflict`` (``lock_timeout``) instead of hanging forever.
     """
     ensure_private_dir(path.parent)
-    descriptor = _open_lock_file(path.with_name(f".{path.name}.lock"))
+    descriptor = _open_private_append_file(path.with_name(f".{path.name}.lock"))
     try:
         _acquire(descriptor, path, timeout)
         try:

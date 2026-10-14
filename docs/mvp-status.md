@@ -4,7 +4,7 @@ Portuguese version: [mvp-status.pt-BR.md](mvp-status.pt-BR.md).
 
 Date of every check below: 2026-10-13. Machine: macOS (Darwin), Python 3.14.7 (see "Verification results"); Claude Code for `claude plugin validate`. Nothing was run on Linux or on Windows.
 
-Repository state: published on 2026-10-13 as a 0.1.0 pre-release at <https://github.com/wevertonjuscelino/wev-skills> (public). As of this commit: the CI workflows exist and have not completed a run; nothing has been exercised in a live Claude Code session; there has been no real tmux or SSH run; three rounds of independent review were followed by fixes, and the fixes made after the last round have not been independently re-verified; the security position is the one in [SECURITY.md](../SECURITY.md). No tag or GitHub release exists in the working tree: the owner creates `v0.1.0` (see "After publishing").
+Repository state: published on 2026-10-13 as a 0.1.0 pre-release at <https://github.com/wevertonjuscelino/wev-skills> (public). As of this commit: the CI workflows exist; consult the Actions history for results by commit; nothing has been exercised in a live Claude Code session; there has been no real tmux or SSH run; three rounds of independent review were followed by fixes, and the fixes made after the last round have not been independently re-verified; the security position is the one in [SECURITY.md](../SECURITY.md). No tag or GitHub release exists in the working tree: the owner creates `v0.1.0` (see "After publishing").
 
 This document is strict. A criterion that depends on something that was not run is marked partial or blocked, with the reason. "Met" means the evidence named in [the specification](spec.md) exists and its recorded command passes; it does not mean the thing has been used in the field. Labels: implemented and tested; implemented but untested; simulated with mocks; documented only; blocked (see the [glossary](glossary.md)).
 
@@ -119,7 +119,7 @@ In the commands below, `PYTHONPATH=src` is set and the working directory is the 
 ### 13. CI workflows are configured: Partial
 
 - Evidence: `.github/workflows/ci.yml` and `.github/workflows/remote-integration.yml` (manual, local tmux) exist.
-- Remains: as of this commit the workflows have not completed a run (the repository was published on 2026-10-13). Whether they pass on GitHub runners is unknown. Actions are pinned to commit SHAs (`actions/checkout` v7.0.1 and `actions/setup-python` v7.0.0, looked up on 2026-10-13); the pinned versions have not been exercised. The matrix is Ubuntu and macOS on Python 3.14 only.
+- Remains: verify the Actions results for the commit being released. Actions are pinned to commit SHAs (`actions/checkout` v7.0.1 and `actions/setup-python` v7.0.0, looked up on 2026-10-13). The matrix is Ubuntu and macOS on Python 3.14 only.
 
 ### 14. Test commands that were run have recorded results: Met
 
@@ -135,7 +135,7 @@ In the commands below, `PYTHONPATH=src` is set and the working directory is the 
 ### 16. The project is published as a pre-release and its status is recorded: Partial
 
 - Published: the owner authorized publication on 2026-10-13 as a 0.1.0 pre-release at <https://github.com/wevertonjuscelino/wev-skills> (public). The working tree was prepared for it: repository URL in the manifests and documents, git hooks, CODEOWNERS, Dependabot, pinned actions, a hygiene test, a maintaining guide.
-- Not established: CI has not completed a run; nothing was exercised in a live Claude Code session; no real tmux or SSH run; the fixes after the last review round have not been independently re-verified. See [After publishing](#after-publishing).
+- Not established: nothing was exercised in a live Claude Code session; no real tmux or SSH run; the fixes after the last review round have not been independently re-verified. See [After publishing](#after-publishing).
 - Not done in the working tree: the commit, the push, the tag `v0.1.0`, the GitHub release and every repository setting. The owner does those.
 
 ## Commands executed
@@ -162,7 +162,7 @@ Not run on purpose: `wev approval grant`, `wev approval deny`, `wev guard acknow
 ## Not verified
 
 - Nothing was run in a live Claude Code session: skills, exported subagents and hooks have not been seen loading, triggering or being followed.
-- The GitHub Actions workflows have not completed a run as of this commit.
+- GitHub Actions results must be checked for the commit being released.
 - No real tmux and no real SSH host: the remote module is simulated with mocks only.
 - Nothing was run on Linux, and only Python 3.14.7 was used. Python 3.10 to 3.13 are not supported and not tested; the one earlier run on 3.10 predates the change of minimum.
 - JEV is verified by three real calls with synthetic inputs only: one classification response (recorded as a fixture) and two tool-selection responses (not saved). This establishes the answer format for this use and nothing about token savings or task success.
@@ -177,7 +177,7 @@ Not run on purpose: `wev approval grant`, `wev approval deny`, `wev guard acknow
 
 The repository is published; none of these is done. The repository settings cannot be set from the working tree, so the items about settings are recommendations for the owner, not things already enabled.
 
-- [ ] Watch the first CI run on GitHub (`ci.yml`: test on Ubuntu and macOS with Python 3.14, lint, skills, git hooks and documents, secrets scan) and fix what it reports. The pinned action versions are unexercised.
+- [ ] Check the CI run for the release commit on GitHub (`ci.yml`: test on Ubuntu and macOS with Python 3.14, lint, skills, git hooks and documents, secrets scan) and fix what it reports.
 - [ ] Turn on the repository settings listed in the [maintaining guide](guides/maintaining.md): branch protection or a ruleset on `main`, private vulnerability reporting, secret scanning and push protection, Dependabot alerts; and, in the owner's account settings, "keep my email address private" and "block command line pushes that expose my email".
 - [ ] Try the plugin in a live Claude Code session: load it with `--plugin-dir`, run `wev-orchestrate` on a small task, check that the hooks fire and that the subagents load. Then try the published route (`claude plugin marketplace add wevertonjuscelino/wev-skills`). Record the result.
 - [ ] Run the manual `remote-integration.yml` workflow (real tmux, locally on the runner) and `tests/integration/test_tmux_local.py` on a machine with tmux.

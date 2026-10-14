@@ -1,200 +1,137 @@
 # wev-skills
 
-Portuguese version: [README.pt-BR.md](README.pt-BR.md).
+An open source orchestration engine for developers who want AI coding agents to plan, execute and report work with recorded verification evidence.
 
-An open source, evidence-oriented orchestration harness for AI coding agents: a dependency-free Python engine with a JSON command-line interface (`wev`), plus Claude Code skills, subagents and hooks. It helps an agent carry out multi-step work with a recorded plan, task contracts, permission checks, loop detection, verification evidence and resumable state, and it reports every result with a label that says how much evidence stands behind it.
+[Português brasileiro](README.pt-BR.md) · [Installation](docs/guides/installation.md) · [Architecture](docs/architecture/architecture.md) · [Examples](examples/README.md)
 
-It is for a developer who wants larger tasks planned, delegated and verified with a record of what was actually checked, for a team that wants to define its own agents as versioned configuration instead of code, and for a maintainer who wants to compare harness settings on a fixed set of tasks. Nothing in it assumes a particular repository, language or company. Claude Code is the only environment with an adapter; the engine does not depend on it.
+[![CI](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
 
-> [!IMPORTANT]
-> Pre-release 0.1.0, published on 2026-10-13 at https://github.com/wevertonjuscelino/wev-skills. The CI workflows exist and have not completed a run. Nothing has been exercised in a live Claude Code session, and there has been no real tmux or SSH run. There is no package on PyPI and no listing in an official marketplace. Every claim below carries one of five evidence labels, and nothing is claimed without evidence.
-
-Skill maintenance across repositories uses `wev-skill-maintenance` ([guide](skills/wev-skill-maintenance/SKILL.md)) and a [reviewed external source pin](skills/wev-skill-maintenance/references/upstream.json). The external Netresearch skill-repo guide is installed separately; updates and conflicts follow the [maintenance policy](skills/wev-skill-maintenance/references/policy.md), with no automatic synchronization.
+The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Code plugin connects it to skills, subagents and hooks. Task contracts, resumable state and evidence labels make the work inspectable; the engine enforces the rules that code can check.
 
 ## Status
 
-The labels are: implemented and tested; implemented but untested; simulated with mocks; documented only; blocked. The [MVP status](docs/mvp-status.md) lists the evidence for each acceptance criterion.
+> [!IMPORTANT]
+> Version 0.1.0 is an alpha release. The CLI and plugin format have automated tests; a live Claude Code session, real remote execution and model-quality evaluation remain unvalidated. There is no PyPI package or official marketplace listing. The CI badge links to current workflow results.
 
-| Capability | Status | Evidence and caveats |
+| Capability | Evidence | Practical limit |
 |---|---|---|
-| Engine: classification, strategy, plan, task contracts, state, resume, report | implemented and tested | Unit tests and a CLI flow integration test, all without a model |
-| Verification gate: `verified` needs a passing check made after the task last started, on the tree as it is; a baseline of the checks is taken when a task starts | implemented and tested | Unit tests. The checks are written by the agent or the plan author; the engine verifies that they ran and passed, not that they are sufficient |
-| Permissions, approvals, command classification, redaction, state-directory protection, configuration pinned per run | implemented and tested | Unit tests and a security suite. Classification is a heuristic; not independently reviewed |
-| Human-operator commands (`approval grant`, `approval deny`, `guard acknowledge`, `task reopen`) | implemented and tested | They need a terminal and a typed word and accept no bypass flag. A determined process can fake a terminal; see the warning below |
-| Execution guard: loops, repeated failures, no progress, hand-off cycles, time | implemented and tested | Deterministic unit tests. The budget rule has no input in a live run today |
-| Tool selection (`wev select-tools`, `harness.tool_selection`, `wev task tools`) with the local policy | implemented and tested | Unit tests |
-| Context manager (staged compaction) | implemented and tested | Used by `wev context compact` and the evaluation harness. It does not manage Claude Code's own context |
-| Agent specs: registry, factory, inheritance, permission ceiling, export to subagents | implemented and tested | The exported subagent files have not been loaded by a live Claude Code session |
-| Decision provider: local policy | implemented and tested | Deterministic rules, no network |
-| Decision provider: JEV adapter (optional, off by default) | simulated with mocks | Tested against a fake `jev` serving one recorded real response (2026-10-13, synthetic input). Sends the task objective to a third party when enabled |
-| Remote module (SSH and tmux, optional) | simulated with mocks | Tested against a simulated host only; never run against real tmux or a real server |
-| Evaluation harness | simulated with mocks | Scripted agent, simulated units, no model |
-| `wev claude-md` and `wev readme check` | implemented and tested | Unit tests. `claude-md` writes only a file named `CLAUDE.md` inside the repository; `readme check` only reads |
-| Plugin hooks: brief re-injection, Bash pre-check | implemented and tested | Unit and subprocess tests. Once a run is known a problem becomes `ask`, not silence |
-| Seven skills and the plugin manifests | implemented and tested | Unit tests for format and command references. `claude plugin validate .` passes with one warning (a `CLAUDE.md` at the plugin root is not loaded as plugin context), checked with Claude Code 2.1.296 on 2026-10-13 |
-| Skills, subagents and hooks inside a live Claude Code session | implemented but untested | Never exercised in a live session |
-| Mechanisms taken from the research paper (conditional planning, tool profiles, plan reminder, capability profiles) | implemented and tested | Mechanics tested; effect not measured with a real model |
-| CI workflows | implemented but untested | The files parse as YAML and pin their actions to commit SHAs. No run has completed as of this commit |
-| Installation by marketplace or `pip install` | documented only | Commands read from `--help` output; not run |
-| Adapters for other environments; evaluation against real models | documented only | Future work |
-| Windows | blocked | The state store uses POSIX file locks |
+| Plans, task contracts, state, resume and delivery reports | Implemented and tested | Local tests use no model |
+| Permissions, single-use approvals and verification gates | Implemented and tested | Heuristics and audit records; no sandbox |
+| Agent registry, inheritance and subagent export | Implemented and tested | Exported agents have not been loaded in a live session |
+| Skills, hooks and plugin manifests | Implemented and tested | Format and subprocess tests; live integration untested |
+| Optional JEV, SSH/tmux and evaluation adapters | Simulated with mocks | A recorded JEV response and simulated remote hosts |
+| Other agent environments and Windows support | Documented only / blocked | Future adapters; POSIX file locks today |
 
-## How it works
-
-The engine (`src/wev_skills/`, Python 3.14+, standard library only) owns every rule that code can check: whether a plan is valid, which task transitions are legal, whether a command is allowed, whether an approval covers it, whether the agent is stuck in a loop, and whether a task can be recorded as verified. The six skills in `skills/` (`wev-orchestrate`, `wev-agent-builder`, `wev-harness-evaluation`, `wev-remote-ops`, `wev-claude-md` and `wev-readme`) are Markdown instructions that tell Claude Code when to call the engine and how to act on its answers. The model reasons and edits; the engine records, decides and refuses invalid steps with a non-zero exit code. The reasoning is in [ADR 0002](docs/architecture/decisions/0002-engine-enforces-skills-instruct.md) and the [architecture](docs/architecture/architecture.md).
-
-The flow is `REQUEST → DISCOVER → CLASSIFY → PLAN → DECIDE → EXECUTE → VERIFY → REVIEW → DELIVER`, with the modes `plan` (look, change nothing), `execute`, `auto` and a resume operation that compares the recorded run with the real repository first.
-
-> [!WARNING]
-> The engine is a guardrail for a fallible agent and a recorder of decisions. It is not a security boundary against an adversarial agent in the same account: it runs as the same user as the agent it constrains, and every file it keeps can be rewritten by that agent. Isolation has to come from outside (a container, a separate user, operating-system permissions). Enforcement also covers only what passes through the engine or the Bash hook; edits made with Claude Code's own file tools are not seen. See [SECURITY.md](SECURITY.md).
+Detailed acceptance evidence is in [MVP status](docs/mvp-status.md). The [local security review of 2026-10-13](docs/security-review-2026-10-13.md) records findings and scope; it is an internal review, not a certification.
 
 ## Requirements
 
-- Python 3.14 or newer on macOS or Linux. Nothing to install: the engine uses only the standard library. Older interpreters are not supported, including the stock macOS `/usr/bin/python3` (3.9). With an older `python3` first on `PATH` the plugin's hooks exit quietly and check nothing (check with `python3 --version`). The suite last ran on Python 3.14.7, as recorded in the [MVP status](docs/mvp-status.md).
-- `git`, for run snapshots and drift detection.
-- Claude Code, only for the plugin (skills, subagents, hooks). The CLI works without it.
-- Optional: `tmux` and `ssh` (remote module), `ruff`, `mypy` or `uvx` (`make lint`).
+- **Python 3.14+** on macOS or Linux, and **Git**. The engine has no runtime dependencies.
+- **Claude Code** for plugin use. The CLI works independently.
+- Optional: `ssh` and `tmux` for remote operations; `ruff` and `mypy`, or `uvx`, for linting.
+
+Check `python3 --version` before using the plugin. Older interpreters are unsupported, and plugin hooks can exit without checking commands when Python is too old. Windows is unsupported.
 
 ## Quick start
 
-Clone the repository (documented only; the clone was not run for this README) and call the clone `$WEV_HOME`. Update, uninstall, verification and rollback are in the [installation guide](docs/guides/installation.md).
+Clone the public repository and locate its CLI. These clone commands are the reader's installation step and were not executed during this documentation review:
 
 ```sh
 git clone https://github.com/wevertonjuscelino/wev-skills.git
-export WEV_HOME="$PWD/wev-skills"
+cd wev-skills
+export WEV_HOME="$PWD"
 "$WEV_HOME/bin/wev" --help
 ```
 
-Below, `wev` stands for `"$WEV_HOME/bin/wev"`. This is a real run, made today in a temporary git repository with a `Makefile` that has a `test` target and `.wev/` in `.gitignore`. Outputs are shortened to the fields that matter; the engine prints more. State is written to `.wev/` in the current directory.
+The following read-only example was executed locally on 2026-10-13. It uses the default local policy, makes no model call and changes no project files:
 
 ```text
-$ wev run start --objective "Add a greeting file" --files 1 --run-id demo-1
-  classification: complexity trivial, risk low        (source: local-policy)
-  strategy:       flow direct, no plan, no independent review
-  discovery:      make test (from Makefile)
-  config:         source defaults, digest pinned for the run
-  next_step:      wev task next --run demo-1
-
-$ wev task next
-  offered: task-1  agent senior-engineer  model claude-sonnet-5-5  checks ["make test", "git diff --stat"]
-
-$ wev task start task-1
-  status running, attempt 1, contract handed out
-  baseline: taken, passed ["make test", "git diff --stat"]
-
-$ wev exec --task task-1 -- touch greeting.txt
-  record: status passed, exit_code 0, changed_files ["greeting.txt"]    guard: continue
-
-$ wev task check task-1
-  all_met true: "1 of 1 acceptance criteria met, 0 unmet, 0 unverified; 0 checks not run."
-
-$ wev task record task-1 --status verified --summary "greeting file added" --changed-file greeting.txt
-  status verified   next_step: wev run finish --run demo-1
-
-$ wev run report --format md
-  # Delivery report: run demo-1
-  - Overall status: complete
-  ### task-1: Add a greeting file     Status: verified   Evidence: tested
-  | Check that ran | Exit code | Log | Evidence |    make test | 0 | ... | tested |
-
-$ wev run finish
-  {"run_id": "demo-1", "phase": "done", "complete": true, ...}
+$ bin/wev classify --objective 'Add a greeting file' --files 1
+{
+  "complexity": "trivial",
+  "risk": "low",
+  "uncertainty": 0.0,
+  "parallelizable": false,
+  "reasons": [
+    "Low risk: no risk rule fired.",
+    "Trivial: at most one file, no unknowns, a single piece of work."
+  ],
+  "source": "local-policy"
+}
 ```
 
-Trying to skip the evidence is refused, and a destructive command asks for a person:
-
-```text
-$ wev task record task-1 --status verified --summary "too early"
-  exit 2  verification_required: Task task-1 cannot be recorded as verified: 1 acceptance criterion(s) have no passing check made after the task last started and no tested evidence.
-
-$ wev exec --task task-1 -- rm -rf build
-  exit 4  approval_required: Command needs approval: Approval needed: the command removes files recursively or without confirmation.
-```
-
-The agent must stop there and ask the human operator, who reviews the approval and grants it in their own terminal. That step needs a terminal and a typed word, so it was not run for this README; it is shown as the operator's step:
-
-```sh
-wev approval grant <approval-id>
-```
-
-The [orchestration guide](docs/guides/orchestration.md) shows the full flow with plans, independent review and resume.
-
-To load the plugin (six skills, ten subagents and three hooks) for one session only:
+For a plugin session, run the following reader's step (live session not validated):
 
 ```sh
 claude --plugin-dir "$WEV_HOME"
 ```
 
-To install it in every session, add the repository as a marketplace and install the plugin (documented only; these commands change the Claude Code configuration of the machine and were not run):
+The [installation guide](docs/guides/installation.md) covers persistent plugin installation, updates and removal. The [orchestration guide](docs/guides/orchestration.md) walks through starting a run, executing tasks, recording checks and generating a report.
 
-```sh
-claude plugin marketplace add wevertonjuscelino/wev-skills
-claude plugin install wev-skills@wev-skills-marketplace
+## Features and documentation
+
+| Area | Guide | Skill |
+|---|---|---|
+| Plan → task → execute → verify → report; resume and execution guards | [Orchestration](docs/guides/orchestration.md) | `wev-orchestrate` |
+| JSON agent specs, templates, inheritance and permission ceilings | [Creating agents](docs/guides/creating-agents.md) | `wev-agent-builder` |
+| Deterministic evaluation of harness mechanics | [Evaluation](docs/guides/evaluation.md) | `wev-harness-evaluation` |
+| Inventory-based SSH and task-owned tmux sessions | [Remote operations](docs/guides/remote-ops.md) | `wev-remote-ops` |
+| Managed project guidelines in `CLAUDE.md` | [Guidelines skill](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
+| Bilingual README checks | [README standard](skills/wev-readme/SKILL.md) | `wev-readme` |
+| Reviewed upstream updates and conflict reconciliation | [Maintenance policy](skills/wev-skill-maintenance/references/policy.md) | `wev-skill-maintenance` |
+
+Configuration, local decisions and the optional third-party JEV provider are documented in [configuration and providers](docs/guides/configuration-and-providers.md). Skills instruct the agent; engine code enforces task transitions and verification rules ([ADR 0002](docs/architecture/decisions/0002-engine-enforces-skills-instruct.md)).
+
+```text
+src/wev_skills/   Python engine, CLI and adapters
+skills/          Agent instructions
+agent-specs/     Source JSON specifications for agents
+agents/          Generated Claude Code subagents
+hooks/           Plugin integration
+tests/          Unit, integration and security tests
+docs/           Guides, architecture, evidence and provenance
+examples/       Sample configuration and task contracts
 ```
 
-Inside a Claude Code session the equivalents are `/plugin marketplace add wevertonjuscelino/wev-skills` and `/plugin install wev-skills@wev-skills-marketplace` (documented only). From a clone, `claude plugin marketplace add "$WEV_HOME"` adds the local marketplace instead.
+Project files: [contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [changelog](CHANGELOG.md), [code of conduct](CODE_OF_CONDUCT.md), [MIT license](LICENSE) and [NOTICE](NOTICE). External material and separate license terms are recorded in [third-party provenance](docs/THIRD-PARTY.md).
 
-## Features
-
-- **Orchestration** with task contracts: objective, context, scope, exclusions, constraints, acceptance criteria, checks, response format, permissions, agent and model, handed to exactly one agent. Parallel tasks only when independent, never two on the same files. [Orchestration guide](docs/guides/orchestration.md).
-- **Evidence labels**: the report labels every claim `tested`, `untested`, `mocked`, `documented_only` or `blocked`.
-- **Agents as data**: schema-validated JSON specs, templates, inheritance, a permission ceiling, bilingual text and export to Claude Code subagents. [Creating agents](docs/guides/creating-agents.md).
-- **Permissions and approvals**: no shell, command classification, plan-mode denial, protected paths, approvals bound to the exact command, single use and expiring, redaction. [Security guide](docs/guides/security.md).
-- **Execution guard**: identical repeated commands, consecutive failures, no progress, hand-off cycles and time.
-- **Decision providers and model routing**: a local deterministic policy and an optional JEV adapter; tiers `economy`, `standard`, `premium`; optional per-task tool selection. A run pins its configuration (`wev.config.json` at the repository root, or `--config` at start). [Configuration and providers](docs/guides/configuration-and-providers.md).
-- **Claude Code plugin hooks**: re-inject the run brief after compaction and with each prompt, and check Bash commands against the run's pinned policy by answering `ask` or `deny`, never `allow`. Plain hooks were chosen over Claude Code mods: [ADR 0005](docs/architecture/decisions/0005-hooks-not-mods.md).
-- **Remote module** (optional): inventory-only SSH aliases, strict host-key checking, tmux sessions owned by the task, production gated by approval. [Remote operations guide](docs/guides/remote-ops.md).
-- **Scripted evaluation harness**: deterministic, no model. [Evaluation guide](docs/guides/evaluation.md).
-- **Documentation helpers**: `wev claude-md init|update|check|show` keeps a managed guidelines block in a project's `CLAUDE.md` ([skill `wev-claude-md`](skills/wev-claude-md/SKILL.md)), and `wev readme check` verifies README files against this project's README standard ([skill `wev-readme`](skills/wev-readme/SKILL.md)).
-- Reference: [architecture](docs/architecture/architecture.md), [specification](docs/spec.md), [decision records](docs/architecture/decisions/), [glossary](docs/glossary.md), [research notes](docs/research/hypotheses.md), [third-party record](docs/THIRD-PARTY.md).
-
-> [!NOTE]
-> Evaluation results come from a scripted agent that replays fixed trajectories against the engine's components. No model is called, so they say nothing about the quality of any model.
-
-> [!NOTE]
-> The remote module has only been tested against a simulated host. It has never run against real tmux or a real server.
-
-## Testing and linting
+## Verification
 
 ```sh
 make test
 make lint
+bin/wev readme check
 ```
 
-`make test` runs `unittest discover` with no network, no model and nothing to install. `make lint` runs `ruff check`, `ruff format --check` and `mypy` in strict mode on the package, using the tools on `PATH`, then `uvx`, and otherwise reports that it skipped. Unit tests and CI run without a paid model provider and without a real remote host.
+Tests use standard-library `unittest`, fixture fakes and no paid model or real remote host. Lint checks Ruff formatting and rules plus strict mypy. Missing tools can be skipped: inspect the output before claiming a passing lint run. tmux integration tests skip when tmux is unavailable.
 
-Last recorded run (2026-10-13, Python 3.14.7, on the owner's machine, not in CI): `make test` ended with `Ran 2076 tests in 167.282s` and `OK (skipped=8)`; `make lint` ended with `Success: no issues found in 146 source files`. The full record is in the [MVP status](docs/mvp-status.md). The tmux integration tests are skipped where tmux is not installed.
-
-Project files: [LICENSE](LICENSE) (MIT; see also [NOTICE](NOTICE)), [CONTRIBUTING.md](CONTRIBUTING.md), the [maintaining guide](docs/guides/maintaining.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+The prior recorded local baseline (2026-10-13, Python 3.14.7) was **2076 tests, 8 skipped**, with strict mypy reporting **146 source files without issues**. This is historical evidence, not a claim that the current checkout has passed; see [MVP status](docs/mvp-status.md) and [CI runs](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml) for validation records.
 
 ## Limitations
 
-- It is not a sandbox. An allowed command runs with the full permissions of your user, and the engine does not read what a script does.
-- Command classification is a heuristic; a command it does not recognize may be treated as lower risk than it is. Interpreters and scripts (`python3 script.py`, `make`, `npm test`) run whatever their files say.
-- Approvals are friction plus an audit record, not authentication. Without the plugin's hooks nothing stands between a process and a pseudo-terminal that types the confirmation word, and even with them a script that drives a pseudo-terminal names nothing on the command line the hook reads, so it is not asked about.
-- Redaction is best effort and catches recognizable secrets only.
-- The hooks see the Bash tool only, and only act when the plugin is installed and enabled. The engine does not check edits made with Claude Code's own file tools.
-- The skills, subagents and hooks have not been exercised in a live Claude Code session. Compatibility with Claude Code is claimed only as far as its own validator accepts the manifests.
-- The JEV adapter was verified against one recorded response; live calls are untested. A JEV installed outside the system directories is not found by name: set `decision.jev.command` to its absolute path (see the configuration guide).
-- The mechanisms taken from the research paper are configurable defaults whose effect has not been measured with a real model.
-- Agent routing is a word-matching heuristic and can pick an unsuitable agent; read the `agent_id` in each contract. Classification depends on signals the caller estimates.
-- Some configuration keys do not do what their names suggest: `limits.budget_units` has no input in a live run, and `context.*` applies to `wev context compact` and the evaluation harness only.
-- Windows is not supported (POSIX file locks).
-- The CI workflows exist and have not completed a run. Only Python 3.14 is supported and tested; older interpreters are refused by `bin/wev`. Nothing was run on Linux.
+> [!WARNING]
+> This engine is not a security boundary against an adversarial agent running as the same user. Allowed commands inherit that user's permissions, and state can be rewritten. Use operating-system isolation when a real trust boundary is needed.
+
+- Command classification and secret redaction are heuristics. Scripts and interpreters can do more than their command line reveals.
+- Repository configuration can enable Git helpers even in read-only commands; see the [security review](docs/security-review-2026-10-13.md) before working with unfamiliar repositories.
+- Approvals provide friction and an audit trail, not human authentication; a process can emulate a terminal.
+- Plugin enforcement sees Bash calls that pass through its hooks. Native file-tool edits are outside those checks.
+- Passing checks prove that the recorded checks ran successfully, not that the acceptance criteria or tests are sufficient.
+- JEV is optional and off by default. When enabled it sends task data to a third party; review the provider policy before enabling it.
+- Evaluation uses a scripted agent, so it does not measure model quality. Remote operations have only simulated-host evidence.
+- `limits.budget_units` has no live-run input. Context settings apply to the CLI context manager and evaluation harness, not Claude Code's own context.
 
 ## Roadmap
 
-Future work, none of it implemented:
+Future work, not implemented or validated:
 
-- Hooks for tools other than Bash, and a run of the existing hooks inside a real Claude Code session.
-- Adapters for agent environments other than Claude Code.
-- YAML input for agent specs.
-- Evaluation against real models, and any measured comparison between configurations.
-- Windows support for the state store.
-- A recall tool surfaced to the model during a session.
-- First real runs of the remote module, starting with the local tmux test and a staging host.
-
-What remains to do after publishing is listed under "After publishing" in [docs/mvp-status.md](docs/mvp-status.md).
+- Exercise skills, exported agents and hooks in a live Claude Code session.
+- Validate local tmux and a staging SSH host; evaluate with real models.
+- Add adapters for other agent environments and support Windows state locking.
+- Extend hook coverage beyond Bash and expose recall during an agent session.
 
 ## Credits
 

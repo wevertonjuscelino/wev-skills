@@ -50,6 +50,24 @@ class GitAbbreviationTests(unittest.TestCase):
 
 
 class GitConfigExecutionTests(unittest.TestCase):
+    def test_explicit_diff_helpers_require_approval(self) -> None:
+        for line in (
+            "git diff --ext-diff",
+            "git show --textconv",
+            "git log -p --textconv",
+            "git blame --textconv file",
+            "git grep --textconv pattern",
+            "git cat-file --textconv HEAD:file",
+            "git diff --ext-d",
+        ):
+            with self.subTest(line=line):
+                self.assertTrue(risk(line).unanalyzable)
+                self.assertFalse(is_read_only(tuple(shlex.split(line))))
+
+    def test_disabled_diff_helpers_remain_read_only(self) -> None:
+        self.assertFalse(risk("git diff --no-ext-diff --no-textconv").needs_approval)
+        self.assertTrue(is_read_only(("git", "diff", "--no-ext-diff", "--no-textconv")))
+
     def test_config_driven_execution_is_unanalyzable(self) -> None:
         for line in (
             "git -c alias.x='!rm -rf src' x",

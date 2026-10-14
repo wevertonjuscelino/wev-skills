@@ -5,8 +5,6 @@
 # No step interpolates github.event.* or github.head_ref into a run: script.
 # If one is ever needed, pass it through env: and quote the variable.
 #
-# This workflow has not completed a run yet: the repository was published on 2026-10-13 and
-# nothing here has been seen passing on a GitHub runner.
 name: CI
 
 on:

@@ -5,6 +5,7 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from wev_skills.core import fsutil
 
@@ -142,6 +143,19 @@ class LockFileModeTests(PermissiveUmaskCase):
             pass
         with fsutil.locked(target, timeout=0.2):
             pass
+
+    def test_append_file_is_private_before_content_is_flushed(self) -> None:
+        target = self.tmp / "audit.jsonl"
+        for existing in (False, True):
+            with self.subTest(existing=existing):
+                if existing:
+                    os.chmod(target, 0o644)
+                with patch.object(fsutil.os, "fsync") as sync:
+                    sync.side_effect = lambda fd: self.assertEqual(
+                        stat.S_IMODE(os.fstat(fd).st_mode), fsutil.PRIVATE_FILE_MODE
+                    )
+                    fsutil.append_line(target, "private event")
+                sync.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ English version: [mvp-status.md](mvp-status.md).
 
 Data de todas as verificações abaixo: 2026-10-13. Máquina: macOS (Darwin), Python 3.14.7 (veja "Resultados da verificação"); Claude Code para `claude plugin validate`. Nada foi executado em Linux nem em Windows.
 
-Estado do repositório: publicado em 2026-10-13 como pré-lançamento 0.1.0 em <https://github.com/wevertonjuscelino/wev-skills> (público). Até este commit: os workflows de CI existem e não concluíram uma execução; nada foi exercitado em uma sessão real do Claude Code; não houve execução real com tmux ou SSH; três rodadas de revisão independente foram seguidas de correções, e as correções feitas depois da última rodada não foram verificadas de novo de forma independente; a posição de segurança é a do [SECURITY.pt-BR.md](../SECURITY.pt-BR.md). Nenhuma tag nem release do GitHub existe na árvore de trabalho: o dono cria a `v0.1.0` (veja "Depois de publicar").
+Estado do repositório: publicado em 2026-10-13 como pré-lançamento 0.1.0 em <https://github.com/wevertonjuscelino/wev-skills> (público). Até este commit: os workflows de CI existem; consulte o histórico de Actions para resultados por commit; nada foi exercitado em uma sessão real do Claude Code; não houve execução real com tmux ou SSH; três rodadas de revisão independente foram seguidas de correções, e as correções feitas depois da última rodada não foram verificadas de novo de forma independente; a posição de segurança é a do [SECURITY.pt-BR.md](../SECURITY.pt-BR.md). Nenhuma tag nem release do GitHub existe na árvore de trabalho: o dono cria a `v0.1.0` (veja "Depois de publicar").
 
 Este documento é rigoroso. Um critério que depende de algo que não foi executado é marcado como parcial ou bloqueado, com o motivo. "Atendido" significa que a evidência indicada na [especificação](spec.pt-BR.md) existe e o comando registrado passa; não significa que a coisa tenha sido usada em campo. Rótulos: implementado e testado; implementado mas não testado; simulado com mocks; apenas documentado; bloqueado (veja o [glossário](glossary.md)).
 
@@ -119,7 +119,7 @@ Nos comandos abaixo, `PYTHONPATH=src` está definido e o diretório de trabalho 
 ### 13. Os workflows de CI estão configurados: Parcial
 
 - Evidência: `.github/workflows/ci.yml` e `.github/workflows/remote-integration.yml` (manual, tmux local) existem.
-- Falta: até este commit os workflows não concluíram uma execução (o repositório foi publicado em 2026-10-13). Não se sabe se passam nos runners do GitHub. As actions estão fixadas em SHAs de commit (`actions/checkout` v7.0.1 e `actions/setup-python` v7.0.0, consultadas em 2026-10-13); as versões fixadas não foram exercitadas. A matriz é Ubuntu e macOS, só com Python 3.14.
+- Falta: verificar os resultados de Actions para o commit que será lançado. As actions estão fixadas em SHAs de commit (`actions/checkout` v7.0.1 e `actions/setup-python` v7.0.0, consultadas em 2026-10-13). A matriz é Ubuntu e macOS, só com Python 3.14.
 
 ### 14. Os comandos de teste executados têm resultados registrados: Atendido
 
@@ -135,7 +135,7 @@ Nos comandos abaixo, `PYTHONPATH=src` está definido e o diretório de trabalho 
 ### 16. O projeto está publicado como pré-lançamento e seu estado está registrado: Parcial
 
 - Publicado: o dono autorizou a publicação em 2026-10-13 como pré-lançamento 0.1.0 em <https://github.com/wevertonjuscelino/wev-skills> (público). A árvore de trabalho foi preparada para isso: URL do repositório nos manifestos e documentos, git hooks, CODEOWNERS, Dependabot, actions fixadas, um teste de higiene, um guia de manutenção.
-- Não estabelecido: o CI não concluiu uma execução; nada foi exercitado em uma sessão real do Claude Code; nenhuma execução real com tmux ou SSH; as correções posteriores à última rodada de revisão não foram verificadas de novo de forma independente. Veja [Depois de publicar](#depois-de-publicar).
+- Não estabelecido: nada foi exercitado em uma sessão real do Claude Code; nenhuma execução real com tmux ou SSH; as correções posteriores à última rodada de revisão não foram verificadas de novo de forma independente. Veja [Depois de publicar](#depois-de-publicar).
 - Não feito na árvore de trabalho: o commit, o push, a tag `v0.1.0`, a release do GitHub e todas as configurações do repositório. O dono faz isso.
 
 ## Comandos executados
@@ -162,7 +162,7 @@ Não executados de propósito: `wev approval grant`, `wev approval deny`, `wev g
 ## Não verificado
 
 - Nada foi executado em uma sessão real do Claude Code: skills, subagentes exportados e hooks não foram vistos carregando, disparando nem sendo seguidos.
-- Os workflows do GitHub Actions não concluíram uma execução até este commit.
+- Os resultados do GitHub Actions precisam ser conferidos para o commit que será lançado.
 - Nenhum tmux real e nenhum host SSH real: o módulo remoto é simulado apenas com mocks.
 - Nada foi executado em Linux, e só o Python 3.14.7 foi usado. O Python 3.10 a 3.13 não são suportados nem testados; a única execução anterior no 3.10 é anterior à mudança do mínimo.
 - O JEV está verificado por três chamadas reais com entradas sintéticas apenas: uma resposta de classificação (registrada como fixture) e duas respostas de seleção de ferramentas (não salvas). Isso estabelece o formato da resposta para este uso e nada sobre economia de tokens ou sucesso de tarefas.
@@ -177,7 +177,7 @@ Não executados de propósito: `wev approval grant`, `wev approval deny`, `wev g
 
 O repositório está publicado; nenhum destes itens foi feito. As configurações do repositório não podem ser definidas pela árvore de trabalho, então os itens sobre configurações são recomendações ao dono, não coisas já habilitadas.
 
-- [ ] Acompanhar a primeira execução do CI no GitHub (`ci.yml`: testes no Ubuntu e no macOS com Python 3.14, lint, skills, git hooks e documentos, varredura de segredos) e corrigir o que ele apontar. As versões fixadas das actions não foram exercitadas.
+- [ ] Conferir a execução do CI para o commit do lançamento no GitHub (`ci.yml`: testes no Ubuntu e no macOS com Python 3.14, lint, skills, git hooks e documentos, varredura de segredos) e corrigir o que ele apontar.
 - [ ] Ligar as configurações do repositório listadas no [guia de manutenção](guides/maintaining.pt-BR.md): proteção de branch ou ruleset em `main`, relato privado de vulnerabilidades, varredura de segredos e proteção de push, alertas do Dependabot; e, nas configurações da conta do dono, "keep my email address private" e "block command line pushes that expose my email".
 - [ ] Experimentar o plugin em uma sessão real do Claude Code: carregá-lo com `--plugin-dir`, executar `wev-orchestrate` em uma tarefa pequena, verificar se os hooks disparam e se os subagentes carregam. Depois experimentar a rota publicada (`claude plugin marketplace add wevertonjuscelino/wev-skills`). Registrar o resultado.
 - [ ] Executar o workflow manual `remote-integration.yml` (tmux real, localmente no runner) e `tests/integration/test_tmux_local.py` em uma máquina com tmux.
