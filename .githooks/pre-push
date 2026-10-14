@@ -39,6 +39,12 @@ if [ "$pushes_content" -eq 0 ]; then
     exit 0
 fi
 
+# Tests create independent Git repositories; inherited hook variables must not redirect
+# their Git commands back into the repository being pushed.
+for git_env_name in $(git rev-parse --local-env-vars); do
+    unset "$git_env_name"
+done
+
 echo "pre-push: running make test" >&2
 if ! make test >/dev/null; then
     echo "pre-push: make test failed; run it again to see the output." >&2

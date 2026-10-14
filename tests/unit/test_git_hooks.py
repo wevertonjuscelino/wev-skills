@@ -233,6 +233,33 @@ class PrePushTests(unittest.TestCase):
     def make_calls(self) -> list[str]:
         return self.log.read_text().split("\n")[:-1] if self.log.exists() else []
 
+    def test_git_hook_environment_does_not_redirect_fixture_repositories(self) -> None:
+        foreign = Path(self.tmp.name) / "foreign.git"
+        fake = self.bin / "make"
+        fake.write_text(
+            "#!/bin/sh\n"
+            'git init -q --bare "$FAKE_FOREIGN_REPO" || exit 1\n'
+            'echo "$@" >> "$FAKE_MAKE_LOG"\n',
+            encoding="utf-8",
+        )
+        env = clean_env(self.bin)
+        env["FAKE_MAKE_LOG"] = str(self.log)
+        env["FAKE_FOREIGN_REPO"] = str(foreign)
+        for name, value in (
+            ("GIT_DIR", self.root / ".git"),
+            ("GIT_COMMON_DIR", self.root / ".git"),
+            ("GIT_WORK_TREE", self.root),
+            ("GIT_INDEX_FILE", self.root / ".git" / "index"),
+        ):
+            env[name] = str(value)
+        line = f"refs/heads/main {self.head} refs/heads/main {ZERO_SHA}\n"
+        result = run([str(HOOKS / "pre-push")], self.root, env=env, stdin=line)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((foreign / "HEAD").is_file())
+        original = run(["git", "config", "--bool", "core.bare"], self.root)
+        self.assertEqual(original.stdout.strip(), "false")
+        self.assertEqual(self.make_calls(), ["test", "lint"])
+
     def test_a_clean_push_runs_test_then_lint(self) -> None:
         result = self.hook("refs/heads/feature")
         self.assertEqual(result.returncode, 0, result.stderr)
