@@ -9,6 +9,8 @@ Serve a quem desenvolve e quer que tarefas maiores sejam planejadas, delegadas e
 > [!IMPORTANT]
 > Pré-lançamento 0.1.0, publicado em 2026-10-13 em https://github.com/wevertonjuscelino/wev-skills. Os workflows de CI existem e ainda não concluíram uma execução. Nada foi exercitado em uma sessão real do Claude Code, e não houve execução real com tmux ou SSH. Não há pacote no PyPI nem entrada em um marketplace oficial. Cada afirmação abaixo traz um de cinco rótulos de evidência, e nada é afirmado sem evidência.
 
+A manutenção de skills entre repositórios usa `wev-skill-maintenance` ([guia](skills/wev-skill-maintenance/SKILL.md)) e uma [referência externa revisada](skills/wev-skill-maintenance/references/upstream.json). O guia skill-repo da Netresearch é instalado separadamente; atualizações e conflitos seguem a [política de manutenção](skills/wev-skill-maintenance/references/policy.pt-BR.md), sem sincronização automática.
+
 ## Status
 
 Os rótulos são: implementado e testado (implemented and tested); implementado mas não testado (implemented but untested); simulado com mocks (simulated with mocks); apenas documentado (documented only); bloqueado (blocked). O [status do MVP](docs/mvp-status.pt-BR.md) lista as evidências de cada critério de aceitação.
@@ -29,7 +31,7 @@ Os rótulos são: implementado e testado (implemented and tested); implementado 
 | Harness de avaliação | simulado com mocks | Agente roteirizado, unidades simuladas, sem modelo |
 | `wev claude-md` e `wev readme check` | implementado e testado | Testes unitários. `claude-md` grava só um arquivo chamado `CLAUDE.md` dentro do repositório; `readme check` apenas lê |
 | Hooks do plugin: reinjeção do resumo, pré-checagem de Bash | implementado e testado | Testes unitários e de subprocesso. Quando uma execução é conhecida, um problema vira `ask`, não silêncio |
-| Seis skills e os manifestos do plugin | implementado e testado | Testes unitários do formato e das referências a comandos. `claude plugin validate .` passa com um aviso (um `CLAUDE.md` na raiz do plugin não é carregado como contexto do plugin), verificado com o Claude Code 2.1.296 em 2026-10-13 |
+| Sete skills e os manifestos do plugin | implementado e testado | Testes unitários do formato e das referências a comandos. `claude plugin validate .` passa com um aviso (um `CLAUDE.md` na raiz do plugin não é carregado como contexto do plugin), verificado com o Claude Code 2.1.296 em 2026-10-13 |
 | Skills, subagentes e hooks dentro de uma sessão real do Claude Code | implementado mas não testado | Nunca exercitados numa sessão real |
 | Mecanismos derivados do artigo de pesquisa (planejamento condicional, perfis de ferramentas, lembrete do plano, perfis de capacidade) | implementado e testado | Mecânica testada; efeito não medido com um modelo real |
 | Workflows de CI | implementado mas não testado | Os arquivos são lidos como YAML. Nunca rodaram: nada foi publicado |

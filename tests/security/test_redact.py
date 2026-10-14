@@ -42,7 +42,7 @@ VENDOR_TOKENS = {
     "stripe_test": "sk" + "_test_" + ALNUM,
     "stripe_webhook": "wh" + "sec_" + ALNUM,
     "anthropic": "sk" + "-ant-" + "api03-" + ALNUM,
-    "openai_project": "sk" + "-proj-" + ALNUM,
+    "model_project": "sk" + "-proj-" + ALNUM,
     "hugging_face": "hf" + "_" + ALNUM,
     "google_oauth": "ya" + "29." + ALNUM + "-" + ALNUM,
     "sendgrid": "SG" + "." + ALNUM[:22] + "." + ALNUM + ALNUM[:15],

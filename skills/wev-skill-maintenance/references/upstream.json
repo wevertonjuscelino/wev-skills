@@ -1,0 +1,14 @@
+{
+  "name": "skill-repo",
+  "repository": "https://github.com/netresearch/skill-repo-skill",
+  "path": "skills/skill-repo",
+  "commit": "42a5e85798a8cdfda2866afb0de9aadb04e187f3",
+  "version": "2.4.0",
+  "reviewed_on": "2026-10-13",
+  "licenses": {
+    "content": "CC-BY-SA-4.0",
+    "scripts": "MIT"
+  },
+  "distribution": "external; not bundled",
+  "update_policy": "reviewed commit only; no automatic installation or repository mutation"
+}

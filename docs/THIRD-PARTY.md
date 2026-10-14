@@ -41,3 +41,15 @@ Before any third-party file, snippet, schema, prompt or dataset is added to this
 4. Never imply affiliation with or endorsement by the source's author or organization.
 
 A change that adds third-party material without a matching entry here should not be merged.
+
+## External maintenance reference
+
+Netresearch DTT GmbH's [skill-repo-skill](https://github.com/netresearch/skill-repo-skill),
+version 2.4.0 at commit `42a5e85798a8cdfda2866afb0de9aadb04e187f3`, consulted 2026-10-13,
+is an external dependency for repository-structure guidance. Copyright (c) 2025-2026
+Netresearch DTT GmbH. Content: CC-BY-SA-4.0; scripts/configuration: MIT. Its files are
+installed separately and are not redistributed in this repository. The original MIT
+`skills/wev-skill-maintenance/` coordinates review and local exceptions; it records provenance
+in `references/upstream.json` and links to the guide without copying its instructions or scripts.
+The project's licensing, branding, engine dependencies and CI are not migrated by this reference.
+No affiliation or endorsement is implied.

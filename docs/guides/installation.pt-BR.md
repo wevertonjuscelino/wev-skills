@@ -63,9 +63,19 @@ claude --plugin-dir "$WEV_HOME"
 | Parte | Onde | Status |
 |---|---|---|
 | Manifesto | `.claude-plugin/plugin.json` | `claude plugin validate` passa, com um aviso (abaixo) |
-| Seis skills | `skills/wev-orchestrate`, `wev-agent-builder`, `wev-harness-evaluation`, `wev-remote-ops`, `wev-claude-md`, `wev-readme` | Formato checado por testes unitários e pelo `claude plugin validate`; nunca exercitadas numa sessão real do Claude Code |
+| Sete skills | `skills/wev-orchestrate`, `wev-agent-builder`, `wev-harness-evaluation`, `wev-remote-ops`, `wev-claude-md`, `wev-readme`, `wev-skill-maintenance` | Formato checado por testes unitários e pelo `claude plugin validate`; nunca exercitadas numa sessão real do Claude Code |
 | Dez subagentes | `agents/*.md`, gerados a partir de `agent-specs/` | A geração está implementada e testada; nunca exercitados numa sessão real |
 | Três hooks | `hooks/hooks.json` | Implementados e testados com testes unitários e de subprocesso; nunca exercitados numa sessão real |
+
+O modelo pode escolher `wev-skill-maintenance` pela descrição para atualizar skills e
+padronizar múltiplos repositórios, ou o usuário pode invocar
+`/wev-skills:wev-skill-maintenance`. O frontmatter habilita explicitamente a invocação pelo
+modelo. O plugin expõe a skill por `skills/wev-skill-maintenance/SKILL.md`; o comando
+`select-tools` do engine reduz ferramentas de operação e não seleciona skills. O guia
+externo `skill-repo` continua sendo uma dependência instalada separadamente e conferida
+contra o commit fixado. A seleção depende da relevância da tarefa e das configurações do ambiente; não é garantida.
+A seleção carrega orientações; não autoriza manutenção ou publicação.
+Veja a [referência de invocação do ambiente](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill).
 
 Os hooks chamam `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`, que começa com `#!/usr/bin/env python3`, então o `python3` precisa estar no `PATH` que o Claude Code enxerga e precisa ser o Python 3.14 ou mais novo. O `/usr/bin/python3` original do macOS é o 3.9 e, como qualquer interpretador mais antigo, não é suportado: com um `python3` mais antigo primeiro no `PATH`, os hooks saem quietos (uma linha em stderr) e não verificam nada. Confira com `python3 --version` e, com `command -v python3`, veja qual deles é usado.
 

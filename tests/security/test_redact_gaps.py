@@ -215,7 +215,7 @@ class RedactGapTests(unittest.TestCase):
         for line in (
             f"ENCRYPTION_KEY={SHORT}",
             f"SIGNING_KEY: {SHORT}",
-            f"OPENAI_KEY={SHORT}",
+            f"MODEL_API_KEY={SHORT}",
             f"AccountName=x;AccountKey={SHORT}==;",
             f"SharedAccessKeyName=n;SharedAccessKey={SHORT}",
             f"//registry.example.org/:_authToken={SHORT}",

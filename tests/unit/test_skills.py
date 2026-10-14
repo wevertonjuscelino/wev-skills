@@ -31,6 +31,7 @@ EXPECTED_SKILLS = (
     "wev-orchestrate",
     "wev-readme",
     "wev-remote-ops",
+    "wev-skill-maintenance",
 )
 
 ALLOWED_KEYS = frozenset(
@@ -220,6 +221,19 @@ class SkillStructureTests(unittest.TestCase):
                 self.assertTrue(1 <= len(description) <= MAX_DESCRIPTION, len(description))
                 self.assertIn("Use when", description)
                 self.assertIn("português", description)
+
+    def test_maintenance_skill_is_discoverable_and_model_invocable(self) -> None:
+        path = SKILLS_DIR / "wev-skill-maintenance" / "SKILL.md"
+        lines, body = split_frontmatter(path.read_text(encoding="utf-8"))
+        meta = parse_frontmatter(lines)
+        self.assertEqual(meta["disable-model-invocation"], "false")
+        self.assertEqual(meta["user-invocable"], "true")
+        for trigger in ("upstream skill updates", "multiple repositories", "manter skills"):
+            self.assertIn(trigger, meta["description"])
+        self.assertIn("no explicit slash command", body)
+        self.assertIn("If absent, report the missing dependency", body)
+        plugin = json.loads((PLUGIN_DIR / "plugin.json").read_text(encoding="utf-8"))
+        self.assertNotIn("skills", plugin)  # Default discovery includes root skills/ directories.
 
     def test_body_is_shorter_than_the_limit(self) -> None:
         for name in EXPECTED_SKILLS:

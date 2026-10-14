@@ -9,6 +9,8 @@ It is for a developer who wants larger tasks planned, delegated and verified wit
 > [!IMPORTANT]
 > Pre-release 0.1.0, published on 2026-10-13 at https://github.com/wevertonjuscelino/wev-skills. The CI workflows exist and have not completed a run. Nothing has been exercised in a live Claude Code session, and there has been no real tmux or SSH run. There is no package on PyPI and no listing in an official marketplace. Every claim below carries one of five evidence labels, and nothing is claimed without evidence.
 
+Skill maintenance across repositories uses `wev-skill-maintenance` ([guide](skills/wev-skill-maintenance/SKILL.md)) and a [reviewed external source pin](skills/wev-skill-maintenance/references/upstream.json). The external Netresearch skill-repo guide is installed separately; updates and conflicts follow the [maintenance policy](skills/wev-skill-maintenance/references/policy.md), with no automatic synchronization.
+
 ## Status
 
 The labels are: implemented and tested; implemented but untested; simulated with mocks; documented only; blocked. The [MVP status](docs/mvp-status.md) lists the evidence for each acceptance criterion.
@@ -29,7 +31,7 @@ The labels are: implemented and tested; implemented but untested; simulated with
 | Evaluation harness | simulated with mocks | Scripted agent, simulated units, no model |
 | `wev claude-md` and `wev readme check` | implemented and tested | Unit tests. `claude-md` writes only a file named `CLAUDE.md` inside the repository; `readme check` only reads |
 | Plugin hooks: brief re-injection, Bash pre-check | implemented and tested | Unit and subprocess tests. Once a run is known a problem becomes `ask`, not silence |
-| Six skills and the plugin manifests | implemented and tested | Unit tests for format and command references. `claude plugin validate .` passes with one warning (a `CLAUDE.md` at the plugin root is not loaded as plugin context), checked with Claude Code 2.1.296 on 2026-10-13 |
+| Seven skills and the plugin manifests | implemented and tested | Unit tests for format and command references. `claude plugin validate .` passes with one warning (a `CLAUDE.md` at the plugin root is not loaded as plugin context), checked with Claude Code 2.1.296 on 2026-10-13 |
 | Skills, subagents and hooks inside a live Claude Code session | implemented but untested | Never exercised in a live session |
 | Mechanisms taken from the research paper (conditional planning, tool profiles, plan reminder, capability profiles) | implemented and tested | Mechanics tested; effect not measured with a real model |
 | CI workflows | implemented but untested | The files parse as YAML and pin their actions to commit SHAs. No run has completed as of this commit |

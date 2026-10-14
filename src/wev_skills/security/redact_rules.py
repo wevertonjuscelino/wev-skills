@@ -135,7 +135,7 @@ _TOKEN_SHAPES = (
     r"xox[abeoprs]-[A-Za-z0-9-]{10" + _MORE,  # Slack
     r"[sr]k_(?:live|test)_[A-Za-z0-9]{10" + _MORE,  # Stripe secret and restricted keys
     r"whsec_[A-Za-z0-9+/=]{16" + _MORE,  # Stripe webhook signing secret
-    r"sk-(?:ant|proj|svcacct|admin)-[A-Za-z0-9_-]{16" + _MORE,  # Anthropic, OpenAI
+    r"sk-(?:ant|proj|svcacct|admin)-[A-Za-z0-9_-]{16" + _MORE,  # Model provider key prefixes
     r"[sr]k[-_][A-Za-z0-9_-]{20" + _MORE,  # other sk- and rk- style keys
     r"AIza[A-Za-z0-9_-]{30" + _MORE,  # Google API key
     r"ya29\.[A-Za-z0-9._-]{20" + _MORE,  # Google OAuth access token

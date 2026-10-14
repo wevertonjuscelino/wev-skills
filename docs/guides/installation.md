@@ -63,9 +63,19 @@ claude --plugin-dir "$WEV_HOME"
 | Part | Where | Status |
 |---|---|---|
 | Manifest | `.claude-plugin/plugin.json` | `claude plugin validate` passes, with one warning (below) |
-| Six skills | `skills/wev-orchestrate`, `wev-agent-builder`, `wev-harness-evaluation`, `wev-remote-ops`, `wev-claude-md`, `wev-readme` | Format checked by unit tests and by `claude plugin validate`; never exercised in a live Claude Code session |
+| Seven skills | `skills/wev-orchestrate`, `wev-agent-builder`, `wev-harness-evaluation`, `wev-remote-ops`, `wev-claude-md`, `wev-readme`, `wev-skill-maintenance` | Format checked by unit tests and by `claude plugin validate`; never exercised in a live Claude Code session |
 | Ten subagents | `agents/*.md`, generated from `agent-specs/` | Generation is implemented and tested; never exercised in a live session |
 | Three hooks | `hooks/hooks.json` | Implemented and tested with unit and subprocess tests; never exercised in a live session |
+
+The model may choose `wev-skill-maintenance` from its description for skill updates and
+cross-repository standardization, or the user may invoke
+`/wev-skills:wev-skill-maintenance`. Its frontmatter explicitly enables model invocation.
+The plugin exposes the skill through `skills/wev-skill-maintenance/SKILL.md`; the engine
+'s `select-tools` command narrows operation tools and does not select skills. The external
+`skill-repo` guide remains a separately installed dependency checked against the source pin.
+Selection depends on task relevance and host settings; it is not guaranteed.
+Selection loads guidance; it does not authorize maintenance or publication.
+See the [host invocation reference](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill).
 
 The hooks call `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`, which starts with `#!/usr/bin/env python3`, so `python3` must be on the `PATH` that Claude Code sees, and it must be Python 3.14 or newer. The stock macOS `/usr/bin/python3` is 3.9 and, like any older interpreter, is not supported: with an older `python3` first on `PATH` the hooks exit quietly (one line on stderr) and check nothing. Check with `python3 --version`, and with `command -v python3` to see which one is used.
 

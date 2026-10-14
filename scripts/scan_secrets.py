@@ -73,7 +73,7 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "gitlab-token": re.compile(r"\bgl" + "pat-" + _URLSAFE + "{20,}"),
     "slack-token": re.compile(r"\bxo" + r"x[abeoprs]-[A-Za-z0-9-]{10,}"),
     "stripe-key": re.compile(r"\b(?:(?:sk|rk)_li" + r"ve_|wh" + r"sec_)[A-Za-z0-9]{16,}"),
-    "openai-style-key": re.compile(
+    "model-api-key": re.compile(
         r"\bsk" + r"-(?:ant-|proj-)?(?=[A-Za-z0-9_\-]*\d)" + _URLSAFE + "{20,}"
     ),
     "npm-token": re.compile(r"\bnpm" + r"_[A-Za-z0-9]{36}\b"),

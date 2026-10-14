@@ -41,3 +41,15 @@ Antes de adicionar a este repositório qualquer arquivo, trecho, schema, prompt 
 4. Nunca sugerir afiliação com o autor ou a organização da fonte, nem endosso por eles.
 
 Uma alteração que adiciona material de terceiros sem a entrada correspondente aqui não deve ser incorporada.
+
+## Referência externa de manutenção
+
+[skill-repo-skill](https://github.com/netresearch/skill-repo-skill), da Netresearch DTT GmbH,
+versão 2.4.0 no commit `42a5e85798a8cdfda2866afb0de9aadb04e187f3`, consultada em 2026-10-13,
+é uma dependência externa para orientação estrutural. Copyright (c) 2025-2026
+Netresearch DTT GmbH. Conteúdo: CC-BY-SA-4.0; scripts/configuração: MIT. Os arquivos são
+instalados separadamente e não são redistribuídos neste repositório. A skill original MIT
+`skills/wev-skill-maintenance/` coordena revisão e exceções locais; registra a procedência em
+`references/upstream.json` e aponta para o guia sem copiar suas instruções ou scripts.
+Esta referência não migra licença, marca, dependências do motor nem CI do projeto.
+Não implica afiliação nem endosso.
