@@ -7,8 +7,10 @@
 #
 # No step interpolates github.* values into a run: script. Every such value reaches the scripts
 # through env: and is quoted. Only the `release` job has write access (contents, and issues for
-# milestones). Pushes made with the job token do not start other workflows, so the whole release
-# happens in this run.
+# milestones). The pushes go over SSH with the deploy key in the RELEASE_DEPLOY_KEY secret, the
+# only actor besides the admin that bypasses the main and dev rulesets (a user-owned repository
+# cannot list the GitHub Actions app as a bypass actor). Those pushes start workflows again; the
+# release commit is not a dev merge, so the gate below releases nothing for it.
 #
 # Versioning: the release is v(X+1).0.0 where X is the major of the latest tag (see
 # docs/guides/maintaining.md). The run proceeds only when the pushed commit is the merge commit of
@@ -60,10 +62,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      # The token stays in the local git configuration of this job so that the pushes below work.
+      # The deploy key stays in this job's SSH configuration so that the pushes below work.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
           persist-credentials: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:

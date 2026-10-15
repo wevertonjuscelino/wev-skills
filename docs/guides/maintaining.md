@@ -47,7 +47,7 @@ Worked example, with `v2.0.0` as the latest release and `dev` fast-forwarded to 
 7. closes the milestone `vX.Y.Z` if it exists;
 8. fast-forwards `dev` to `main` with a plain push (no force), so the first-parent chain of `dev` after the tag starts clean.
 
-The bot commit is the only commit that edits the version files and the changelog sections; do not edit them by hand. Hand-written entries under `## [Unreleased]` are kept and merged into the new section. Pushes made with the job token do not start other workflows, so everything happens in that one run. Evidence: implemented but untested; it can only run on GitHub. The pure parts (version computation, file rewriting, pull request collection from merge subjects) are covered by unit tests against temporary repositories.
+The bot commit is the only commit that edits the version files and the changelog sections; do not edit them by hand. Hand-written entries under `## [Unreleased]` are kept and merged into the new section. The job pushes over SSH with a deploy key (secret `RELEASE_DEPLOY_KEY`), so its pushes do start workflows: the release commit on `main` runs `release.yml` again, which logs that it is not a dev-to-main merge and releases nothing, and the fast-forward of `dev` runs CI there. Evidence: implemented but untested; it can only run on GitHub. The pure parts (version computation, file rewriting, pull request collection from merge subjects) are covered by unit tests against temporary repositories.
 
 ### If a release fails half-way
 
@@ -61,7 +61,7 @@ Read the run log first; each step is separate, and a run stops at the first fail
 
 ## Repository settings
 
-This is the intended configuration of `wevertonjuscelino/wev-skills`, kept here so that it is reviewable and can be re-applied. Evidence today: documented only. Nothing here is known to be applied until the owner confirms it in GitHub, and the [MVP status](../mvp-status.md) lists it as "to apply".
+This is the configuration of `wevertonjuscelino/wev-skills`, kept here so that it is reviewable and can be re-applied. It was applied through the GitHub API on 2026-10-15; the repository settings page is the current record.
 
 **General** (Settings, General):
 
@@ -80,15 +80,15 @@ This is the intended configuration of `wevertonjuscelino/wev-skills`, kept here 
 - Block deletion and block force pushes.
 - Do not require linear history: the dev-to-main merge is a merge commit.
 - Require a pull request before merging, with 0 required approvals (one maintainer cannot approve their own pull request); allowed merge method: merge only.
-- Require these status checks, named as the workflows report them: `test (ubuntu-latest, Python 3.14)`, `test (macos-latest, Python 3.14)`, `lint`, `skills`, `git hooks and documents`, `secrets-scan` (from `ci.yml`, whose last job has no `name:` so its check name is the job id), `pr-title` and `source-branch` (from `pr-policy.yml`).
-- Bypass list: repository admin and the GitHub Actions app. The release job pushes the release commit and the tag to `main` and fast-forwards `dev` with the job token, which needs the bypass; an admin bypass is for the owner's convenience, not a control against the owner, and a direct admin push to `main` does not release.
+- Require these status checks, named as the workflows report them: `test (ubuntu-latest, Python 3.14)`, `test (macos-latest, Python 3.14)`, `lint`, `skills`, `git hooks and documents`, `secrets-scan` (from `ci.yml`, whose last job has no `name:` so its check name is the job id) and `source-branch` (from `pr-policy.yml`). The title of a dev-to-main pull request is free, so `pr-title` is not required here.
+- Bypass list: repository admin and deploy keys. A repository owned by a user account cannot list the GitHub Actions app as a bypass actor, so the release job pushes the release commit and the tag to `main` and fast-forwards `dev` with a write deploy key (title "release bot (release.yml)", private key in the Actions secret `RELEASE_DEPLOY_KEY`). Any workflow that reads that secret can push past the rules; only `release.yml` reads it, and pull requests from forks get no secrets. Revoking it means deleting the deploy key and the secret; an admin bypass is for the owner's convenience, not a control against the owner, and a direct admin push to `main` does not release.
 
 **Branch ruleset on `dev`**:
 
 - Require a pull request before merging (0 approvals), merge method: merge only.
 - Require the same CI status checks as `main` and `pr-title`. `source-branch` only matters for `main`.
 - Block deletion and block force pushes.
-- Bypass list: repository admin and the GitHub Actions app (for the fast-forward after a release).
+- Bypass list: repository admin and deploy keys (for the fast-forward after a release).
 
 **Tag ruleset** (Settings, Rules): target `v*`; block deletion and block update of matching tags. Creation stays allowed, because the release job creates the tag.
 

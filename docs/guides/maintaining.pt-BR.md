@@ -47,7 +47,7 @@ O [`.github/workflows/release.yml`](../../.github/workflows/release.yml) roda a 
 7. fecha o milestone `vX.Y.Z` se ele existir;
 8. avança `dev` até `main` com um push simples (sem force), para que a cadeia de primeiro pai de `dev` depois da tag comece limpa.
 
-O commit do bot é o único que edita os arquivos de versão e as seções do changelog; não os edite à mão. As entradas escritas à mão em `## [Unreleased]` são mantidas e incorporadas à nova seção. Pushes feitos com o token do job não iniciam outros workflows, então tudo acontece nessa única execução. Evidência: implementado mas não testado; só roda no GitHub. As partes puras (cálculo da versão, reescrita de arquivos, coleta de pull requests a partir dos assuntos de merge) são cobertas por testes unitários com repositórios temporários.
+O commit do bot é o único que edita os arquivos de versão e as seções do changelog; não os edite à mão. As entradas escritas à mão em `## [Unreleased]` são mantidas e incorporadas à nova seção. O job envia por SSH com uma deploy key (secret `RELEASE_DEPLOY_KEY`), então seus pushes iniciam workflows: o commit de release na `main` roda o `release.yml` de novo, que registra que não é um merge de dev para main e não lança nada, e o avanço da `dev` roda o CI nela. Evidência: implementado mas não testado; só roda no GitHub. As partes puras (cálculo da versão, reescrita de arquivos, coleta de pull requests a partir dos assuntos de merge) são cobertas por testes unitários com repositórios temporários.
 
 ### Se uma release falhar no meio
 
@@ -61,7 +61,7 @@ Leia primeiro o log da execução; cada passo é separado e a execução para na
 
 ## Configurações do repositório
 
-Esta é a configuração pretendida de `wevertonjuscelino/wev-skills`, guardada aqui para poder ser revisada e reaplicada. Evidência hoje: apenas documentado. Nada aqui é sabidamente aplicado até o dono confirmar no GitHub, e o [estado do MVP](../mvp-status.pt-BR.md) lista isso como "a aplicar".
+Esta é a configuração de `wevertonjuscelino/wev-skills`, guardada aqui para poder ser revisada e reaplicada. Ela foi aplicada pela API do GitHub em 2026-10-15; a página de configurações do repositório é o registro atual.
 
 **Geral** (Settings, General):
 
@@ -80,15 +80,15 @@ Esta é a configuração pretendida de `wevertonjuscelino/wev-skills`, guardada 
 - Bloquear exclusão e bloquear force push.
 - Não exigir histórico linear: o merge de dev em main é um commit de merge.
 - Exigir pull request antes do merge, com 0 aprovações exigidas (um único mantenedor não consegue aprovar o próprio pull request); método de merge permitido: apenas merge.
-- Exigir estes status checks, com os nomes que os workflows informam: `test (ubuntu-latest, Python 3.14)`, `test (macos-latest, Python 3.14)`, `lint`, `skills`, `git hooks and documents`, `secrets-scan` (do `ci.yml`, cujo último job não tem `name:`, então o nome do check é o id do job), `pr-title` e `source-branch` (do `pr-policy.yml`).
-- Lista de bypass: administrador do repositório e o app GitHub Actions. O job de release envia o commit de release e a tag para `main` e avança `dev` com o token do job, o que precisa do bypass; o bypass de administrador é uma conveniência do dono, não um controle contra o dono, e um push direto de administrador em `main` não lança release.
+- Exigir estes status checks, com os nomes que os workflows informam: `test (ubuntu-latest, Python 3.14)`, `test (macos-latest, Python 3.14)`, `lint`, `skills`, `git hooks and documents`, `secrets-scan` (do `ci.yml`, cujo último job não tem `name:`, então o nome do check é o id do job) e `source-branch` (do `pr-policy.yml`). O título de um pull request de dev para main é livre, então o `pr-title` não é exigido aqui.
+- Lista de bypass: administrador do repositório e deploy keys. Um repositório de conta de usuário não aceita o app GitHub Actions como ator de bypass, então o job de release envia o commit de release e a tag para `main` e avança `dev` com uma deploy key de escrita (título "release bot (release.yml)", chave privada no secret do Actions `RELEASE_DEPLOY_KEY`). Qualquer workflow que leia esse secret consegue passar pelas regras; só o `release.yml` o lê, e pull requests de forks não recebem secrets. Revogar significa apagar a deploy key e o secret; o bypass de administrador é uma conveniência do dono, não um controle contra o dono, e um push direto de administrador em `main` não lança release.
 
 **Ruleset de branch em `dev`**:
 
 - Exigir pull request antes do merge (0 aprovações), método de merge: apenas merge.
 - Exigir os mesmos status checks de CI da `main` e o `pr-title`. O `source-branch` só importa para a `main`.
 - Bloquear exclusão e bloquear force push.
-- Lista de bypass: administrador do repositório e o app GitHub Actions (para o avanço depois de uma release).
+- Lista de bypass: administrador do repositório e deploy keys (para o avanço depois de uma release).
 
 **Ruleset de tags** (Settings, Rules): alvo `v*`; bloquear exclusão e bloquear atualização das tags que casam. A criação continua permitida, porque o job de release cria a tag.
 
