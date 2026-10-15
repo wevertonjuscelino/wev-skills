@@ -1,0 +1,46 @@
+name: Documentation issue
+description: A document is wrong, unclear, missing or out of step with its twin. / Um documento esta errado, confuso, ausente ou diferente do seu gemeo.
+title: "[docs] "
+labels: ["documentation", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Documents exist in English and Brazilian Portuguese and change together. Say which file and language you mean.
+        Os documentos existem em ingles e portugues brasileiro e mudam juntos. Diga qual arquivo e idioma.
+        Do not report vulnerabilities here; see SECURITY.md. / Nao relate vulnerabilidades aqui; veja SECURITY.pt-BR.md.
+  - type: input
+    id: location
+    attributes:
+      label: Document or link / Documento ou link
+      description: Path or URL of the page, and the heading if it helps.
+      placeholder: "docs/guides/installation.md"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem / Tipo de problema
+      options:
+        - Incorrect or outdated statement / Afirmacao incorreta ou desatualizada
+        - Unclear or hard to follow / Confuso ou dificil de seguir
+        - Missing content / Conteudo ausente
+        - English and Portuguese differ / Ingles e portugues divergem
+        - Broken link or command / Link ou comando quebrado
+        - Translation or typo / Traducao ou erro de digitacao
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong / O que esta errado
+      description: Quote the text and explain the problem. If a command or claim does not match the real behavior, include what you ran and what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change / Mudanca sugerida
+      description: Optional. Do not claim capabilities without evidence.
+    validations:
+      required: false

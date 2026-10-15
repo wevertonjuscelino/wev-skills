@@ -17,13 +17,15 @@ DOCS = ROOT / "docs"
 PT_SUFFIX = ".pt-BR.md"
 
 TWIN_EXEMPT = frozenset({DOCS / "research" / "sources.md", DOCS / "glossary.md"})
-ROOT_TWINNED = ("README", "CONTRIBUTING", "SECURITY")
+ROOT_TWINNED = ("README", "CONTRIBUTING", "SECURITY", "ROADMAP", "SUPPORT")
 ROOT_GUIDES = (
     "README",
     "CONTRIBUTING",
     "SECURITY",
     "CHANGELOG",
     "CODE_OF_CONDUCT",
+    "ROADMAP",
+    "SUPPORT",
 )
 LINK_SCAN_DIRS = (DOCS, ROOT / "skills", ROOT / "evals", ROOT / "examples")
 CREDITS_HEADINGS = {"README.md": "Credits", "README.pt-BR.md": "Créditos"}

@@ -181,14 +181,15 @@ Not run on purpose: `wev approval grant`, `wev approval deny`, `wev guard acknow
 
 ## After publishing
 
-The repository is published; none of these is done. The repository settings cannot be set from the working tree, so the items about settings are recommendations for the owner, not things already enabled.
+The repository is published; none of these is done. The repository settings cannot be set from the working tree, so the items about settings are documented intent for the owner, not things already enabled.
 
 - [ ] Check the CI run for the release commit on GitHub (`ci.yml`: test on Ubuntu and macOS with Python 3.14, lint, skills, git hooks and documents, secrets scan) and fix what it reports.
-- [ ] Turn on the repository settings listed in the [maintaining guide](guides/maintaining.md): branch protection or a ruleset on `main`, private vulnerability reporting, secret scanning and push protection, Dependabot alerts; and, in the owner's account settings, "keep my email address private" and "block command line pushes that expose my email".
+- [x] Applied on 2026-10-15 through the GitHub API (`gh repo edit`, `gh api`), as listed in the "Repository settings" section of the [maintaining guide](guides/maintaining.md): description and topics, features (Issues and Discussions on, Wiki and Projects off), merge settings, private vulnerability reporting, secret scanning and push protection, Dependabot alerts and security updates, the branch ruleset `main protection` and the tag ruleset `release tags`, the labels of `.github/labels.json` and the milestones `0.2.x` and `0.3.0`. Evidence: the API answers at the time; check the repository settings page for the current state.
+- [ ] To do (owner's account settings, not the repository): "keep my email address private" and "block command line pushes that expose my email".
 - [ ] Try the plugin in a live Claude Code session: load it with `--plugin-dir`, run `wev-orchestrate` on a small task, check that the hooks fire and that the subagents load. Then try the published route (`claude plugin marketplace add wevertonjuscelino/wev-skills`). Record the result.
 - [ ] Run the manual `remote-integration.yml` workflow (real tmux, locally on the runner) and `tests/integration/test_tmux_local.py` on a machine with tmux.
 - [ ] Run `make hooks` in the clone, and confirm that commits carry the author name Weverton Juscelino, a GitHub no-reply email address, and no co-author trailers.
-- [ ] Create the tag `v0.1.0` and a GitHub release marked as a pre-release (steps in the maintaining guide).
+- [ ] To do: create the tag `v0.1.0` retroactively on the published 0.1.0 commit and its GitHub pre-release by hand, then tag `v0.2.0` so that `.github/workflows/release.yml` creates the 0.2.0 pre-release (steps in the maintaining guide). The release workflow has not run yet.
 - [ ] Have the fixes made after the last review round independently re-verified.
 - [ ] Decide on the `CLAUDE.md` plugin-root warning (move the file or accept it).
 - [ ] Have a second person read the Portuguese documents and the claims about compatibility and status.

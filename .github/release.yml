@@ -1,0 +1,30 @@
+# Configuration for GitHub's automatically generated release notes.
+# Labels come from .github/labels.json.
+changelog:
+  exclude:
+    labels:
+      - wontfix
+      - duplicate
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking change
+    - title: Security
+      labels:
+        - security
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Documentation
+      labels:
+        - documentation
+    - title: CI and dependencies
+      labels:
+        - ci
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"

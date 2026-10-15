@@ -31,7 +31,7 @@ Real output (the launcher was run for this guide):
 
 ```text
 {
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
 ```
 

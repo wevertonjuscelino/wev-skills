@@ -4,9 +4,36 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
+Pre-release. Adds objective intake, project specialists, run-level budgets and coordinated skill maintenance, and hardens private log files and Git command classification. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). The workflows run on GitHub Actions; read their results for the commit you care about. The verification record is in [docs/mvp-status.md](docs/mvp-status.md). Live Claude Code sessions, real tmux or SSH hosts and model-quality effects of the new features remain unvalidated.
+
+### Added
+
+- Objective intake: `wev intake start|set|next|show|finish` records an interview before a run. Each round asks at most three questions; the engine requires an objective, completion evidence, scope and work kind. `intake.max_rounds` (default 3, 1 to 10) bounds the rounds, after which `next` lists the fields that must be assumed instead of inventing answers. Records are private to the user, written atomically and redacted for known secret patterns. `wev run start --from-intake ID` requires a finished interview, uses its goal as the objective, refuses a different `--objective`, stores the brief in the run state and records a `run.intake_attached` audit event. See [docs/guides/intake.md](docs/guides/intake.md).
+- Project specialists: `wev specialists create|list|export|learn` creates specialists from a catalog role in `wev-specialists/` (`agents.project_dir`), discovered by routing and by `wev agent` commands, with at most `specialists.max_per_project` (default 5). Creation preserves the role's tools, permission limits, model policy and checks. `learn` rebuilds up to `specialists.max_lessons` (default 30) lessons from stored engine records, so running it again adds no confirmations. See [docs/guides/specialists.md](docs/guides/specialists.md).
+- Run-level budgets: `limits.run_budget_units` (default 400) and `limits.run_max_attempts_total` (default 12) cap the engine units and task starts of a whole run; they are separate from the per-task limits and are not model tokens or currency.
+- Skill `wev-skill-maintenance` and its policy and pinned-upstream references (English and Portuguese) for coordinated skill maintenance across repositories, with the third-party record updated.
+- GitHub Actions: `tmux` integration tests now run in the main `ci.yml` workflow.
+
+### Changed
+
+- The `agent` spec schema and the Claude Code subagent export carry the project-specialist fields; the `config` schema gains the `intake` and `specialists` sections and `agents.project_dir`, which must be a directory below the repository root and outside `.git`, `.claude` and the state directory.
+- Appended log and lock files are created privately and an existing file of ours that is too open is tightened before any content is written, instead of after (`core/fsutil.py`).
+- The Git command classifier requires approval for the explicit `--textconv` and `--ext-diff` options on `diff`, `show`, `log`, `blame`, `grep` and `cat-file`. Repository configuration and attributes can still enable helpers for an ordinary `git diff`; this is recorded as a known limit in [SECURITY.md](SECURITY.md) and in the [local security review](docs/security-review-2026-10-13.md).
+- The `pre-push` hook unsets Git's repository-local environment variables before it runs `make test`, so the tests' temporary repositories are not redirected into the repository being pushed.
+- The README files were rewritten for the public repository, and the statements in `ci.yml` and `SECURITY.md` that no workflow had completed a run were removed in favour of the Actions history.
+- The pattern label `openai-style-key` in `scripts/scan_secrets.py` is now `model-api-key`, and provider names were removed from the related code comments; the patterns are unchanged.
+- The version is 0.2.0 in `pyproject.toml`, `.claude-plugin/plugin.json` and `src/wev_skills/__init__.py`.
+
+### Fixed
+
+- A hook test measured the worst-case long command line against a 2.0 s wall-clock bound that failed on a shared macOS runner (2.1 s); the bound is now half of the `PreToolUse` hook timeout (10 s).
+- Concurrent appends and lock-file creation share one private-open helper, so the permission tightening no longer happens after the write.
+
 ## [0.1.0] - 2026-10-13
 
-Pre-release. Initial engine, published on 2026-10-13. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). Test status is whatever `make test` reports on your machine; the CI workflows exist and have not completed a run. The verification record is in [docs/mvp-status.md](docs/mvp-status.md).
+Pre-release. Initial engine, published on 2026-10-13. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). Test status is whatever `make test` reports on your machine; the CI workflows exist; their results are in the repository's Actions history, not in this entry. The verification record is in [docs/mvp-status.md](docs/mvp-status.md).
 
 ### Added
 
@@ -69,5 +96,6 @@ Pre-release. Initial engine, published on 2026-10-13. Evidence labels follow the
 - When the JEV program is not found, the recorded fallback reason says it was not found on the allowed path and names the two fixes (`decision.jev.command` as an absolute path, or `permissions.exec_path`); an absolute path must be a regular executable file.
 - `wev agent export` named `agent-specs/examples/<id>.json` as the source of every agent; `wev agent list --dir` failed on a JSON file that is not a spec; remote alias errors showed the alias inside literal quotes.
 
-[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wevertonjuscelino/wev-skills/releases/tag/v0.1.0

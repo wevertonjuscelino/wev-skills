@@ -1,7 +1,7 @@
 name: Bug report
 description: Something does not behave as documented. / Algo nao se comporta como documentado.
 title: "[bug] "
-labels: ["bug"]
+labels: ["bug", "status: needs-triage"]
 body:
   - type: markdown
     attributes:

@@ -3,3 +3,6 @@ contact_links:
   - name: Security report / Relato de seguranca
     url: https://github.com/wevertonjuscelino/wev-skills/security/advisories/new
     about: Do not open a public issue for a vulnerability. Read SECURITY.md in the repository root for how to report it privately. / Nao abra uma issue publica para uma vulnerabilidade. Leia o SECURITY.pt-BR.md na raiz do repositorio.
+  - name: Question or idea / Pergunta ou ideia
+    url: https://github.com/wevertonjuscelino/wev-skills/discussions
+    about: Ask usage questions and discuss ideas in GitHub Discussions (Q&A category), not in an issue. See SUPPORT.md. / Tire duvidas de uso e discuta ideias nas Discussions do GitHub (categoria Q&A), nao em uma issue. Veja SUPPORT.pt-BR.md.

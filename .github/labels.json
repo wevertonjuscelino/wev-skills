@@ -1,0 +1,132 @@
+[
+  {
+    "name": "bug",
+    "color": "d73a4a",
+    "description": "Something does not behave as documented"
+  },
+  {
+    "name": "enhancement",
+    "color": "a2eeef",
+    "description": "New feature or change request"
+  },
+  {
+    "name": "documentation",
+    "color": "0075ca",
+    "description": "Improvements or additions to documentation"
+  },
+  {
+    "name": "security",
+    "color": "b60205",
+    "description": "Security hardening or a non-sensitive security topic"
+  },
+  {
+    "name": "question",
+    "color": "d876e3",
+    "description": "Further information is requested"
+  },
+  {
+    "name": "dependencies",
+    "color": "0366d6",
+    "description": "Updates to dependencies or pinned actions"
+  },
+  {
+    "name": "ci",
+    "color": "ededed",
+    "description": "Continuous integration and release workflows"
+  },
+  {
+    "name": "area: cli",
+    "color": "c5def5",
+    "description": "The wev command-line interface"
+  },
+  {
+    "name": "area: decisions",
+    "color": "c5def5",
+    "description": "Decisions, classification and model routing"
+  },
+  {
+    "name": "area: agents",
+    "color": "c5def5",
+    "description": "Agent specs, registry, factory and specialists"
+  },
+  {
+    "name": "area: security",
+    "color": "c5def5",
+    "description": "Security and governance controls"
+  },
+  {
+    "name": "area: state",
+    "color": "c5def5",
+    "description": "State store, resume and context"
+  },
+  {
+    "name": "area: guard",
+    "color": "c5def5",
+    "description": "Execution guard, executor and verification"
+  },
+  {
+    "name": "area: remote",
+    "color": "c5def5",
+    "description": "Remote module (SSH and tmux)"
+  },
+  {
+    "name": "area: evaluation",
+    "color": "c5def5",
+    "description": "Scripted evaluation harness"
+  },
+  {
+    "name": "area: skills-plugin",
+    "color": "c5def5",
+    "description": "Skills, hooks and the Claude Code plugin"
+  },
+  {
+    "name": "area: docs",
+    "color": "c5def5",
+    "description": "Documentation and its Portuguese twins"
+  },
+  {
+    "name": "status: needs-triage",
+    "color": "fbca04",
+    "description": "Not yet reviewed by a maintainer"
+  },
+  {
+    "name": "status: needs-repro",
+    "color": "fef2c0",
+    "description": "Waiting for steps or output that reproduce the problem"
+  },
+  {
+    "name": "status: blocked",
+    "color": "e99695",
+    "description": "Blocked by an external dependency or decision"
+  },
+  {
+    "name": "status: accepted",
+    "color": "0e8a16",
+    "description": "Accepted by a maintainer and open to work"
+  },
+  {
+    "name": "good first issue",
+    "color": "7057ff",
+    "description": "Good for newcomers"
+  },
+  {
+    "name": "help wanted",
+    "color": "008672",
+    "description": "Extra attention is needed"
+  },
+  {
+    "name": "breaking change",
+    "color": "b60205",
+    "description": "Changes behavior or an interface that users rely on"
+  },
+  {
+    "name": "wontfix",
+    "color": "ffffff",
+    "description": "Will not be worked on"
+  },
+  {
+    "name": "duplicate",
+    "color": "cfd3d7",
+    "description": "This issue or pull request already exists"
+  }
+]

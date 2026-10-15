@@ -14,7 +14,7 @@ The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Co
 ## Status
 
 > [!IMPORTANT]
-> Version 0.1.0 is an alpha release. The CLI and plugin format have automated tests; a live Claude Code session, real remote execution and model-quality evaluation remain unvalidated. There is no PyPI package or official marketplace listing. The CI badge links to current workflow results.
+> Version 0.2.0 is an alpha release. The CLI and plugin format have automated tests; a live Claude Code session, real remote execution and model-quality evaluation remain unvalidated. There is no PyPI package or official marketplace listing. The CI badge links to current workflow results.
 
 | Capability | Evidence | Practical limit |
 |---|---|---|

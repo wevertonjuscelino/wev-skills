@@ -6,7 +6,8 @@ Portuguese version: [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
 
 | Version | Status |
 |---|---|
-| 0.1.x | Pre-release. Receives security fixes. |
+| 0.2.x | Pre-release. Receives security fixes. |
+| 0.1.x | Pre-release, superseded by 0.2.x. Upgrade to 0.2.x. |
 
 No other versions exist.
 

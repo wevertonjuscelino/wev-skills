@@ -181,14 +181,15 @@ Não executados de propósito: `wev approval grant`, `wev approval deny`, `wev g
 
 ## Depois de publicar
 
-O repositório está publicado; nenhum destes itens foi feito. As configurações do repositório não podem ser definidas pela árvore de trabalho, então os itens sobre configurações são recomendações ao dono, não coisas já habilitadas.
+O repositório está publicado; nenhum destes itens foi feito. As configurações do repositório não podem ser definidas pela árvore de trabalho, então os itens sobre configurações são intenção documentada para o dono, não coisas já habilitadas.
 
 - [ ] Conferir a execução do CI para o commit do lançamento no GitHub (`ci.yml`: testes no Ubuntu e no macOS com Python 3.14, lint, skills, git hooks e documentos, varredura de segredos) e corrigir o que ele apontar.
-- [ ] Ligar as configurações do repositório listadas no [guia de manutenção](guides/maintaining.pt-BR.md): proteção de branch ou ruleset em `main`, relato privado de vulnerabilidades, varredura de segredos e proteção de push, alertas do Dependabot; e, nas configurações da conta do dono, "keep my email address private" e "block command line pushes that expose my email".
+- [x] Aplicado em 2026-10-15 pela API do GitHub (`gh repo edit`, `gh api`), conforme a seção "Configurações do repositório" do [guia de manutenção](guides/maintaining.pt-BR.md): descrição e topics, recursos (Issues e Discussions ligados, Wiki e Projects desligados), merge, relato privado de vulnerabilidades, varredura de segredos e proteção de push, alertas e atualizações de segurança do Dependabot, o ruleset de branch `main protection` e o ruleset de tags `release tags`, as labels de `.github/labels.json` e os milestones `0.2.x` e `0.3.0`. Evidência: as respostas da API no momento; confira a página de configurações do repositório para o estado atual.
+- [ ] A fazer (configurações da conta do dono, não do repositório): "keep my email address private" e "block command line pushes that expose my email".
 - [ ] Experimentar o plugin em uma sessão real do Claude Code: carregá-lo com `--plugin-dir`, executar `wev-orchestrate` em uma tarefa pequena, verificar se os hooks disparam e se os subagentes carregam. Depois experimentar a rota publicada (`claude plugin marketplace add wevertonjuscelino/wev-skills`). Registrar o resultado.
 - [ ] Executar o workflow manual `remote-integration.yml` (tmux real, localmente no runner) e `tests/integration/test_tmux_local.py` em uma máquina com tmux.
 - [ ] Executar `make hooks` no clone e confirmar que os commits trazem o nome de autor Weverton Juscelino, um e-mail no-reply do GitHub e nenhum trailer de coautoria.
-- [ ] Criar a tag `v0.1.0` e uma release do GitHub marcada como pré-lançamento (passos no guia de manutenção).
+- [ ] A fazer: criar a tag `v0.1.0` retroativamente no commit publicado da 0.1.0 e a sua pré-release do GitHub à mão, depois criar a tag `v0.2.0` para que o `.github/workflows/release.yml` crie a pré-release da 0.2.0 (passos no guia de manutenção). O workflow de release ainda não rodou.
 - [ ] Fazer com que as correções posteriores à última rodada de revisão sejam verificadas de novo de forma independente.
 - [ ] Decidir sobre o aviso do `CLAUDE.md` na raiz do plugin (mover o arquivo ou aceitar).
 - [ ] Pedir a uma segunda pessoa que leia os documentos em português e as alegações de compatibilidade e de status.

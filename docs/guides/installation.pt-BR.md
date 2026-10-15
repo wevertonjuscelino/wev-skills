@@ -31,7 +31,7 @@ Saída real (o launcher foi executado para este guia):
 
 ```text
 {
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
 ```
 

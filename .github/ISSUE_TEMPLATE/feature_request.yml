@@ -1,7 +1,7 @@
 name: Feature request
 description: Propose a change or addition. / Proponha uma mudanca ou adicao.
 title: "[feature] "
-labels: ["enhancement"]
+labels: ["enhancement", "status: needs-triage"]
 body:
   - type: markdown
     attributes:

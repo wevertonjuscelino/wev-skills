@@ -1,0 +1,98 @@
+# Publishes a GitHub release when a version tag is pushed.
+#
+# Action references are pinned to full commit SHAs (the version is the trailing comment), the
+# same ones ci.yml uses. Looked up on 2026-10-13 with `git ls-remote
+# https://github.com/actions/<name>`; both tags are lightweight tags, so the listed SHA is the
+# commit itself.
+#
+# No step interpolates github.event.* or github.head_ref into a run: script. The tag name reaches
+# the scripts through env: and is quoted. Only the `release` job has write access to contents.
+#
+# The release notes are the CHANGELOG.md section of the tagged version. A version with major 0 or
+# with a "-" suffix is published as a pre-release.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Install tmux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux
+      - name: Check that the tag matches the package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          tag = os.environ["TAG"]
+          with open("pyproject.toml", "rb") as handle:
+              version = tomllib.load(handle)["project"]["version"]
+          if tag != f"v{version}":
+              print(f"tag {tag} does not match pyproject version {version}", file=sys.stderr)
+              sys.exit(1)
+          print(f"tag {tag} matches version {version}")
+          PY
+      - name: Run tests
+        run: make test
+
+  release:
+    name: release
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Extract the changelog section
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python scripts/changelog_section.py "${TAG#v}" > "$RUNNER_TEMP/notes.md"
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          NOTES_FILE: ${{ runner.temp }}/notes.md
+        run: |
+          version="${TAG#v}"
+          major="${version%%.*}"
+          flags=()
+          if [ "$major" = "0" ] || [[ "$version" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "wev-skills $version" \
+            --notes-file "$NOTES_FILE" \
+            --verify-tag \
+            "${flags[@]}"

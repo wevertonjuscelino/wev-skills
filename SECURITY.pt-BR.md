@@ -6,7 +6,8 @@ Versão em inglês: [SECURITY.md](SECURITY.md).
 
 | Versão | Situação |
 |---|---|
-| 0.1.x | Pré-lançamento. Recebe correções de segurança. |
+| 0.2.x | Pré-lançamento. Recebe correções de segurança. |
+| 0.1.x | Pré-lançamento, substituído pela 0.2.x. Atualize para a 0.2.x. |
 
 Não existem outras versões.
 
