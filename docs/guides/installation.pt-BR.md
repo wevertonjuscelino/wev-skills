@@ -2,7 +2,7 @@
 
 Versão em inglês: [installation.md](installation.md).
 
-O wev-skills foi publicado em 2026-10-13 como pré-lançamento 0.1.0 em <https://github.com/wevertonjuscelino/wev-skills>. Não há pacote no PyPI nem entrada em um marketplace oficial. Cada rota abaixo parte de um clone desse repositório ou do repositório como origem de marketplace do Claude Code. Nenhuma das rotas foi executada: o clone, a rota pelo marketplace publicado e os comandos de instalação estão apenas documentados, e o plugin nunca foi carregado em uma sessão real do Claude Code.
+O wev-skills foi publicado pela primeira vez em 2026-10-13 (v1.0.0, anunciada então como 0.1.0 e renumerada em 2026-10-15) em <https://github.com/wevertonjuscelino/wev-skills>. Não há pacote no PyPI nem entrada em um marketplace oficial. Cada rota abaixo parte de um clone desse repositório ou do repositório como origem de marketplace do Claude Code. Nenhuma das rotas foi executada: o clone, a rota pelo marketplace publicado e os comandos de instalação estão apenas documentados, e o plugin nunca foi carregado em uma sessão real do Claude Code.
 
 Os rótulos de status seguem a convenção do projeto: implementado e testado (implemented and tested), implementado mas não testado (implemented but untested), simulado com mocks (simulated with mocks), apenas documentado (documented only) e bloqueado (blocked). Veja o [glossário](../glossary.md).
 
@@ -31,7 +31,7 @@ Saída real (o launcher foi executado para este guia):
 
 ```text
 {
-  "version": "0.2.0"
+  "version": "2.0.0"
 }
 ```
 
@@ -145,7 +145,7 @@ Depois de uma sessão real com o plugin, `claude plugin list` mostra se ele est�
 
 - Plugin carregado com `--plugin-dir`: inicie a sessão sem a opção.
 - Plugin instalado pelo marketplace: `claude plugin disable wev-skills` o desliga sem removê-lo, e os comandos de desinstalação acima o removem.
-- Árvore de código: no seu clone, faça checkout da tag ou do commit anterior (`git checkout v0.1.0`, por exemplo) e atualize o plugin como acima. A tag `v0.1.0` é criada pelo dono na hora do lançamento; até ela existir, use um commit.
+- Árvore de código: no seu clone, faça checkout da tag ou do commit anterior (`git checkout v1.0.0`, por exemplo) e atualize o plugin como acima. Toda release tem uma tag `vX.0.0`; `git tag --list` mostra todas.
 - Estado das execuções: `.wev/runs/<id>/` são arquivos simples. Uma execução ruim pode ser deixada de lado (ela deixa de ser a execução ativa depois de `wev run finish`) ou apagada, removendo seu diretório. O motor não escreve nada fora de `.wev/`, exceto o registro de execuções por usuário e os arquivos que uma tarefa altera.
 
 ## O que precisa de acesso à rede

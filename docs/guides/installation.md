@@ -2,7 +2,7 @@
 
 Portuguese version: [installation.pt-BR.md](installation.pt-BR.md).
 
-wev-skills was published on 2026-10-13 as a 0.1.0 pre-release at <https://github.com/wevertonjuscelino/wev-skills>. There is no package on PyPI and no listing in an official marketplace. Every route below starts from a clone of that repository or from the repository as a Claude Code marketplace source. Neither route has been run: cloning, the published marketplace route and the install commands are documented only, and the plugin has never been loaded in a live Claude Code session.
+wev-skills was first published on 2026-10-13 (v1.0.0, announced then as 0.1.0 and renumbered on 2026-10-15) at <https://github.com/wevertonjuscelino/wev-skills>. There is no package on PyPI and no listing in an official marketplace. Every route below starts from a clone of that repository or from the repository as a Claude Code marketplace source. Neither route has been run: cloning, the published marketplace route and the install commands are documented only, and the plugin has never been loaded in a live Claude Code session.
 
 Status labels used here follow the project convention: implemented and tested, implemented but untested, simulated with mocks, documented only, blocked. See the [glossary](../glossary.md).
 
@@ -31,7 +31,7 @@ Real output (the launcher was run for this guide):
 
 ```text
 {
-  "version": "0.2.0"
+  "version": "2.0.0"
 }
 ```
 
@@ -145,7 +145,7 @@ After a real session with the plugin, `claude plugin list` shows whether it is i
 
 - Plugin loaded with `--plugin-dir`: start the session without the flag.
 - Plugin installed from the marketplace: `claude plugin disable wev-skills` turns it off without removing it, and the uninstall commands above remove it.
-- Source tree: in your clone, check out the previous tag or commit (`git checkout v0.1.0`, for example) and update the plugin as above. The tag `v0.1.0` is created by the owner at release time; until it exists, use a commit.
+- Source tree: in your clone, check out the previous tag or commit (`git checkout v1.0.0`, for example) and update the plugin as above. Every release has a tag `vX.0.0`; `git tag --list` shows them.
 - Run state: `.wev/runs/<id>/` is plain files. A bad run can be left alone (it stops being the active run after `wev run finish`) or deleted by removing its directory. Nothing outside `.wev/` is written by the engine except the per-user run registry and the files a task changes.
 
 ## What needs network access

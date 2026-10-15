@@ -2,7 +2,7 @@
 
 Portuguese version: [ROADMAP.pt-BR.md](ROADMAP.pt-BR.md).
 
-This is the direction of wev-skills after the 0.2.0 pre-release, not a promise. It promises no dates and no order inside a section. Every item says what is true of it today, using the project's evidence labels: implemented and tested; implemented but untested; simulated with mocks; documented only; blocked. An item without an implementation is "documented only". The sources are the [specification](docs/spec.md), the [MVP status](docs/mvp-status.md), the known limits in [SECURITY.md](SECURITY.md) and the [hypotheses](docs/research/hypotheses.md).
+This is the direction of wev-skills, not a promise. <!-- wev:release-status -->Latest release: [v2.0.0](https://github.com/wevertonjuscelino/wev-skills/releases/tag/v2.0.0), published on 2026-10-15. Open milestone for the next release: [v3.0.0](https://github.com/wevertonjuscelino/wev-skills/milestones).<!-- /wev:release-status --> The major number counts releases to `main` (each merged pull request from `dev` into `main` publishes the next major); it does not signal breaking changes as in Semantic Versioning, so read the [changelog](CHANGELOG.md) for what changed. The scheme is in the [maintaining guide](docs/guides/maintaining.md). It promises no dates and no order inside a section. Every item says what is true of it today, using the project's evidence labels: implemented and tested; implemented but untested; simulated with mocks; documented only; blocked. An item without an implementation is "documented only". The sources are the [specification](docs/spec.md), the [MVP status](docs/mvp-status.md), the known limits in [SECURITY.md](SECURITY.md) and the [hypotheses](docs/research/hypotheses.md).
 
 ## How to read this
 
@@ -10,7 +10,7 @@ This is the direction of wev-skills after the 0.2.0 pre-release, not a promise. 
 - "Evidence today" is the state of the work now. It is never evidence that the finished work will help: no measured improvement is claimed for any item.
 - An item moves to the [changelog](CHANGELOG.md) when it ships, with its label.
 
-## Now: 0.2.x hardening
+## Now: hardening
 
 Work that makes the existing behavior trustworthy and checked. No new capability.
 
@@ -52,4 +52,4 @@ Stated so that nobody waits for them.
 
 ## How the roadmap is tracked
 
-Work is tracked on GitHub with milestones (one per planned version) and the labels in [.github/labels.json](.github/labels.json). An issue is linked to a milestone only when a maintainer accepts it (`status: accepted`). This file is the summary; the milestones and issues are the detail, and where they differ, the issue and the changelog are the more current record. To propose a change, open a feature request or start a thread in Discussions (see [SUPPORT.md](SUPPORT.md)).
+Work is tracked on GitHub with milestones (one per planned version) and the labels in [.github/labels.json](.github/labels.json). An issue is linked to a milestone only when a maintainer accepts it (`status: accepted`). Milestones are named after the release they feed (`v3.0.0` is the next); the older milestones `0.2.x` and `0.3.0` will be renamed to match. This file is the summary; the milestones and issues are the detail, and where they differ, the issue and the changelog are the more current record. To propose a change, open a feature request or start a thread in Discussions (see [SUPPORT.md](SUPPORT.md)).

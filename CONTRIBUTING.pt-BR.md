@@ -97,7 +97,9 @@ Não copie material por inteiro e não sugira afiliação com outro projeto ou e
 
 Tipos: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`, `build`, `revert`. Um escopo é permitido: `fix(hooks): ask before a recursive delete`. O assunto tem no máximo 72 caracteres e não termina com ponto; o hook `commit-msg` confere isso (commits de merge e de revert gerados pelo git são aceitos). Não liste ferramentas como autoras ou coautoras.
 
-Trabalhe em um branch e abra um pull request em <https://github.com/wevertonjuscelino/wev-skills/pulls>; veja o [guia de manutenção](docs/guides/maintaining.pt-BR.md) para o fluxo. Relate bugs e peça funcionalidades em <https://github.com/wevertonjuscelino/wev-skills/issues>.
+Trabalhe em um branch criado a partir de `dev` e abra um pull request **para `dev`** em <https://github.com/wevertonjuscelino/wev-skills/pulls>; pull requests para `main` só são aceitos vindos de `dev` (o check `source-branch` falha caso contrário). O título do pull request deve seguir `<type>(<scope>): <description>` com tipo `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`, `build` ou `security` e escopo opcional (o check `pr-title`); ele vira a linha do changelog. Os pull requests são mesclados com um commit de merge.
+
+As versões são calculadas a partir do histórico do git: `X` conta as releases em `main`, `Y` conta os pull requests mesclados em `dev` desde a última release e `Z` conta os commits do pull request em andamento. Você nunca edita um número de versão nem as seções de release do changelog; o workflow de release faz isso quando `dev` é mesclado em `main`. O [guia de manutenção](docs/guides/maintaining.pt-BR.md) tem o fluxo completo e um exemplo. Relate bugs e peça funcionalidades em <https://github.com/wevertonjuscelino/wev-skills/issues>.
 
 ## Checklist de pull request
 

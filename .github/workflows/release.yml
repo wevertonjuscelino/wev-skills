@@ -1,27 +1,31 @@
-# Publishes a GitHub release when a version tag is pushed.
+# Publishes a release when a pull request from dev is merged into main.
 #
 # Action references are pinned to full commit SHAs (the version is the trailing comment), the
 # same ones ci.yml uses. Looked up on 2026-10-13 with `git ls-remote
 # https://github.com/actions/<name>`; both tags are lightweight tags, so the listed SHA is the
 # commit itself.
 #
-# No step interpolates github.event.* or github.head_ref into a run: script. The tag name reaches
-# the scripts through env: and is quoted. Only the `release` job has write access to contents.
+# No step interpolates github.* values into a run: script. Every such value reaches the scripts
+# through env: and is quoted. Only the `release` job has write access (contents, and issues for
+# milestones). Pushes made with the job token do not start other workflows, so the whole release
+# happens in this run.
 #
-# The release notes are the CHANGELOG.md section of the tagged version. A version with major 0 or
-# with a "-" suffix is published as a pre-release.
+# Versioning: the release is v(X+1).0.0 where X is the major of the latest tag (see
+# docs/guides/maintaining.md). The run proceeds only when the pushed commit is the merge commit of
+# a pull request from dev; any other push to main (a direct admin push, the release commit itself)
+# logs a notice and releases nothing. All releases are final: no --prerelease.
 name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -32,6 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -40,23 +45,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y tmux
-      - name: Check that the tag matches the package version
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          python - <<'PY'
-          import os
-          import sys
-          import tomllib
-
-          tag = os.environ["TAG"]
-          with open("pyproject.toml", "rb") as handle:
-              version = tomllib.load(handle)["project"]["version"]
-          if tag != f"v{version}":
-              print(f"tag {tag} does not match pyproject version {version}", file=sys.stderr)
-              sys.exit(1)
-          print(f"tag {tag} matches version {version}")
-          PY
       - name: Run tests
         run: make test
 
@@ -64,35 +52,130 @@ jobs:
     name: release
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
+      # The token stays in the local git configuration of this job so that the pushes below work.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          fetch-depth: 0
+          persist-credentials: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      - name: Extract the changelog section
+
+      - name: Decide whether this push is a dev-to-main merge
+        id: gate
         env:
-          TAG: ${{ github.ref_name }}
-        run: python scripts/changelog_section.py "${TAG#v}" > "$RUNNER_TEMP/notes.md"
-      - name: Create the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-          NOTES_FILE: ${{ runner.temp }}/notes.md
+          SHA: ${{ github.sha }}
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          version="${TAG#v}"
-          major="${version%%.*}"
-          flags=()
-          if [ "$major" = "0" ] || [[ "$version" == *-* ]]; then
-            flags+=(--prerelease)
+          subject="$(git log -1 --format=%s "$SHA")"
+          parents="$(git rev-list --parents -n 1 "$SHA" | wc -w)"
+          pattern='^Merge pull request #([0-9]+) from ([^/]+)/dev$'
+          if [ "$parents" -eq 3 ] && [[ "$subject" =~ $pattern ]] \
+            && [ "${BASH_REMATCH[2],,}" = "${REPO_OWNER,,}" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Release PR: #${BASH_REMATCH[1]}"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "Not a dev->main merge, no release. Head commit: $subject"
           fi
-          gh release create "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "wev-skills $version" \
-            --notes-file "$NOTES_FILE" \
-            --verify-tag \
-            "${flags[@]}"
+
+      - name: Compute the release version and collect the pull requests
+        if: steps.gate.outputs.release == 'true'
+        id: plan
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          next="$(python scripts/versioning.py --next-release)"
+          previous="$(python scripts/versioning.py --latest-tag)"
+          if git rev-parse -q --verify "refs/tags/v$next" > /dev/null; then
+            echo "::error::tag v$next already exists; a previous release run may have stopped half-way (see the maintaining guide)."
+            exit 1
+          fi
+          python scripts/collect_release_prs.py --since "$previous" --until "${SHA}^2" \
+            --out "$RUNNER_TEMP/prs.json"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "after=$(( ${next%%.*} + 1 )).0.0" >> "$GITHUB_OUTPUT"
+
+      - name: Create the milestone of the following release
+        if: steps.gate.outputs.release == 'true'
+        id: milestone
+        env:
+          AFTER: ${{ steps.plan.outputs.after }}
+        run: |
+          title="v$AFTER"
+          url="$(gh api "repos/$GH_REPO/milestones?state=all&per_page=100" \
+            --jq ".[] | select(.title == \"$title\") | .html_url")"
+          if [ -z "$url" ]; then
+            url="$(gh api -X POST "repos/$GH_REPO/milestones" -f title="$title" --jq .html_url)"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Rewrite versions, changelog and generated blocks
+        if: steps.gate.outputs.release == 'true'
+        env:
+          NEXT: ${{ steps.plan.outputs.next }}
+          MILESTONE_URL: ${{ steps.milestone.outputs.url }}
+        run: |
+          python scripts/release_prep.py --version "$NEXT" --date "$(date -u +%F)" \
+            --prs "$RUNNER_TEMP/prs.json" --milestone-url "$MILESTONE_URL"
+          python scripts/changelog_section.py "$NEXT" > "$RUNNER_TEMP/notes.md"
+          bin/wev readme check
+          bin/wev claude-md check
+
+      - name: Commit and tag
+        if: steps.gate.outputs.release == 'true'
+        env:
+          NEXT: ${{ steps.plan.outputs.next }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898828+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "chore(release): v$NEXT"
+          git tag -a "v$NEXT" -m "wev-skills $NEXT"
+
+      - name: Push main and the tag
+        if: steps.gate.outputs.release == 'true'
+        env:
+          NEXT: ${{ steps.plan.outputs.next }}
+        run: git push --atomic origin HEAD:refs/heads/main "refs/tags/v$NEXT"
+
+      - name: Create the GitHub release
+        if: steps.gate.outputs.release == 'true'
+        env:
+          NEXT: ${{ steps.plan.outputs.next }}
+        run: |
+          gh release create "v$NEXT" \
+            --title "wev-skills $NEXT" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --latest \
+            --verify-tag
+
+      - name: Close the milestone of this release
+        if: steps.gate.outputs.release == 'true'
+        env:
+          NEXT: ${{ steps.plan.outputs.next }}
+        run: |
+          number="$(gh api "repos/$GH_REPO/milestones?state=open&per_page=100" \
+            --jq ".[] | select(.title == \"v$NEXT\") | .number")"
+          if [ -n "$number" ]; then
+            gh api -X PATCH "repos/$GH_REPO/milestones/$number" -f state=closed > /dev/null
+          else
+            echo "No open milestone v$NEXT; nothing to close."
+          fi
+
+      - name: Fast-forward dev to main
+        if: steps.gate.outputs.release == 'true'
+        run: |
+          if ! git push origin HEAD:refs/heads/dev; then
+            echo "::error::dev could not be fast-forwarded to main (it has commits main lacks, or the ruleset refused). The release itself is published. See 'If a release fails half-way' in docs/guides/maintaining.md."
+            exit 1
+          fi

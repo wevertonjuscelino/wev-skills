@@ -6,10 +6,10 @@ Portuguese version: [SECURITY.pt-BR.md](SECURITY.pt-BR.md).
 
 | Version | Status |
 |---|---|
-| 0.2.x | Pre-release. Receives security fixes. |
-| 0.1.x | Pre-release, superseded by 0.2.x. Upgrade to 0.2.x. |
+| The latest release (see the [releases page](https://github.com/wevertonjuscelino/wev-skills/releases/latest)) | Receives security fixes. |
+| Any older release | Not patched. Upgrade to the latest release. |
 
-No other versions exist.
+Every release is a full, final release published from `main`; there are no maintenance branches.
 
 ## Reporting a vulnerability
 

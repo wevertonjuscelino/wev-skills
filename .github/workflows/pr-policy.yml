@@ -1,0 +1,51 @@
+# Pull request policy: title format and source branch. Read-only; these job names are meant to be
+# required status checks.
+#
+# Action references are not needed here. The title and branch names reach the scripts through env:
+# and are quoted; nothing from github.event.* is interpolated into a run: script. The trigger is
+# pull_request (not pull_request_target), so a pull request from a fork runs with a read-only
+# token and no secrets.
+name: PR policy
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: pr-title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the title format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|refactor|docs|test|chore|perf|ci|build|security)(\([a-z0-9._/-]+\))?!?: [^ ].*$'
+          if [[ "$TITLE" =~ $pattern ]]; then
+            echo "Title ok: $TITLE"
+          else
+            echo "::error::The title must be '<type>(<scope>): <description>' with type feat, fix, refactor, docs, test, chore, perf, ci, build or security; the scope is optional. Got: $TITLE"
+            exit 1
+          fi
+
+  source-branch:
+    name: source-branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Only dev may target main
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          if [ "$BASE" = "main" ] && { [ "$HEAD_REF" != "dev" ] || [ "$HEAD_REPO" != "$THIS_REPO" ]; }; then
+            echo "::error::Pull requests into main must come from the dev branch of this repository. Retarget this pull request to dev."
+            exit 1
+          fi
+          echo "Source branch ok: $HEAD_REPO:$HEAD_REF into $BASE"

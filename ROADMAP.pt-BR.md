@@ -2,7 +2,7 @@
 
 Versão em inglês: [ROADMAP.md](ROADMAP.md).
 
-Esta é a direção do wev-skills depois do pré-lançamento 0.2.0, não uma promessa. Não promete datas nem ordem dentro de uma seção. Cada item diz o que é verdade sobre ele hoje, com os rótulos de evidência do projeto: implementado e testado; implementado mas não testado; simulado com mocks; apenas documentado; bloqueado. Um item sem implementação é "apenas documentado". As fontes são a [especificação](docs/spec.pt-BR.md), o [estado do MVP](docs/mvp-status.pt-BR.md), os limites conhecidos do [SECURITY.pt-BR.md](SECURITY.pt-BR.md) e as [hipóteses](docs/research/hypotheses.pt-BR.md).
+Esta é a direção do wev-skills, não uma promessa. <!-- wev:release-status -->Última versão publicada: [v2.0.0](https://github.com/wevertonjuscelino/wev-skills/releases/tag/v2.0.0), em 2026-10-15. Milestone aberto da próxima versão: [v3.0.0](https://github.com/wevertonjuscelino/wev-skills/milestones).<!-- /wev:release-status --> O número maior conta as versões publicadas em `main` (cada pull request de `dev` para `main` que é mesclado publica o próximo maior); ele não sinaliza mudanças incompatíveis como no Versionamento Semântico, então leia o [changelog](CHANGELOG.md) para saber o que mudou. O esquema está no [guia de manutenção](docs/guides/maintaining.pt-BR.md). Não promete datas nem ordem dentro de uma seção. Cada item diz o que é verdade sobre ele hoje, com os rótulos de evidência do projeto: implementado e testado; implementado mas não testado; simulado com mocks; apenas documentado; bloqueado. Um item sem implementação é "apenas documentado". As fontes são a [especificação](docs/spec.pt-BR.md), o [estado do MVP](docs/mvp-status.pt-BR.md), os limites conhecidos do [SECURITY.pt-BR.md](SECURITY.pt-BR.md) e as [hipóteses](docs/research/hypotheses.pt-BR.md).
 
 ## Como ler
 
@@ -10,7 +10,7 @@ Esta é a direção do wev-skills depois do pré-lançamento 0.2.0, não uma pro
 - "Evidência hoje" é o estado do trabalho agora. Nunca é evidência de que o trabalho pronto vai ajudar: nenhuma melhoria medida é alegada para qualquer item.
 - Um item passa para o [changelog](CHANGELOG.md) quando é entregue, com o seu rótulo.
 
-## Agora: endurecimento da 0.2.x
+## Agora: endurecimento
 
 Trabalho que torna o comportamento existente confiável e verificado. Nenhuma capacidade nova.
 
@@ -52,4 +52,4 @@ Declarado para que ninguém espere por isso.
 
 ## Como o roteiro é acompanhado
 
-O trabalho é acompanhado no GitHub com milestones (um por versão planejada) e as labels de [.github/labels.json](.github/labels.json). Uma issue só é ligada a um milestone quando um mantenedor a aceita (`status: accepted`). Este arquivo é o resumo; os milestones e as issues são o detalhe, e onde divergirem, a issue e o changelog são o registro mais atual. Para propor uma mudança, abra uma solicitação de funcionalidade ou inicie uma conversa nas Discussions (veja [SUPPORT.pt-BR.md](SUPPORT.pt-BR.md)).
+O trabalho é acompanhado no GitHub com milestones (um por versão planejada) e as labels de [.github/labels.json](.github/labels.json). Uma issue só é ligada a um milestone quando um mantenedor a aceita (`status: accepted`). Os milestones levam o nome da versão que alimentam (`v3.0.0` é a próxima); os milestones antigos `0.2.x` e `0.3.0` serão renomeados para combinar. Este arquivo é o resumo; os milestones e as issues são o detalhe, e onde divergirem, a issue e o changelog são o registro mais atual. Para propor uma mudança, abra uma solicitação de funcionalidade ou inicie uma conversa nas Discussions (veja [SUPPORT.pt-BR.md](SUPPORT.pt-BR.md)).

@@ -97,7 +97,9 @@ Do not copy material wholesale, and do not imply affiliation with any other proj
 
 Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`, `build`, `revert`. A scope is allowed: `fix(hooks): ask before a recursive delete`. The subject is at most 72 characters and has no trailing period; the `commit-msg` hook enforces this (merge and revert commits that git generates are allowed). Do not list tools as authors or co-authors.
 
-Work on a branch and open a pull request at <https://github.com/wevertonjuscelino/wev-skills/pulls>; see the [maintaining guide](docs/guides/maintaining.md) for the flow. Report bugs and request features at <https://github.com/wevertonjuscelino/wev-skills/issues>.
+Work on a branch cut from `dev` and open a pull request **into `dev`** at <https://github.com/wevertonjuscelino/wev-skills/pulls>; pull requests into `main` are accepted only from `dev` (the `source-branch` check fails otherwise). The pull request title must follow `<type>(<scope>): <description>` with type `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`, `build` or `security` and an optional scope (the `pr-title` check); it becomes the changelog line. Pull requests are merged with a merge commit.
+
+Versions are computed from git history: `X` counts releases to `main`, `Y` counts the pull requests merged into `dev` since the last release and `Z` counts the commits of the pull request in progress. You never edit a version number or the changelog sections of a release; the release workflow does it when `dev` is merged into `main`. The [maintaining guide](docs/guides/maintaining.md) has the full flow and a worked example. Report bugs and request features at <https://github.com/wevertonjuscelino/wev-skills/issues>.
 
 ## Pull request checklist
 

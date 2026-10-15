@@ -6,10 +6,10 @@ Versão em inglês: [SECURITY.md](SECURITY.md).
 
 | Versão | Situação |
 |---|---|
-| 0.2.x | Pré-lançamento. Recebe correções de segurança. |
-| 0.1.x | Pré-lançamento, substituído pela 0.2.x. Atualize para a 0.2.x. |
+| A última release (veja a [página de releases](https://github.com/wevertonjuscelino/wev-skills/releases/latest)) | Recebe correções de segurança. |
+| Qualquer release mais antiga | Não recebe correções. Atualize para a última release. |
 
-Não existem outras versões.
+Toda release é completa e final, publicada a partir de `main`; não há branches de manutenção.
 
 ## Como relatar uma vulnerabilidade
 

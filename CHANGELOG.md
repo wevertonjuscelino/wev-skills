@@ -1,12 +1,24 @@
 # Changelog
 
-All notable changes to this project are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project intends to follow [Semantic Versioning](https://semver.org/) once it has a release.
+All notable changes to this project are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow the release-counting scheme of the [maintaining guide](docs/guides/maintaining.md): the major counts releases to `main`, so it does not signal breaking changes as in [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-10-15
+### Added
 
-Pre-release. Adds objective intake, project specialists, run-level budgets and coordinated skill maintenance, and hardens private log files and Git command classification. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). The workflows run on GitHub Actions; read their results for the commit you care about. The verification record is in [docs/mvp-status.md](docs/mvp-status.md). Live Claude Code sessions, real tmux or SSH hosts and model-quality effects of the new features remain unvalidated.
+- Automatic versioning from git history: `scripts/versioning.py` prints `X.Y.Z` for a ref (`X` counts releases to `main`, `Y` the pull requests merged into `dev` since the last release, `Z` the commits of the pull request in progress), and `--next-release` prints the next release. Implemented and tested against temporary repositories. CI prints the computed version in the job summary of `lint`.
+- Release automation: `.github/workflows/release.yml` now runs on every push to `main` and releases only when the pushed commit is the merge of a pull request from `dev`. It computes the version, collects the merged pull requests (`scripts/collect_release_prs.py`), rewrites the version files, the changelog and the generated release-status blocks (`scripts/release_prep.py`), commits as `github-actions[bot]`, tags, publishes a final release, rotates the milestones and fast-forwards `dev`. The scripts are implemented and tested; the workflow is implemented but untested, because it can only run on GitHub.
+- `.github/workflows/pr-policy.yml` with the checks `pr-title` (conventional title for the changelog) and `source-branch` (only `dev` may target `main`).
+
+### Changed
+
+- Releases are numbered by counting: the two published releases are now `v1.0.0` (first published as 0.1.0) and `v2.0.0` (first published as 0.2.0), and all releases are final releases, never pre-releases. The next release is `v3.0.0`. The major number does not signal breaking changes.
+- Contributions target `dev`; `dev` is merged into `main` with a merge commit to release. The maintaining and contributing guides, the roadmap and the MVP status describe the new flow; the version sentence of the READMEs, `CLAUDE.md` and the installation guides are marker-driven so the release job can rewrite them.
+- `SECURITY.md` no longer lists versions: the latest release receives security fixes.
+
+## [2.0.0] - 2026-10-15
+
+First published as 0.2.0 and renumbered on 2026-10-15 under the release-counting scheme (see [docs/guides/maintaining.md](docs/guides/maintaining.md)). Adds objective intake, project specialists, run-level budgets and coordinated skill maintenance, and hardens private log files and Git command classification. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). The workflows run on GitHub Actions; read their results for the commit you care about. The verification record is in [docs/mvp-status.md](docs/mvp-status.md). Live Claude Code sessions, real tmux or SSH hosts and model-quality effects of the new features remain unvalidated.
 
 ### Added
 
@@ -24,16 +36,16 @@ Pre-release. Adds objective intake, project specialists, run-level budgets and c
 - The `pre-push` hook unsets Git's repository-local environment variables before it runs `make test`, so the tests' temporary repositories are not redirected into the repository being pushed.
 - The README files were rewritten for the public repository, and the statements in `ci.yml` and `SECURITY.md` that no workflow had completed a run were removed in favour of the Actions history.
 - The pattern label `openai-style-key` in `scripts/scan_secrets.py` is now `model-api-key`, and provider names were removed from the related code comments; the patterns are unchanged.
-- The version is 0.2.0 in `pyproject.toml`, `.claude-plugin/plugin.json` and `src/wev_skills/__init__.py`.
+- The version is 2.0.0 in `pyproject.toml`, `.claude-plugin/plugin.json` and `src/wev_skills/__init__.py`.
 
 ### Fixed
 
 - A hook test measured the worst-case long command line against a 2.0 s wall-clock bound that failed on a shared macOS runner (2.1 s); the bound is now half of the `PreToolUse` hook timeout (10 s).
 - Concurrent appends and lock-file creation share one private-open helper, so the permission tightening no longer happens after the write.
 
-## [0.1.0] - 2026-10-13
+## [1.0.0] - 2026-10-13
 
-Pre-release. Initial engine, published on 2026-10-13. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). Test status is whatever `make test` reports on your machine; the CI workflows exist; their results are in the repository's Actions history, not in this entry. The verification record is in [docs/mvp-status.md](docs/mvp-status.md).
+First published as 0.1.0 and renumbered on 2026-10-15 under the release-counting scheme (see [docs/guides/maintaining.md](docs/guides/maintaining.md)). Initial engine, published on 2026-10-13. Evidence labels follow the project convention; see [CONTRIBUTING.md](CONTRIBUTING.md). Test status is whatever `make test` reports on your machine; the CI workflows exist; their results are in the repository's Actions history, not in this entry. The verification record is in [docs/mvp-status.md](docs/mvp-status.md).
 
 ### Added
 
@@ -96,6 +108,6 @@ Pre-release. Initial engine, published on 2026-10-13. Evidence labels follow the
 - When the JEV program is not found, the recorded fallback reason says it was not found on the allowed path and names the two fixes (`decision.jev.command` as an absolute path, or `permissions.exec_path`); an absolute path must be a regular executable file.
 - `wev agent export` named `agent-specs/examples/<id>.json` as the source of every agent; `wev agent list --dir` failed on a JSON file that is not a spec; remote alias errors showed the alias inside literal quotes.
 
-[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/wevertonjuscelino/wev-skills/releases/tag/v0.1.0
+[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/wevertonjuscelino/wev-skills/releases/tag/v1.0.0
