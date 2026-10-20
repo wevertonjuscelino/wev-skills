@@ -41,7 +41,8 @@ def _handle(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _shown(specialist: str, lesson: Lesson) -> dict[str, str]:
-    """Everything the decision covers: the full text, each authored excerpt and the note."""
+    """Everything the decision covers: the full text, each authored excerpt and the note, each
+    cut exactly as ``experience.render_lesson`` cuts it, so the operator sees what is shown."""
     fields = {
         "specialist": specialist,
         "lesson": lesson.id,
@@ -50,7 +51,8 @@ def _shown(specialist: str, lesson: Lesson) -> dict[str, str]:
         "evidence": f"{lesson.evidence.run_id} / {lesson.evidence.task_id}",
     }
     for index, item in enumerate(lesson.authored, 1):
-        fields[f"authored {index}"] = clean_text(f"{item.label}: {item.text}", AUTHORED_MAX)
+        label, text = clean_text(item.label, AUTHORED_MAX), clean_text(item.text, AUTHORED_MAX)
+        fields[f"authored {index}"] = f"{label}: {text}"
     if lesson.note:
         fields["note"] = clean_text(lesson.note, AUTHORED_MAX)
     return fields

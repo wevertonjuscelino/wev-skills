@@ -21,6 +21,7 @@ from wev_skills.agents.experience import (
     PROPOSED,
     RETIRED,
     STALE,
+    AuthoredText,
     active_lessons,
     rendered_lessons,
 )
@@ -184,12 +185,15 @@ class CommandTests(SpecialistCase):
     def test_the_prompt_shows_the_full_text_and_the_note_and_the_audit_has_the_terminal(
         self,
     ) -> None:
-        self.store(replace(self.lesson, text="t" * 299 + "!", note="watch the flaky step"))
+        authored = (AuthoredText("review summary", "a" * 239 + "?"),)
+        changed = replace(self.lesson, text="t" * 299 + "!", note="watch the flaky step")
+        self.store(replace(changed, contains_authored_text=True, authored=authored))
         prompt = ScriptedPrompt()
         code, _, _ = self.run_cli("specialists", "accept", AGENT, self.lesson.id, prompt=prompt)
         self.assertEqual(code, 0)
         self.assertIn("t" * 299 + "!", prompt.shown[0])
         self.assertIn("watch the flaky step", prompt.shown[0])
+        self.assertIn("review summary: " + "a" * 239 + "?", prompt.shown[0])
         path = self.root / "state" / "audit.jsonl"
         events = [json.loads(line) for line in path.read_text().splitlines()]
         accepted = [event for event in events if event["type"] == "specialists.accept"]
