@@ -87,6 +87,7 @@
   "decisions.jev.why.exit_code": "código de saída {code}",
   "decisions.jev.why.not_on_path": "o programa {program} não foi encontrado no caminho permitido (permissions.exec_path). Corrija definindo decision.jev.command com o caminho absoluto do programa, ou adicionando o diretório dele a permissions.exec_path",
   "decisions.jev.why.not_a_file": "o programa {program} não foi encontrado como arquivo regular executável. Corrija definindo decision.jev.command com o caminho absoluto do programa, ou adicionando o diretório dele a permissions.exec_path e usando só o nome, sem caminho",
+  "decisions.jev.warning_key": "decision.provider é jev, mas nenhuma chave do JEV foi encontrada ({why}); a política local é usada",
   "decisions.jev.warning": "decision.provider é jev, mas o programa não é resolvido, então a política local é usada: {why}",
   "decisions.jev.why.in_run_root": "o programa {program} está dentro da raiz da execução, onde o agente pode escrever",
   "decisions.strategy.no_plan": "Sem etapa de plano: agir diretamente com verificações proporcionais.",

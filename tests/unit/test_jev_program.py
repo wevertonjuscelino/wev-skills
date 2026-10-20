@@ -6,13 +6,16 @@ import os
 import stat
 import tempfile
 import unittest
+from collections.abc import Iterator
 from pathlib import Path
+from unittest import mock
 
 from tests.unit._agent_helpers import make
 from wev_skills import i18n
-from wev_skills.config import Config, DecisionConfig, JevConfig, PermissionsConfig
+from wev_skills.config import BUILTIN, Config, DecisionConfig, JevConfig, PermissionsConfig
 from wev_skills.core.contracts import PlanTask, TaskSignals
 from wev_skills.core.ports import SubprocessRunner
+from wev_skills.decisions import jev_program
 from wev_skills.decisions.factory import build_provider
 from wev_skills.decisions.jev import JevProvider
 from wev_skills.decisions.jev_program import jev_warnings, resolve_jev_program
@@ -28,6 +31,20 @@ def english() -> contextlib.AbstractContextManager[None]:
     block = i18n.use_language("en")
     block.__enter__()
     return block
+
+
+@contextlib.contextmanager
+def isolated_keys(env_key: str | None) -> Iterator[None]:
+    with tempfile.TemporaryDirectory() as tmp:
+        base = {"HOME": tmp, "XDG_CONFIG_HOME": str(Path(tmp) / "cfg")}
+        with (
+            mock.patch.dict(os.environ, base),
+            mock.patch.object(jev_program, "macos_keychain", lambda: None),
+        ):
+            os.environ.pop("TYPESAFE_API_KEY", None)
+            if env_key:
+                os.environ["TYPESAFE_API_KEY"] = env_key
+            yield
 
 
 def make_program(directory: Path, name: str) -> Path:
@@ -166,6 +183,16 @@ class ProviderFallbackTests(unittest.TestCase):
             program = make_program(Path(tmp).resolve(), "myjev")
             config = self.jev_config(str(program))
             self.assertEqual(jev_warnings(config, os.getcwd()), [])
+
+    def test_builtin_warns_when_no_key(self) -> None:
+        with isolated_keys(None):
+            warnings = jev_warnings(self.jev_config(BUILTIN), os.getcwd())
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("no JEV key was found", warnings[0])
+
+    def test_builtin_no_warning_with_key(self) -> None:
+        with isolated_keys("k-value"):
+            self.assertEqual(jev_warnings(self.jev_config(BUILTIN), os.getcwd()), [])
 
 
 if __name__ == "__main__":

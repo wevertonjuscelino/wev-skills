@@ -44,9 +44,13 @@ DEFAULT_EXEC_PATH = (
 )
 
 
+BUILTIN = "builtin"
+"""The value of ``decision.jev.command`` that selects the built-in HTTPS client."""
+
+
 @dataclass(frozen=True)
 class JevConfig(Serializable):
-    command: str = "jev"
+    command: str = BUILTIN
     timeout_seconds: float = 10.0
 
 
@@ -344,20 +348,27 @@ def trust_errors(config: Config, root: str | os.PathLike[str]) -> list[str]:
     absolute path outside ``root``; ``agents.directories`` stay inside ``root`` or the
     user's configuration directory. A file in the repository must not pick what runs.
     """
-    base, errors = Path(root).resolve(), []
-    command = config.decision.jev.command
-    bare = os.sep not in command and "/" not in command and not any(c.isspace() for c in command)
-    name = os.path.basename(command).rstrip("0123456789.").lower()
-    if name in UNTRUSTED_PROGRAMS or not (bare or os.path.isabs(command)):
-        errors.append("/decision/jev/command: must be a program name or an absolute path")
-    elif not bare and _inside(base, Path(command).resolve()):
-        errors.append("/decision/jev/command: must not point inside the repository")
+    base, errors = Path(root).resolve(), _command_errors(config.decision.jev.command, Path(root))
     allowed = (base, user_config_home().resolve())
     for index, entry in enumerate(config.agents.directories):
         resolved = (base / entry).resolve()
         if not any(_inside(place, resolved) for place in allowed):
             errors.append(f"/agents/directories/{index}: must be inside the repository root")
     return [*errors, *_project_dir_errors(config, base)]
+
+
+def _command_errors(command: str, root: Path) -> list[str]:
+    """The built-in client names no program, so only a program name is checked."""
+    if command == BUILTIN:
+        return []
+    base = root.resolve()
+    bare = os.sep not in command and "/" not in command and not any(c.isspace() for c in command)
+    name = os.path.basename(command).rstrip("0123456789.").lower()
+    if name in UNTRUSTED_PROGRAMS or not (bare or os.path.isabs(command)):
+        return ["/decision/jev/command: must be a program name or an absolute path"]
+    if not bare and _inside(base, Path(command).resolve()):
+        return ["/decision/jev/command: must not point inside the repository"]
+    return []
 
 
 def _project_dir_errors(config: Config, base: Path) -> list[str]:

@@ -15,7 +15,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from wev_skills import i18n
-from wev_skills.config import Config
+from wev_skills.config import BUILTIN, Config
+from wev_skills.decisions.jev_key import env_file_path, macos_keychain, resolve_api_key
 from wev_skills.decisions.jev_wire import JevUnavailable
 
 
@@ -43,10 +44,23 @@ def resolve_jev_program(command: str, exec_path: Sequence[str], root: str | None
     return found
 
 
+def _key_warnings() -> list[str]:
+    try:
+        key = resolve_api_key(os.environ, env_file_path(), macos_keychain)
+    except JevUnavailable as exc:
+        return [i18n.t("decisions.jev.warning_key", why=exc.message or exc.code)]
+    if key is not None:
+        return []
+    why = i18n.t("decisions.jev.why.key_missing")
+    return [i18n.t("decisions.jev.warning_key", why=why)]
+
+
 def jev_warnings(config: Config, root: str | None) -> list[str]:
     """Warnings for a configuration that selects JEV but names a program that cannot be used."""
     if config.decision.provider != "jev":
         return []
+    if config.decision.jev.command == BUILTIN:
+        return _key_warnings()
     try:
         resolve_jev_program(config.decision.jev.command, config.permissions.exec_path, root)
     except JevUnavailable as exc:

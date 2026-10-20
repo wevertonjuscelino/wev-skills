@@ -209,6 +209,21 @@ def _usable_header_value(value: str) -> bool:
     return not any(ord(char) < SPACE or ord(char) == DELETE for char in value)
 
 
+class LazyAsker:
+    """Builds the ``HttpAsker`` on the first call, so a missing key is a per-call
+    ``JevUnavailable`` (a local fallback) and not a startup failure. A failed build is not
+    kept: the next call tries again, which picks up a key added mid-session."""
+
+    def __init__(self, timeout_seconds: float) -> None:
+        self._timeout = timeout_seconds
+        self._asker: HttpAsker | None = None
+
+    def __call__(self, questions: Mapping[str, Any], state: str) -> str:
+        if self._asker is None:
+            self._asker = build_http_asker(self._timeout)
+        return self._asker(questions, state)
+
+
 def build_http_asker(timeout_seconds: float, env: Mapping[str, str] | None = None) -> HttpAsker:
     source = os.environ if env is None else env
     endpoint = resolve_endpoint(source)
