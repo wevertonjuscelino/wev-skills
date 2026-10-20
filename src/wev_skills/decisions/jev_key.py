@@ -52,11 +52,19 @@ def _parse_line(line: str) -> tuple[str, str] | None:
 
 def read_env_file(path: Path) -> dict[str, str]:
     """The ``NAME=value`` pairs of ``path``; refuses a file other users can read."""
-    if path.stat().st_mode & GROUP_OTHER_BITS:
+    try:
+        if path.stat().st_mode & GROUP_OTHER_BITS:
+            raise JevUnavailable(
+                "env_file_insecure", i18n.t("decisions.jev.why.env_file_insecure", path=str(path))
+            )
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise
+    except (OSError, UnicodeDecodeError) as exc:
         raise JevUnavailable(
-            "env_file_insecure", i18n.t("decisions.jev.why.env_file_insecure", path=str(path))
-        )
-    pairs = (_parse_line(line) for line in path.read_text(encoding="utf-8").splitlines())
+            "env_file_unreadable", i18n.t("decisions.jev.why.env_file_unreadable", path=str(path))
+        ) from exc
+    pairs = (_parse_line(line) for line in text.splitlines())
     return dict(pair for pair in pairs if pair is not None)
 
 

@@ -150,5 +150,19 @@
   "decide.task_file.help": "Caminho de um arquivo JSON com uma tarefa de plano (id, title, objective e campos opcionais).",
   "decide.agent.help": "Id do agente cuja lista de ferramentas é restringida.",
   "decide.tier.help": "Tier do executor usado para resolver tool_profile auto (padrão: o tier do modelo do agente, senão standard).",
-  "decide.error.task_file": "{path} não é uma tarefa de plano: {error}"
+  "decide.error.task_file": "{path} não é uma tarefa de plano: {error}",
+  "decisions.jev.why.key_missing": "nenhuma chave do JEV foi encontrada; defina TYPESAFE_API_KEY, grave em ~/.config/wev-skills/.env ou guarde no keychain do macOS (serviço typesafe-api-key)",
+  "decisions.jev.why.key_rejected": "a chave foi recusada (HTTP 401)",
+  "decisions.jev.why.http_status": "HTTP {status}",
+  "decisions.jev.why.retries_exhausted": "o serviço continuou respondendo que estava ocupado",
+  "decisions.jev.why.network": "erro de rede",
+  "decisions.jev.why.endpoint_insecure": "JEV_API_URL deve usar https, a menos que aponte para a própria máquina",
+  "decisions.jev.why.endpoint_credentials": "JEV_API_URL não pode conter usuário nem senha",
+  "decisions.jev.why.env_file_unreadable": "não foi possível ler o arquivo {path}",
+  "decisions.jev.error.invalid_questions": "perguntas inválidas: {why}",
+  "decisions.jev.error.not_object": "questions deve ser um objeto com ao menos uma pergunta",
+  "decisions.jev.error.bad_type": "pergunta \"{name}\": type deve ser um de {types}",
+  "decisions.jev.error.no_instructions": "pergunta \"{name}\": instructions é obrigatório",
+  "decisions.jev.error.choice_options": "pergunta \"{name}\": choice exige de {low} a {high} entradas em criteria",
+  "decisions.jev.error.score_levels": "pergunta \"{name}\": score exige de {low} a {high} níveis em criteria"
 }

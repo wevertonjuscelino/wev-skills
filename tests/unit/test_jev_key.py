@@ -79,6 +79,23 @@ class ResolveApiKeyTest(unittest.TestCase):
         found = resolve_api_key({}, self.dir / "absent", lambda: "k-chain")
         self.assertEqual(found, ApiKey("k-chain", "keychain"))
 
+    def test_unreadable_env_file_is_jev_unavailable(self) -> None:
+        self.file.mkdir(mode=0o700)  # a directory where the file should be
+        undecodable = self.dir / "binary"
+        undecodable.write_bytes(b"\xff\xfe\x00")
+        os.chmod(undecodable, 0o600)
+        unreadable = self.dir / "noread"
+        unreadable.write_text(f"{VAR}=k\n", encoding="utf-8")
+        os.chmod(unreadable, 0o200)
+        for path in (self.file, undecodable, unreadable):
+            with self.subTest(path=path.name):
+                if path is unreadable and os.geteuid() == 0:
+                    self.skipTest("root can read anything")
+                with self.assertRaises(JevUnavailable) as caught:
+                    resolve_api_key({}, path, lambda: "k-chain")
+                self.assertEqual(caught.exception.code, "env_file_unreadable")
+                self.assertIn(str(path), str(caught.exception))
+
     def test_env_file_path_is_under_the_user_config_home(self) -> None:
         self.assertEqual(jev_key.env_file_path(), self.dir / "cfg" / "wev-skills" / FILE_NAME)
 

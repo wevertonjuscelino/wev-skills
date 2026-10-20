@@ -150,5 +150,19 @@
   "decide.task_file.help": "Path to a JSON file holding one plan task (id, title, objective and optional fields).",
   "decide.agent.help": "Id of the agent whose tool list is narrowed.",
   "decide.tier.help": "Executor tier used to resolve tool_profile auto (default: the tier of the agent's model, else standard).",
-  "decide.error.task_file": "{path} is not a plan task: {error}"
+  "decide.error.task_file": "{path} is not a plan task: {error}",
+  "decisions.jev.why.key_missing": "no JEV key was found; set TYPESAFE_API_KEY, put it in ~/.config/wev-skills/.env, or store it in the macOS keychain (service typesafe-api-key)",
+  "decisions.jev.why.key_rejected": "the key was rejected (HTTP 401)",
+  "decisions.jev.why.http_status": "HTTP {status}",
+  "decisions.jev.why.retries_exhausted": "the service kept answering that it was busy",
+  "decisions.jev.why.network": "network error",
+  "decisions.jev.why.endpoint_insecure": "JEV_API_URL must use https unless it points at the local machine",
+  "decisions.jev.why.endpoint_credentials": "JEV_API_URL must not contain a user or password",
+  "decisions.jev.why.env_file_unreadable": "the file {path} could not be read",
+  "decisions.jev.error.invalid_questions": "invalid questions: {why}",
+  "decisions.jev.error.not_object": "questions must be an object with at least one question",
+  "decisions.jev.error.bad_type": "question \"{name}\": type must be one of {types}",
+  "decisions.jev.error.no_instructions": "question \"{name}\": instructions is required",
+  "decisions.jev.error.choice_options": "question \"{name}\": choice needs {low} to {high} criteria entries",
+  "decisions.jev.error.score_levels": "question \"{name}\": score needs {low} to {high} criteria levels"
 }
