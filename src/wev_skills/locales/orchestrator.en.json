@@ -171,6 +171,7 @@
   "orch.error.no_agent": "No agent may take task {task}: none has permissions that cover {mode} mode at risk {risk}. Give an agent a higher max_risk or the mode, or add one.",
   "orch.error.check_criterion": "Task {task}: a check names criterion {reference!r}, which is neither an index nor the exact text of one of the task's acceptance criteria.",
   "orch.error.busy": "The run kept changing under this command ({attempts} tries). Nothing was changed; run it again.",
+  "orch.error.lessons_changed": "The lessons of {agent} were accepted or retired while this task was starting. Nothing was changed; run the command again so the contract shows the current lessons.",
   "orch.error.run_active": "Run {run} is still active in this repository. Finish it with 'wev run finish --run {run}' before starting another.",
   "orch.error.config_pinned": "Run {run} pinned its configuration when it started ({source}); the configuration given now differs and is refused. Drop --config, or start a new run to use it.",
   "orch.decision.config": "Configuration pinned for the run, from {source}.",

@@ -4,6 +4,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- Run state is readable by release 2.0.0 again: `task start` records the lessons a contract shows as a `lessons.shown` event in the run's `events.jsonl` instead of a `lessons_shown` field in `state.json`, and learning counts usage from those events. Runs written by 3.0.0 keep their `lessons_shown` field, which is still read and counted. Implemented and tested.
+- A task start reads the specialist's file again under the lock that `specialists accept` and `specialists retire` take, and is refused (`lessons_changed`, exit 5) when the lessons were accepted or retired after the command loaded them, so a start never records or shows a lesson an operator had already retired. Implemented and tested.
+
 ## [3.0.0] - 2026-10-20
 
 ### Added

@@ -16,6 +16,7 @@ from wev_skills.agents.output import OutputScope, confine, confine_export_dir, c
 from wev_skills.agents.registry import load_file
 from wev_skills.agents.spec import AgentSpec, LocalText
 from wev_skills.config import Config
+from wev_skills.core import shown_lessons
 from wev_skills.core.errors import NotFound, PermissionDenied, StateConflict, ValidationError
 from wev_skills.core.fsutil import atomic_write_text, locked
 from wev_skills.core.wiring import build_agents, state_dir
@@ -98,16 +99,18 @@ def learn(root: Path, config: Config, agent_id: str) -> AgentSpec:
     """Recalculate observations from stored runs and update only the experience field."""
     with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
         spec = _load(root, config, agent_id)
-        states = [
-            StateStore(run_dir(state_dir(config, root), run_id)).load()
+        stores = [
+            StateStore(run_dir(state_dir(config, root), run_id))
             for run_id in list_runs(state_dir(config, root))
         ]
+        states = [store.load() for store in stores]
+        shown = {store.run_dir.name: shown_lessons.by_task(store.events()) for store in stores}
         states = [
             state
             for state in states
             if state.repo is not None and Path(state.repo.root).resolve() == root.resolve()
         ]
-        derived = learning.derive(states, agent_id, config.specialists.stale_after_runs)
+        derived = learning.derive(states, agent_id, config.specialists.stale_after_runs, shown)
         lessons = learning.reconcile(spec.experience, derived, config.specialists.max_lessons)
         updated = replace(spec, experience=lessons)
         _write(root, config, updated)

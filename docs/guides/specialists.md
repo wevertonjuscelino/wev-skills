@@ -60,8 +60,15 @@ or permissions. Rebuilding uses the local retained history; deleting history als
 its contribution to counters. Files remain subject to the engine's local state trust
 boundary: learning does not authenticate externally supplied or manually modified states.
 
-`task start` records on the task (`lessons_shown`, also in the `task.started` audit
-event) the ids of the lessons its contract shows. Learning then counts, per lesson, the
+`task start` records the ids of the lessons its contract shows as a `lessons.shown` event
+in the run's `events.jsonl` (they also appear as `lessons_shown` in the `task.started` audit
+event). They are kept out of `state.json`, so a run stays resumable by release 2.0.0, which
+refuses fields it does not know there; runs written by 3.0.0 keep the ids in a
+`lessons_shown` field of the task, which is still read and counted. Before it commits, the start reads the specialist's
+file again under the lock that `specialists accept` and `specialists retire` take; if the
+lessons changed since the command loaded them, the start is refused (`lessons_changed`,
+exit 5) and must be run again. A decision made after the start applies from the next start.
+Learning then counts, per lesson, the
 agent's tasks that were shown it and ended verified (`shown_verified`) or failed, blocked or
 partial (`shown_unverified`); tasks that have not ended count in neither.
 

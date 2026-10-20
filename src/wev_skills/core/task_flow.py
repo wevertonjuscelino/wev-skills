@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import Any
 
 from wev_skills import i18n
+from wev_skills.agents.spec import AgentSpec
 from wev_skills.core import (
     agent_rules,
     baseline,
@@ -13,11 +14,12 @@ from wev_skills.core import (
     planning,
     progress,
     run_budget,
+    shown_lessons,
     steps,
     tool_select,
 )
 from wev_skills.core.contracts import Mode, PlanTask, TaskStatus
-from wev_skills.core.engine import REQUESTER, Engine, refuse_finished, task_action
+from wev_skills.core.engine import REQUESTER, Change, Engine, refuse_finished, task_action
 from wev_skills.core.errors import ApprovalRequired, PermissionDenied, ValidationError
 from wev_skills.core.task_contract import lessons_shown
 from wev_skills.governance.approvals import ApprovalStatus, approval_id
@@ -198,7 +200,7 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
     now, stamp = engine.now(), engine.stamp()
     tools = tool_select.compute(engine, state, [task.id])
     spec = engine.services.agents.resolved(record.agent_id)
-    shown = tuple(dict.fromkeys([*record.lessons_shown, *lessons_shown(state, task, spec)]))
+    shown = lessons_shown(state, task, spec)
     text = i18n.t(
         "orch.decision.start",
         task=task.id,
@@ -219,7 +221,6 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
             starts=attempt,
             baseline=None,
             tree_changed=None,
-            lessons_shown=shown,
         )
         moved = replace(moved, tasks={**moved.tasks, task.id: started})
         event = handoff_event(task.id, now, "orchestrator", record.agent_id)
@@ -235,7 +236,17 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
         "model": record.model,
         "lessons_shown": list(shown),
     }
-    return engine.commit(change, "task.started", data, base=state), attempt
+    return _commit_start(engine, state, spec, change, data), attempt
+
+
+def _commit_start(
+    engine: Engine, state: RunState, spec: AgentSpec, change: Change, data: dict[str, Any]
+) -> RunState:
+    """Commit the start while the specialist's lessons are still those its contract shows."""
+    with shown_lessons.current_lessons(engine.services, spec):
+        committed = engine.commit(change, "task.started", data, base=state)
+        shown_lessons.record(engine.store, data["task_id"], data["lessons_shown"])
+    return committed
 
 
 def start_task(engine: Engine, task_id: str) -> dict[str, Any]:
