@@ -6,7 +6,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Fixed
 
-- Lesson usage counts only what was shown: a `lessons.shown` record is written after its start is committed and names the agent, learning counts only records for the agent that ended the task, ids a 3.0.0 run kept on the task count only while no record shows another agent, and only runs of this repository are read. A process that dies between the commit and the record leaves that start uncounted. Implemented and tested.
+- Lesson usage counts only what was shown: a `lessons.shown` record is written after its start is committed and names the agent, learning counts only records for the agent that ended the task, ids a 3.0.0 run kept on the task and records 4.0.0 wrote without an agent count only while no record shows another agent, and only runs of this repository are read. A process that dies between the commit and the record leaves that start uncounted. Implemented and tested.
 
 ## [4.0.0] - 2026-10-20
 

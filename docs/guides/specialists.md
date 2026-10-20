@@ -71,7 +71,8 @@ file is gone or its lessons changed since the command loaded them, the start is 
 every record is a start that happened; a process that dies between the two leaves that
 start uncounted rather than crediting a lesson that was never shown. Each record names the
 agent, and learning counts only records for the agent that ended the task; ids a 3.0.0 run
-kept on the task count only while no record shows another agent. Learning reads the events
+kept on the task, and records 4.0.0 wrote without an agent, count only while no record shows
+another agent. Learning reads the events
 only of runs of this repository. A decision made after the start applies from the next start.
 Learning then counts, per lesson, the
 agent's tasks that were shown it and ended verified (`shown_verified`) or failed, blocked or

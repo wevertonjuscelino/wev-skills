@@ -223,6 +223,15 @@ class ForTaskTests(unittest.TestCase):
         records = shown_lessons.by_task(events)["t"]
         self.assertEqual(shown_lessons.for_task(records, "current", ("old",)), ("new",))
 
+    def test_records_release_4_0_0_wrote_without_an_agent_count_like_legacy_ids(self) -> None:
+        unattributed = {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["v4"]}}
+        records = shown_lessons.by_task([unattributed, shown("t", "a", ["new"])])["t"]
+        self.assertEqual(shown_lessons.for_task(records, "a"), ("v4", "new"))
+        moved = shown_lessons.by_task(
+            [unattributed, shown("t", "a", ["x"]), shown("t", "b", ["new"])]
+        )["t"]
+        self.assertEqual(shown_lessons.for_task(moved, "b"), ("new",))
+
     def test_lines_that_are_not_well_formed_records_are_skipped(self) -> None:
         events: list[Any] = [
             3,
@@ -231,7 +240,7 @@ class ForTaskTests(unittest.TestCase):
             {"type": "run_created", "data": {"task_id": "t"}},
             {"type": "lessons.shown", "data": "x"},
             shown(3, "a", ["x"]),
-            shown("t", None, ["x"]),
+            shown("t", 5, ["x"]),
             shown("t", "a", "x"),
             shown("t", "a", ["ok", 7]),
         ]
