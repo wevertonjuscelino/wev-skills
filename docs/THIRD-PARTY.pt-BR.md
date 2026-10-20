@@ -35,7 +35,7 @@ As páginas da documentação oficial do Claude Code (ver [research/sources.md](
 
 Antes de adicionar a este repositório qualquer arquivo, trecho, schema, prompt ou conjunto de dados de terceiros, quem contribui deve:
 
-1. Identificar a licença e confirmar que ela é compatível com a licença deste projeto (o projeto prefere MIT para código original). Se a licença estiver ausente, pouco clara ou incompatível, não adicione o arquivo.
+1. Identificar a licença e confirmar que ela é compatível com a licença deste projeto, a PolyForm Noncommercial License 1.0.0 (veja [LICENSE](../LICENSE)). Material sob uma licença permissiva como a MIT é compatível quando seus avisos são mantidos. Se a licença estiver ausente, pouco clara ou incompatível, não adicione o arquivo.
 2. Preservar os avisos originais de copyright e de licença no arquivo ou ao lado dele, e acrescentar uma entrada no `NOTICE` quando a licença exigir.
 3. Registrá-lo neste arquivo na mesma alteração: URL da fonte, commit ou versão, licença, linha de copyright, arquivos afetados e se o uso é reaproveitamento, adaptação (o que mudou) ou inspiração.
 4. Nunca sugerir afiliação com o autor ou a organização da fonte, nem endosso por eles.
@@ -48,8 +48,8 @@ Uma alteração que adiciona material de terceiros sem a entrada correspondente 
 versão 2.4.0 no commit `42a5e85798a8cdfda2866afb0de9aadb04e187f3`, consultada em 2026-10-13,
 é uma dependência externa para orientação estrutural. Copyright (c) 2025-2026
 Netresearch DTT GmbH. Conteúdo: CC-BY-SA-4.0; scripts/configuração: MIT. Os arquivos são
-instalados separadamente e não são redistribuídos neste repositório. A skill original MIT
-`skills/wev-skill-maintenance/` coordena revisão e exceções locais; registra a procedência em
+instalados separadamente e não são redistribuídos neste repositório. A skill original
+`skills/wev-skill-maintenance/`, licenciada com o restante do wev-skills, coordena revisão e exceções locais; registra a procedência em
 `references/upstream.json` e aponta para o guia sem copiar suas instruções ou scripts.
 Esta referência não migra licença, marca, dependências do motor nem CI do projeto.
 Não implica afiliação nem endosso.

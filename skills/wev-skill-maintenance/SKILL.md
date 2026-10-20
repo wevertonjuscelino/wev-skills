@@ -1,7 +1,7 @@
 ---
 name: wev-skill-maintenance
 description: "Use when maintaining skills, reviewing upstream skill updates, or reconciling skill standards across multiple repositories (multi-repo standardization). Coordinates the external Netresearch skill-repo guide with each repository's local rules. Em português: manter skills, revisar atualizações e padronizar múltiplos repositórios; conciliar padrões entre repositórios."
-license: MIT
+license: PolyForm-Noncommercial-1.0.0
 disable-model-invocation: false
 user-invocable: true
 ---

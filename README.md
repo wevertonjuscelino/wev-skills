@@ -1,12 +1,12 @@
 # wev-skills
 
-An open source orchestration engine for developers who want AI coding agents to plan, execute and report work with recorded verification evidence.
+A source-available orchestration engine for developers who want AI coding agents to plan, execute and report work with recorded verification evidence.
 
 [Português brasileiro](README.pt-BR.md) · [Installation](docs/guides/installation.md) · [Architecture](docs/architecture/architecture.md) · [Examples](examples/README.md)
 
 [![CI](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-green)](LICENSE)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
 
 The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Code plugin connects it to skills, subagents and hooks. Task contracts, resumable state and evidence labels make the work inspectable; the engine enforces the rules that code can check.
@@ -100,7 +100,9 @@ docs/           Guides, architecture, evidence and provenance
 examples/       Sample configuration and task contracts
 ```
 
-Project files: [contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [changelog](CHANGELOG.md), [code of conduct](CODE_OF_CONDUCT.md), [MIT license](LICENSE) and [NOTICE](NOTICE). External material and separate license terms are recorded in [third-party provenance](docs/THIRD-PARTY.md).
+Project files: [contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [changelog](CHANGELOG.md), [code of conduct](CODE_OF_CONDUCT.md), [license](LICENSE) and [NOTICE](NOTICE). External material and separate license terms are recorded in [third-party provenance](docs/THIRD-PARTY.md).
+
+wev-skills is source-available, not open source in the sense of the Open Source Initiative. Starting with the next release (3.0.0), it is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE): anyone may use, change and redistribute it for any noncommercial purpose, and commercial use is prohibited. Everything published before the change remains under the MIT License: releases 1.0.0 to 2.0.0 and the commits up to `577a6f6`. Third-party material keeps its own license.
 
 ## Verification
 

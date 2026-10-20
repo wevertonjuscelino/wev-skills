@@ -1,7 +1,11 @@
 wev-skills
 Copyright (c) 2026 Weverton Juscelino
 
-Licensed under the MIT License (see LICENSE).
+Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE),
+starting with release 3.0.0. Everything published before the change remains
+under the MIT License: releases 1.0.0 to 2.0.0 and the commits up to 577a6f6.
+
+Required Notice: Copyright Weverton Juscelino (https://github.com/wevertonjuscelino/wev-skills)
 
 No third-party code is bundled in this repository at this time. The works
 that inspired the design, and how they were used, are recorded in

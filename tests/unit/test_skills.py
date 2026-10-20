@@ -344,7 +344,7 @@ class ManifestTests(unittest.TestCase):
         plugin = self.load("plugin.json")
         self.assertRegex(plugin["name"], NAME_PATTERN)
         self.assertEqual(plugin["version"], self.project_version())
-        self.assertEqual(plugin["license"], "MIT")
+        self.assertEqual(plugin["license"], "PolyForm-Noncommercial-1.0.0")
         self.assertTrue(plugin["description"].strip())
         self.assertTrue(plugin["author"]["name"].strip())
         self.assertTrue(plugin["keywords"])

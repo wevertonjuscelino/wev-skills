@@ -12,6 +12,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Changed
 
+- License: wev-skills is relicensed from the MIT License to the PolyForm Noncommercial License 1.0.0, starting with the next release. Use, changes and redistribution for any noncommercial purpose are allowed; commercial use is prohibited. The project is now source-available, not open source in the sense of the Open Source Initiative. Everything published before the change, releases 1.0.0 to 2.0.0 and the commits up to `577a6f6`, remains under the MIT License, and third-party material keeps its own license. `LICENSE`, `NOTICE`, the plugin manifest, `pyproject.toml`, the READMEs, the contributing guides, the third-party record and the `wev-skill-maintenance` skill are updated.
 - Releases are numbered by counting: the two published releases are now `v1.0.0` (first published as 0.1.0) and `v2.0.0` (first published as 0.2.0), and all releases are final releases, never pre-releases. The next release is `v3.0.0`. The major number does not signal breaking changes.
 - Contributions target `dev`; `dev` is merged into `main` with a merge commit to release. The maintaining and contributing guides, the roadmap and the MVP status describe the new flow; the version sentence of the READMEs, `CLAUDE.md` and the installation guides are marker-driven so the release job can rewrite them.
 - `SECURITY.md` no longer lists versions: the latest release receives security fixes.

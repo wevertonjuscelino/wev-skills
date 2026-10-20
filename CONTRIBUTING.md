@@ -81,7 +81,7 @@ The repository ships six skills: `wev-orchestrate`, `wev-agent-builder`, `wev-ha
 
 Before adding any third-party file, snippet, schema, prompt or dataset:
 
-1. Check its license and confirm it is compatible with MIT distribution.
+1. Check its license and confirm it is compatible with distribution under this project's license, the [PolyForm Noncommercial License 1.0.0](LICENSE).
 2. Preserve its copyright and license notices.
 3. Record it in [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) (and `NOTICE` when the license requires it), stating whether it is inspiration, adaptation or reuse.
 

@@ -30,7 +30,7 @@ repositório, comportamento atual, proposta, exceção local e motivo. Resolva c
 explicitamente; a ordem das tarefas não determina quais regras prevalecem. Uma skill orienta;
 não autoriza superar instruções do usuário, segurança local ou portões de aprovação humana.
 
-No wev-skills preserve o motor Python somente com biblioteca padrão, a licença MIT existente,
+No wev-skills preserve o motor Python somente com biblioteca padrão, a licença PolyForm Noncommercial 1.0.0 existente,
 `.claude-plugin/plugin.json` como manifesto atual, documentação em inglês e português brasileiro,
 testes e lint existentes. Composer, marca Netresearch, licença dividida e CI upstream são
 propostas opcionais de migração, nunca exigências automáticas. O validador estrutural Netresearch
