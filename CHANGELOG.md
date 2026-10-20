@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-20
+
 ### Added
 
 - Automatic versioning from git history: `scripts/versioning.py` prints `X.Y.Z` for a ref (`X` counts releases to `main`, `Y` the pull requests merged into `dev` since the last release, `Z` the commits of the pull request in progress), and `--next-release` prints the next release. Implemented and tested against temporary repositories. CI prints the computed version in the job summary of `lint`.
@@ -113,6 +115,7 @@ First published as 0.1.0 and renumbered on 2026-10-15 under the release-counting
 - When the JEV program is not found, the recorded fallback reason says it was not found on the allowed path and names the two fixes (`decision.jev.command` as an absolute path, or `permissions.exec_path`); an absolute path must be a regular executable file.
 - `wev agent export` named `agent-specs/examples/<id>.json` as the source of every agent; `wev agent list --dir` failed on a JSON file that is not a spec; remote alias errors showed the alias inside literal quotes.
 
-[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/wevertonjuscelino/wev-skills/releases/tag/v1.0.0
