@@ -30,6 +30,7 @@
   "decisions.esc.repeat": "O mesmo erro se repetiu nas duas últimas falhas ({signature}): a próxima tentativa roda em um modelo mais forte.",
   "decisions.esc.limit": "{count} tentativa(s) com falha atingiram a metade do limite de {limit}: a próxima tentativa roda em um modelo mais forte.",
   "decisions.esc.ask_human": "{count} tentativas com falha usaram todo o limite de {limit}: só uma pessoa pode reabrir a tarefa.",
+  "decisions.jev.why.env_file_insecure": "o arquivo {path} pode ser lido por outros usuários; rode chmod 600 {path}",
   "decisions.jev.unavailable": "O JEV estava indisponível ({why}); foi usada a política local.",
   "decisions.jev.complexity": "O JEV avaliou a complexidade como {value}.",
   "decisions.jev.risk": "O JEV avaliou o risco como {value}.",

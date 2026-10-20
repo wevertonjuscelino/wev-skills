@@ -30,6 +30,7 @@
   "decisions.esc.repeat": "The same error repeated in the last two failures ({signature}): the next attempt runs on a stronger model.",
   "decisions.esc.limit": "{count} failed attempt(s) reached half the limit of {limit}: the next attempt runs on a stronger model.",
   "decisions.esc.ask_human": "{count} failed attempts used the whole limit of {limit}: only a person can reopen the task.",
+  "decisions.jev.why.env_file_insecure": "the file {path} can be read by other users; run chmod 600 {path}",
   "decisions.jev.unavailable": "JEV was unavailable ({why}); the local policy was used.",
   "decisions.jev.complexity": "JEV rated the complexity as {value}.",
   "decisions.jev.risk": "JEV rated the risk as {value}.",
