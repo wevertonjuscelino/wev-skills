@@ -155,6 +155,8 @@
   "decisions.jev.why.key_rejected": "a chave foi recusada (HTTP 401)",
   "decisions.jev.why.http_status": "HTTP {status}",
   "decisions.jev.why.retries_exhausted": "o serviço continuou respondendo que estava ocupado",
+  "decisions.jev.why.key_invalid": "a chave contém caracteres que não podem ser enviados em um cabeçalho HTTP",
+  "decisions.jev.why.endpoint_invalid": "JEV_API_URL não é uma URL válida",
   "decisions.jev.why.network": "erro de rede",
   "decisions.jev.why.endpoint_insecure": "JEV_API_URL deve usar https, a menos que aponte para a própria máquina",
   "decisions.jev.why.endpoint_credentials": "JEV_API_URL não pode conter usuário nem senha",

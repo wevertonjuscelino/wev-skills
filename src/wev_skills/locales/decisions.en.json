@@ -155,6 +155,8 @@
   "decisions.jev.why.key_rejected": "the key was rejected (HTTP 401)",
   "decisions.jev.why.http_status": "HTTP {status}",
   "decisions.jev.why.retries_exhausted": "the service kept answering that it was busy",
+  "decisions.jev.why.key_invalid": "the key contains characters that cannot be sent in an HTTP header",
+  "decisions.jev.why.endpoint_invalid": "JEV_API_URL is not a valid URL",
   "decisions.jev.why.network": "network error",
   "decisions.jev.why.endpoint_insecure": "JEV_API_URL must use https unless it points at the local machine",
   "decisions.jev.why.endpoint_credentials": "JEV_API_URL must not contain a user or password",

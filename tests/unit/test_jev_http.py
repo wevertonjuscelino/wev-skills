@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import tempfile
@@ -221,6 +222,44 @@ class EndpointTest(Isolated):
         self.assertEqual(caught.exception.code, "key_missing")
         for place in ("TYPESAFE_API_KEY", "wev-skills/.env", "typesafe-api-key"):
             self.assertIn(place, str(caught.exception))
+
+    def test_unsendable_key_is_refused_without_leaking_it(self) -> None:
+        for key in ("a\nb-secret", "cafœ-secret", "tab\there"):
+            with self.subTest(key=key.encode("unicode_escape")):
+                with self.assertRaises(JevUnavailable) as caught:
+                    build_http_asker(5.0, {"TYPESAFE_API_KEY": key})
+                self.assertEqual(caught.exception.code, "key_invalid")
+                for text in (str(caught.exception), repr(caught.exception)):
+                    self.assertNotIn("secret", text)
+                    self.assertNotIn("a\nb", text)
+
+    def test_non_oserror_failures_become_network_without_chaining(self) -> None:
+        failures = (
+            http.client.IncompleteRead(b"x"),
+            http.client.BadStatusLine("x"),
+            http.client.InvalidURL("x"),
+            ValueError(f"Invalid header value Bearer {SECRET}"),
+            UnicodeEncodeError("latin-1", "x", 0, 1, "bad"),
+        )
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+
+                def opener(_r: urllib.request.Request, _t: float, f: Exception = failure) -> Any:
+                    raise f
+
+                asker = HttpAsker(REMOTE, ApiKey(SECRET, "env"), 5.0, opener=opener)
+                with self.assertRaises(JevUnavailable) as caught:
+                    asker(QUESTIONS, "s")
+                self.assertEqual(caught.exception.code, "network")
+                self.assertIsNone(caught.exception.__cause__)
+                self.assertTrue(caught.exception.__suppress_context__)
+                self.assertNotIn(SECRET, repr(caught.exception))
+
+    def test_malformed_endpoint_is_endpoint_invalid(self) -> None:
+        for url in ("http://[::1", "https://example.com:notaport/x"):
+            with self.subTest(url=url), self.assertRaises(JevUnavailable) as caught:
+                resolve_endpoint({"JEV_API_URL": url})
+            self.assertEqual(caught.exception.code, "endpoint_invalid")
 
     def test_loopback_needs_no_key(self) -> None:
         asker = build_http_asker(5.0, {"JEV_API_URL": "http://127.0.0.1:1/x"})

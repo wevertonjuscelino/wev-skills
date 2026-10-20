@@ -1,12 +1,14 @@
 """Ask JEV over HTTPS with the standard library: no external program.
 
 The behavior ports ``jev.mjs``: the same endpoint, model, retry statuses and backoff, plus
-one total deadline for the whole exchange. Every failure is a ``JevUnavailable`` so the
+one deadline. The deadline bounds the retries and each request's socket timeout; a server
+that drips bytes, or slow DNS, can still exceed it. Every failure is a ``JevUnavailable`` so the
 caller falls back to the local policy; the key never reaches a message.
 """
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import socket
@@ -37,6 +39,8 @@ MAX_SCORE_LEVELS = 10
 HTTP_OK_FIRST = 200
 HTTP_OK_LAST = 299
 HTTP_UNAUTHORIZED = 401
+SPACE = 0x20
+DELETE = 0x7F
 
 Opener = Callable[[urllib.request.Request, float], tuple[int, bytes]]
 
@@ -53,8 +57,13 @@ def _why(code: str, key: str, **params: object) -> JevUnavailable:
 
 def resolve_endpoint(env: Mapping[str, str]) -> Endpoint:
     url = env.get(ENDPOINT_VAR) or DEFAULT_ENDPOINT
-    parts = urlsplit(url)
-    local = (parts.hostname or "") in LOOPBACK_HOSTS
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname or ""
+        parts.port  # noqa: B018 - reading it validates the port
+    except ValueError:
+        raise _why("endpoint_invalid", "endpoint_invalid") from None
+    local = host in LOOPBACK_HOSTS
     if parts.username or parts.password:
         raise _why("endpoint_credentials", "endpoint_credentials")
     if parts.scheme != "https" and not (local and parts.scheme == "http"):
@@ -163,7 +172,10 @@ class HttpAsker:
         try:
             return self._opener(request, remaining)
         except OSError as exc:
-            raise _network_failure(exc) from exc
+            raise _network_failure(exc) from None
+        except http.client.HTTPException, ValueError, UnicodeError:
+            # Never chain: an http.client ValueError message can carry the Authorization value.
+            raise _why("network", "network") from None
 
     def __call__(self, questions: Mapping[str, Any], state: str) -> str:
         validate_questions(questions)
@@ -189,10 +201,20 @@ class HttpAsker:
         raise _why("retries_exhausted", "retries_exhausted")
 
 
+def _usable_header_value(value: str) -> bool:
+    try:
+        value.encode("latin-1")
+    except UnicodeEncodeError:
+        return False
+    return not any(ord(char) < SPACE or ord(char) == DELETE for char in value)
+
+
 def build_http_asker(timeout_seconds: float, env: Mapping[str, str] | None = None) -> HttpAsker:
     source = os.environ if env is None else env
     endpoint = resolve_endpoint(source)
     key = resolve_api_key(source, env_file_path(), macos_keychain)
     if key is None and not endpoint.local:
         raise _why("key_missing", "key_missing")
+    if key is not None and not endpoint.local and not _usable_header_value(key.value):
+        raise _why("key_invalid", "key_invalid")
     return HttpAsker(endpoint, key, timeout_seconds)
