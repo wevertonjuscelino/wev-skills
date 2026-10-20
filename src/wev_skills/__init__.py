@@ -1,3 +1,3 @@
 """wev-skills: evidence-oriented orchestration for AI coding agents."""
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"
