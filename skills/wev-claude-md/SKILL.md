@@ -12,6 +12,8 @@ A project's `CLAUDE.md` is loaded into context at the start of every session, so
 
 Answer the user in the language they write; when they write Portuguese, pass `--lang pt-BR` to the commands that take it, so the block and the section headings come out in Portuguese. Commands use `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`. Outside a plugin the same commands work as `wev` when it is on PATH, or as `python3 -m wev_skills` with the package importable.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
 ## What the tool does and does not do
 
 - The guidelines live between `<!-- wev-skills:guidelines:start v1 -->` and `<!-- wev-skills:guidelines:end -->`. Everything outside those markers belongs to the author. The tool never changes it, never reorders it and never rewrites it.

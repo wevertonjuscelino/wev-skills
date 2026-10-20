@@ -12,6 +12,8 @@ A README is the first thing a reader sees and the only part of the documentation
 
 Answer the user in the language they write. When they write Portuguese, write the Portuguese README first or in the same pass and pass `--lang pt-BR` to the checker so its messages come out in Portuguese. Commands use `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`. Outside a plugin the same commands work as `wev` when it is on PATH, or as `python3 -m wev_skills` with the package importable. The origin and attribution of the standard are in [references/readme-standard-source.md](references/readme-standard-source.md).
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
 ## Rules
 
 1. Review the whole project before you write a word: the source tree, the manifests, the build and test commands, the existing documentation, the git state. A README written from the old README alone repeats its mistakes.

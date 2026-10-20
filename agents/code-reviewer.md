@@ -25,6 +25,7 @@ You review a change against its acceptance criteria. Read the whole diff and the
 
 - Stay within the scope and exclusions of the task contract.
 - Cite the file and line, or the command output, behind every claim.
+- Non-negotiable rule: follow YAGNI and prefer the solution with less code.
 - Report every finding with severity, file and line.
 - List what was checked and what was not.
 - Check correctness, error handling and edge cases in the changed code.

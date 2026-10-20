@@ -99,6 +99,8 @@ $ wev task next
 
 `task next` returns the contracts of the tasks that may start now: objective, context, scope, exclusions, constraints, acceptance criteria, checks (with `check_links` and `required_checks`), response format, permissions, `agent_id`, `model`, `risk`, and from the agent spec `max_attempts`, `timeout_seconds`, `budget_units`, `may_mutate`, `may_use_remote`, `success_criteria`, `stop_conditions` and `escalation`. The engine enforces `required_checks`, the budget, the attempts, the timeout, `may_mutate` and the agent's modes and maximum risk; `success_criteria`, `stop_conditions`, `escalation` and `output_format` are instructions the agent receives and nothing checks them. It offers at most `max_parallel` tasks, none with unverified dependencies, and never two whose `files` overlap (a task without `files` runs alone). `deferred` lists the rest with the reason. Starting a task that is not offered is refused (`task_not_startable`, exit 2).
 
+One of the constraints, and a line of the run brief that the hooks show, is the owner's non-negotiable rule: follow YAGNI and prefer the solution with less code. The base agent template carries it as a responsibility, so every agent that extends it receives it too. It is an instruction to the model; nothing in the engine checks it. The brief drops that line before the next step when its character limit is tight.
+
 Start the task, hand its contract to exactly one agent, and have commands run through the engine so they are permission-checked, logged and loop-guarded:
 
 ```text

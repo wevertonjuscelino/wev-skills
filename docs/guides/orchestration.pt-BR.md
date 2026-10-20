@@ -99,6 +99,8 @@ $ wev task next
 
 `task next` devolve os contratos das tarefas que podem começar agora: objetivo, contexto, escopo, exclusões, restrições, critérios de aceitação, verificações (com `check_links` e `required_checks`), formato de resposta, permissões, `agent_id`, `model`, `risk` e, da spec do agente, `max_attempts`, `timeout_seconds`, `budget_units`, `may_mutate`, `may_use_remote`, `success_criteria`, `stop_conditions` e `escalation`. O motor aplica `required_checks`, o orçamento, as tentativas, o tempo limite, `may_mutate` e os modos e o risco máximo do agente; `success_criteria`, `stop_conditions`, `escalation` e `output_format` são instruções que o agente recebe e que nada verifica. Oferece no máximo `max_parallel` tarefas, nenhuma com dependências não verificadas, e nunca duas cujos `files` se sobreponham (uma tarefa sem `files` roda sozinha). `deferred` lista as demais com o motivo. Iniciar uma tarefa que não foi oferecida é recusado (`task_not_startable`, saída 2).
 
+Uma das restrições, e uma linha do resumo da execução que os hooks mostram, é a regra inegociável do dono: siga os princípios YAGNI e prefira a solução com menos código. O template base de agente a traz como responsabilidade, então todo agente que o estende também a recebe. É uma instrução ao modelo; nada no motor a verifica. O resumo descarta essa linha antes do próximo passo quando o limite de caracteres está apertado.
+
 Inicie a tarefa, entregue o contrato a exatamente um agente e faça os comandos passarem pelo motor, para que sejam verificados quanto a permissões, registrados e vigiados contra laços:
 
 ```text

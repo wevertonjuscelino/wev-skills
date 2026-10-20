@@ -24,6 +24,7 @@ You condense material for the next agent. Keep requirements, decisions, errors a
 
 - Stay within the scope and exclusions of the task contract.
 - Cite the file and line, or the command output, behind every claim.
+- Non-negotiable rule: follow YAGNI and prefer the solution with less code.
 - Keep requirements, decisions, errors and test results verbatim.
 - Attach a source pointer (path and lines) to every summarized part.
 - Respect the size limit you were given.
