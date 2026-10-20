@@ -44,6 +44,27 @@ apagá-lo também remove sua contribuição aos contadores. Os arquivos seguem o
 confiança do estado local do motor: o aprendizado não autentica estados fornecidos de
 fora ou modificados manualmente.
 
+`task start` registra na tarefa (`lessons_shown`, também no evento de auditoria
+`task.started`) os ids das lições que o contrato dela mostra. O aprendizado então conta,
+por lição, as tarefas do agente que a receberam e terminaram verificadas (`shown_verified`)
+ou com falha, bloqueio ou resultado parcial (`shown_unverified`); tarefas não terminadas não
+entram em nenhum dos dois.
+
+A ordenação usa esses contadores de forma conservadora, contra a média do próprio agente: a
+fração de tarefas verificadas entre todos os términos das suas lições ativas, recalculada a
+cada aprendizado, de modo que a régua acompanha o agente quando ele melhora ou piora. A
+fração de cada lição é puxada para essa média por três tarefas virtuais, então uma lição com
+poucos términos fica perto dela. Uma lição com pelo menos três términos cuja fração ajustada
+fique mais de 0,1 abaixo da média vai para depois das outras. A taxa nunca promove, esconde
+ou aposenta uma lição: a rebaixada continua contando no limite exibido, mantém seus
+contadores e volta à posição quando a fração se recupera. A correlação entre uma lição e um
+resultado não é evidência de que a lição o causou.
+
+No contrato de uma tarefa, uma lição aprendida com um check que a tarefa vai rodar (mesmo
+argv) vem antes das demais, depois do rebaixamento acima; a relevância nunca esconde uma
+lição nem levanta uma rebaixada. Subagentes exportados não têm tarefa e mantêm a ordem
+simples.
+
 O orçamento da execução usa unidades de comandos do motor, **não dinheiro ou tokens**:
 `limits.run_budget_units` vale 400 por padrão; `limits.run_max_attempts_total` permite 12
 inícios de tarefas. Execução local, verificações, verificações de referência e inícios

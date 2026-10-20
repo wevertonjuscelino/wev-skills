@@ -39,6 +39,24 @@ or permissions. Rebuilding uses the local retained history; deleting history als
 its contribution to counters. Files remain subject to the engine's local state trust
 boundary: learning does not authenticate externally supplied or manually modified states.
 
+`task start` records on the task (`lessons_shown`, also in the `task.started` audit
+event) the ids of the lessons its contract shows. Learning then counts, per lesson, the
+agent's tasks that were shown it and ended verified (`shown_verified`) or failed, blocked or
+partial (`shown_unverified`); tasks that have not ended count in neither.
+
+Ranking uses these counters conservatively, against the agent's own average: the verified
+share over every ending of its active lessons, recomputed at each learning, so the bar moves
+as the agent improves or gets worse. Each lesson's share is pulled toward that average by
+three virtual tasks, so a lesson with few endings stays near it. A lesson with at least three
+endings whose adjusted share is more than 0.1 below the average goes after the others. Its
+rate never promotes a lesson, and never hides or retires one: a demoted lesson still counts
+toward the rendered cap, keeps its counters and moves back once its share recovers. A
+correlation between a lesson and an outcome is not evidence that the lesson caused it.
+
+In a task contract, a lesson learned from a check the task will run (same argv) goes
+before the other lessons, after the demotion above; relevance never hides a lesson and does
+not lift a demoted one. Exported subagents have no task, so they keep the plain order.
+
 The whole-run budget uses engine command units, **not currency or model tokens**:
 `limits.run_budget_units` defaults to 400, and `limits.run_max_attempts_total` defaults to
 12 task starts. Local execution, verification checks, baseline checks and recorded remote

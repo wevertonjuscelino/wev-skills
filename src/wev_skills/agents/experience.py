@@ -14,7 +14,7 @@ person or an agent wrote (a criterion, a review summary, the optional note) is k
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 
 from wev_skills import i18n
@@ -32,6 +32,12 @@ AUTHORED_MAX = 240
 """Cut for one authored excerpt and for the agent note, applied where they are created."""
 MAX_EXPERIENCE_CHARS = 6000
 """Characters the rendered list may take in an exported file or a task contract."""
+PRIOR_WEIGHT = 3
+"""Virtual tasks at the agent's average added to every lesson's rate (shrinkage)."""
+MIN_SHOWN = 3
+"""Ended tasks a lesson needs before its rate may demote it."""
+DEMOTE_MARGIN = 0.1
+"""How far below the agent's average the adjusted rate must fall to demote a lesson."""
 NOTE_LABEL = "agent note, unverified"
 _NONCE_LENGTH = 16
 
@@ -78,6 +84,15 @@ class Lesson(Serializable):
     authored: tuple[AuthoredText, ...] = ()
     note: str = ""
     """The calling model's note, kept only when the operator accepted it explicitly."""
+    shown_verified: int = 0
+    """Tasks that were shown this lesson and ended verified, recounted on every learning."""
+    shown_unverified: int = 0
+    """Tasks that were shown this lesson and ended failed, blocked or partial."""
+
+
+def check_key(argv: Sequence[str]) -> tuple[str, ...]:
+    """What identifies a lesson learned from a check: a digest of its argv, never its text."""
+    return ("check", hashlib.sha256("\0".join(argv).encode()).hexdigest())
 
 
 def _fenced(lesson_id: str, label: str, text: str) -> str:
@@ -103,10 +118,72 @@ def render_lesson(lesson: Lesson, lang: str | None = None) -> str:
     return "\n".join([head, *blocks])
 
 
-def active_lessons(lessons: Iterable[Lesson]) -> list[Lesson]:
-    """Active lessons, most confirmed first; ties go to the older lesson, then to the id."""
+def pooled_rate(lessons: Iterable[Lesson]) -> float | None:
+    """Share of verified endings over every task any of these lessons was shown to; ``None``
+    while none has ended. It is the agent's own average, so the bar moves with the agent."""
+    verified = shown = 0
+    for lesson in lessons:
+        verified += lesson.shown_verified
+        shown += lesson.shown_verified + lesson.shown_unverified
+    return verified / shown if shown else None
+
+
+def adjusted_rate(lesson: Lesson, average: float) -> float:
+    """The lesson's verified share pulled toward ``average`` by ``PRIOR_WEIGHT`` virtual
+    tasks: a lesson with few endings stays near the average instead of swinging."""
+    shown = lesson.shown_verified + lesson.shown_unverified
+    return (lesson.shown_verified + PRIOR_WEIGHT * average) / (shown + PRIOR_WEIGHT)
+
+
+def _demoted(lesson: Lesson, average: float | None) -> bool:
+    """Below the average by more than the margin, with at least ``MIN_SHOWN`` endings."""
+    if average is None or lesson.shown_verified + lesson.shown_unverified < MIN_SHOWN:
+        return False
+    return adjusted_rate(lesson, average) < average - DEMOTE_MARGIN
+
+
+def active_lessons(
+    lessons: Iterable[Lesson], relevant: Collection[tuple[str, ...]] = ()
+) -> list[Lesson]:
+    """Active lessons, most confirmed first, with two exceptions applied in this order.
+
+    A lesson clearly worse than the agent's average goes after the others; nothing is
+    promoted or hidden by its rate, and a demoted lesson moves back once its rate recovers.
+    Then a lesson whose key is in ``relevant`` (the checks the task will run) goes before
+    the others. Ties go to the older lesson, then to the id.
+    """
     found = [lesson for lesson in lessons if lesson.status == ACTIVE]
-    return sorted(found, key=lambda item: (-item.confirmations, item.created_at, item.id))
+    average = pooled_rate(found)
+    return sorted(
+        found,
+        key=lambda item: (
+            _demoted(item, average),
+            item.key not in relevant,
+            -item.confirmations,
+            item.created_at,
+            item.id,
+        ),
+    )
+
+
+def _selection(
+    lessons: Iterable[Lesson],
+    max_lessons: int,
+    max_chars: int,
+    lang: str | None,
+    relevant: Collection[tuple[str, ...]],
+) -> list[tuple[Lesson, str]]:
+    """At most ``max_lessons`` active lessons, most confirmed first; the first lesson that
+    would take the list past ``max_chars`` ends it, so the list never grows without bound."""
+    shown: list[tuple[Lesson, str]] = []
+    used = 0
+    for lesson in active_lessons(lessons, relevant)[: max(0, max_lessons)]:
+        text = render_lesson(lesson, lang)
+        if used + len(text) > max_chars:
+            break
+        shown.append((lesson, text))
+        used += len(text)
+    return shown
 
 
 def rendered_lessons(
@@ -114,21 +191,23 @@ def rendered_lessons(
     max_lessons: int,
     max_chars: int = MAX_EXPERIENCE_CHARS,
     lang: str | None = None,
+    relevant: Collection[tuple[str, ...]] = (),
 ) -> tuple[str, ...]:
-    """The capped list an exported subagent and a task contract show.
+    """The capped list an exported subagent and a task contract show (see ``_selection``)."""
+    found = _selection(lessons, max_lessons, max_chars, lang, relevant)
+    return tuple(text for _, text in found)
 
-    At most ``max_lessons`` active lessons, most confirmed first; the first lesson that
-    would take the list past ``max_chars`` ends it, so the list never grows without bound.
-    """
-    shown: list[str] = []
-    used = 0
-    for lesson in active_lessons(lessons)[: max(0, max_lessons)]:
-        text = render_lesson(lesson, lang)
-        if used + len(text) > max_chars:
-            break
-        shown.append(text)
-        used += len(text)
-    return tuple(shown)
+
+def shown_lesson_ids(
+    lessons: Iterable[Lesson],
+    max_lessons: int,
+    max_chars: int = MAX_EXPERIENCE_CHARS,
+    lang: str | None = None,
+    relevant: Collection[tuple[str, ...]] = (),
+) -> tuple[str, ...]:
+    """The ids of the lessons ``rendered_lessons`` shows, in the same order."""
+    found = _selection(lessons, max_lessons, max_chars, lang, relevant)
+    return tuple(lesson.id for lesson, _ in found)
 
 
 def lead_line(lang: str | None = None) -> str:

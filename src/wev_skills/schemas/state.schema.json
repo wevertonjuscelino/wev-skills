@@ -179,7 +179,8 @@
         "tree_changed": { "type": ["boolean", "null"] },
         "block_reason": { "type": "string" },
         "tool_selection": { "$ref": "#/$defs/nullableToolSelection" },
-        "tool_misses": { "type": "array", "items": { "$ref": "#/$defs/toolMiss" } }
+        "tool_misses": { "type": "array", "items": { "$ref": "#/$defs/toolMiss" } },
+        "lessons_shown": { "type": "array", "items": { "type": "string" } }
       }
     },
     "nullableToolSelection": {

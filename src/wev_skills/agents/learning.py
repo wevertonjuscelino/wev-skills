@@ -7,7 +7,15 @@ from collections.abc import Sequence
 from dataclasses import replace
 
 from wev_skills import i18n
-from wev_skills.agents.experience import ACTIVE, RETIRED, STALE, Lesson, LessonEvidence, RecordRef
+from wev_skills.agents.experience import (
+    ACTIVE,
+    RETIRED,
+    STALE,
+    Lesson,
+    LessonEvidence,
+    RecordRef,
+    check_key,
+)
 from wev_skills.core.contracts import TaskStatus
 from wev_skills.state.model import RunState
 
@@ -30,13 +38,31 @@ def _observations(state: RunState, agent_id: str) -> list[tuple[tuple[str, ...],
                 not record.all_met or state.tasks[record.task_id].status is not TaskStatus.VERIFIED
             ):
                 continue
-            key = ("check", hashlib.sha256("\0".join(check.argv).encode()).hexdigest())
+            key = check_key(check.argv)
             found[key] = (key, check.state == "passed", record.task_id, record.at)
     for trip in state.guard_trips:
         if trip.task_id in tasks:
             key = ("guard", trip.rule)
             found[key] = (key, True, trip.task_id, trip.at)
     return list(found.values())
+
+
+_UNVERIFIED = frozenset({TaskStatus.FAILED, TaskStatus.BLOCKED, TaskStatus.PARTIAL})
+
+
+def _usage(states: Sequence[RunState], agent_id: str) -> dict[str, tuple[int, int]]:
+    """Per lesson id: (ended verified, ended unverified) over the agent's tasks that ended."""
+    found: dict[str, tuple[int, int]] = {}
+    for state in states:
+        for record in state.tasks.values():
+            ended = record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
+            if record.agent_id != agent_id or not ended:
+                continue
+            good = int(record.status is TaskStatus.VERIFIED)
+            for lesson_id in record.lessons_shown:
+                verified, unverified = found.get(lesson_id, (0, 0))
+                found[lesson_id] = (verified + good, unverified + 1 - good)
+    return found
 
 
 def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> tuple[Lesson, ...]:
@@ -74,8 +100,14 @@ def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> 
                 evidence=evidence,
             )
             last_seen[key] = index
+    usage = _usage(ordered, agent_id)
     return tuple(
-        replace(item, status=STALE if len(ordered) - 1 - last_seen[key] >= stale_after else ACTIVE)
+        replace(
+            item,
+            status=STALE if len(ordered) - 1 - last_seen[key] >= stale_after else ACTIVE,
+            shown_verified=usage.get(item.id, (0, 0))[0],
+            shown_unverified=usage.get(item.id, (0, 0))[1],
+        )
         for key, item in lessons.items()
     )
 
