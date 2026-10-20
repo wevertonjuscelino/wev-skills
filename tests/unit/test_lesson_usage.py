@@ -200,24 +200,41 @@ class InheritedLessonsDoNotBlockStarts(StartChecksTheSourceFile):
         self.assertEqual(self.lessons_shown(), ("l-top", "l-parent", "l-low"))
 
 
-class ByTaskTests(unittest.TestCase):
-    def test_starts_merge_in_first_shown_order_and_other_events_are_ignored(self) -> None:
-        events = [
-            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["a", "b"]}},
-            {"type": "run_created", "data": {"task_id": "t", "lessons": ["z"]}},
-            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["b", "c"]}},
-            {"type": "lessons.shown", "data": {"task_id": 3, "lessons": ["x"]}},
-        ]
-        self.assertEqual(shown_lessons.by_task(events), {"t": ("a", "b", "c")})
+def shown(task: Any, attempt: Any, agent: Any, lessons: list[Any]) -> dict[str, Any]:
+    data = {"task_id": task, "attempt": attempt, "agent_id": agent, "lessons": lessons}
+    return {"type": "lessons.shown", "data": data}
 
-    def test_a_line_that_is_not_an_object_is_skipped(self) -> None:
+
+class ByTaskTests(unittest.TestCase):
+    def test_the_last_record_of_an_attempt_replaces_one_whose_commit_failed(self) -> None:
+        events = [shown("t", 1, "a", ["failed"]), shown("t", 1, "a", ["kept"])]
+        attempts = shown_lessons.by_task(events)["t"]
+        self.assertEqual(shown_lessons.committed(attempts, 1, "a"), ("kept",))
+
+    def test_an_attempt_the_state_does_not_count_is_left_out(self) -> None:
+        events = [shown("t", 1, "a", ["x", "y"]), shown("t", 2, "a", ["y", "z"])]
+        attempts = shown_lessons.by_task(events)["t"]
+        self.assertEqual(shown_lessons.committed(attempts, 1, "a"), ("x", "y"))
+        self.assertEqual(shown_lessons.committed(attempts, 2, "a"), ("x", "y", "z"))
+
+    def test_lessons_shown_to_another_agent_are_not_credited(self) -> None:
+        events = [shown("t", 1, "former", ["old"]), shown("t", 2, "current", ["new"])]
+        attempts = shown_lessons.by_task(events)["t"]
+        self.assertEqual(shown_lessons.committed(attempts, 2, "current"), ("new",))
+
+    def test_lines_that_are_not_well_formed_records_are_skipped(self) -> None:
         events: list[Any] = [
             3,
             "text",
             None,
-            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["a"]}},
+            {"type": "run_created", "data": {"task_id": "t"}},
+            shown(3, 1, "a", ["x"]),
+            shown("t", "1", "a", ["x"]),
+            shown("t", True, "a", ["x"]),
+            shown("t", 1, None, ["x"]),
+            shown("t", 1, "a", ["ok", 7]),
         ]
-        self.assertEqual(shown_lessons.by_task(events), {"t": ("a",)})
+        self.assertEqual(shown_lessons.by_task(events), {"t": {1: ("a", ("ok",))}})
 
 
 class LegacyRecordTests(unittest.TestCase):

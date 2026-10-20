@@ -75,7 +75,11 @@ contado. Antes de
 gravar, o início lê de novo o arquivo do especialista sob o lock que `specialists accept` e
 `specialists retire` usam; se o arquivo sumiu ou as lições mudaram desde que o comando as
 carregou, o início é recusado (`lessons_changed`, saída 5) e precisa ser rodado de novo. O
-evento é gravado antes do estado, então um início gravado sempre tem seu registro. Uma decisão tomada depois
+evento é gravado antes do estado, então um início gravado sempre tem seu registro. Cada
+registro traz o agente e a tentativa; um início cujo commit falhou é repetido com o mesmo
+número de tentativa, então o aprendizado fica só com o último registro de cada tentativa que
+o estado conta, e só com registros do agente que terminou a tarefa. O aprendizado lê os
+eventos apenas dos runs deste repositório. Uma decisão tomada depois
 do início vale a partir do próximo início. O aprendizado então conta,
 por lição, as tarefas do agente que a receberam e terminaram verificadas (`shown_verified`)
 ou com falha, bloqueio ou resultado parcial (`shown_unverified`); tarefas não terminadas não

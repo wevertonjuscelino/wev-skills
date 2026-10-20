@@ -99,16 +99,24 @@ class LearningTests(unittest.TestCase):
             store = StateStore(run_dir(root / ".wev", "run-1"))
             store.create("goal", Mode.EXECUTE, "run-1")
             source = recorded("run-1")
+            tasks = {key: replace(task, starts=1) for key, task in source.tasks.items()}
             store.update(
                 lambda current: replace(
                     current,
-                    tasks=source.tasks,
+                    tasks=tasks,
                     verifications=source.verifications,
                     repo=RepoSnapshot(str(root), "main", "abc"),
                 )
             )
             lesson_id = project.learn(root, config, "project-test").experience[0].id
-            store.append_event("lessons.shown", {"task_id": "project-test", "lessons": [lesson_id]})
+            data = {"task_id": "project-test", "agent_id": "project-test", "attempt": 1}
+            store.append_event("lessons.shown", {**data, "lessons": [lesson_id]})
+            other = StateStore(run_dir(root / ".wev", "run-2"))
+            other.create("goal", Mode.EXECUTE, "run-2")
+            other.update(
+                lambda current: replace(current, repo=RepoSnapshot("/elsewhere", "m", "a"))
+            )
+            other.events_path.write_text("not json\n", encoding="utf-8")
             counted = project.learn(root, config, "project-test").experience[0]
             self.assertEqual((counted.shown_verified, counted.shown_unverified), (1, 0))
 

@@ -20,6 +20,7 @@ from wev_skills.core import shown_lessons
 from wev_skills.core.errors import NotFound, PermissionDenied, StateConflict, ValidationError
 from wev_skills.core.fsutil import atomic_write_text, locked
 from wev_skills.core.wiring import build_agents, state_dir
+from wev_skills.state.model import RunState
 from wev_skills.state.store import StateStore, list_runs, run_dir
 
 
@@ -103,18 +104,28 @@ def learn(root: Path, config: Config, agent_id: str) -> AgentSpec:
             StateStore(run_dir(state_dir(config, root), run_id))
             for run_id in list_runs(state_dir(config, root))
         ]
-        states = [store.load() for store in stores]
-        shown = {store.run_dir.name: shown_lessons.by_task(store.events()) for store in stores}
-        states = [
-            state
-            for state in states
-            if state.repo is not None and Path(state.repo.root).resolve() == root.resolve()
-        ]
+        loaded = [(store, store.load()) for store in stores]
+        mine = [(store, state) for store, state in loaded if _same_repo(state, root)]
+        states = [state for _, state in mine]
+        shown = {state.run_id: _shown(store, state) for store, state in mine}
         derived = learning.derive(states, agent_id, config.specialists.stale_after_runs, shown)
         lessons = learning.reconcile(spec.experience, derived, config.specialists.max_lessons)
         updated = replace(spec, experience=lessons)
         _write(root, config, updated)
     return updated
+
+
+def _same_repo(state: RunState, root: Path) -> bool:
+    return state.repo is not None and Path(state.repo.root).resolve() == root.resolve()
+
+
+def _shown(store: StateStore, state: RunState) -> dict[str, tuple[str, ...]]:
+    """Per task of this run: the lessons its committed starts showed to its agent."""
+    attempts = shown_lessons.by_task(store.events())
+    return {
+        task_id: shown_lessons.committed(attempts.get(task_id, {}), record.starts, record.agent_id)
+        for task_id, record in state.tasks.items()
+    }
 
 
 def _find(spec: AgentSpec, lesson_id: str) -> Lesson:

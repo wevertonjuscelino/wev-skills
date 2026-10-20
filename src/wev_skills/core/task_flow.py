@@ -244,7 +244,7 @@ def _commit_start(
     """Record the shown lessons, then commit the start, while the agent's lessons are still
     those its contract shows (see ``shown_lessons``)."""
     with shown_lessons.current_lessons(engine.services, data["agent_id"]):
-        shown_lessons.record(engine.store, data["task_id"], data["lessons_shown"])
+        shown_lessons.record(engine.store, data)
         return engine.commit(change, "task.started", data, base=state)
 
 
