@@ -92,6 +92,26 @@ class LearningTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 project.create(root, config, "project-test", "senior-engineer", ())
 
+    def test_learning_counts_the_lessons_shown_in_the_run_events(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root, config = Path(temporary).resolve(), parse_config()
+            project.create(root, config, "project-test", "senior-engineer", ())
+            store = StateStore(run_dir(root / ".wev", "run-1"))
+            store.create("goal", Mode.EXECUTE, "run-1")
+            source = recorded("run-1")
+            store.update(
+                lambda current: replace(
+                    current,
+                    tasks=source.tasks,
+                    verifications=source.verifications,
+                    repo=RepoSnapshot(str(root), "main", "abc"),
+                )
+            )
+            lesson_id = project.learn(root, config, "project-test").experience[0].id
+            store.append_event("lessons.shown", {"task_id": "project-test", "lessons": [lesson_id]})
+            counted = project.learn(root, config, "project-test").experience[0]
+            self.assertEqual((counted.shown_verified, counted.shown_unverified), (1, 0))
+
     def test_learning_persisted_history_preserves_authority(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root, config = Path(temporary).resolve(), parse_config()

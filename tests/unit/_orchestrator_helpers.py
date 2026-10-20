@@ -19,7 +19,7 @@ from wev_skills import i18n
 from wev_skills.agents.factory import AgentFactory
 from wev_skills.agents.registry import AgentRegistry
 from wev_skills.config import load_config
-from wev_skills.core import wiring
+from wev_skills.core import shown_lessons, wiring
 from wev_skills.core.contracts import Mode, RawCommandResult, TaskSignals, TaskStatus
 from wev_skills.core.orchestrator import Orchestrator
 from wev_skills.state.store import StateStore, run_dir
@@ -158,6 +158,10 @@ class OrchestratorCase(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return str(path)
+
+    def lessons_shown(self, task_id: str = "task-1") -> tuple[str, ...]:
+        """What the task's starts recorded in the run's ``events.jsonl``."""
+        return shown_lessons.by_task(self.orch().store.events()).get(task_id, ())
 
     def status_of(self, task_id: str) -> TaskStatus:
         status: TaskStatus = self.state().tasks[task_id].status
