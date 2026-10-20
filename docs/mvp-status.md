@@ -84,6 +84,7 @@ In the commands below, `PYTHONPATH=src` is set and the working directory is the 
 ### 5. Routing has a documented interface and a working implementation: Met
 
 - Command: `python3 -m unittest tests.unit.test_models_router tests.unit.test_decisions_local tests.unit.test_decisions_jev tests.unit.test_decisions_factory tests.unit.test_routing_catalog`. Result: `OK`. Interface: architecture 4.2 and 4.4.
+- The built-in JEV HTTP client (default, `decision.jev.command` is `builtin`) and `wev jev status|ask|batch`: implemented and tested against a local fake server. The live TypeSafe service was not run in this change.
 - Remains: the JEV adapter is tested with a fake client and with the recorded answer format; JEV was called three times for real with synthetic inputs (one classification, two tool selections, 2026-10-13) and the tool-selection answers were not saved as fixtures. Routing and tool selection are heuristics whose usefulness is unmeasured.
 
 ### 6. Agent creation and validation have tests: Met

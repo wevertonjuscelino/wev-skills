@@ -4,6 +4,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Built-in JEV client: `decision.jev.command` now defaults to `builtin`, an HTTP client that looks the key up in `TYPESAFE_API_KEY`, the user's wev-skills env file (mode 600) and the macOS keychain, retries only 429 and 529 inside `decision.jev.timeout_seconds`, and falls back to the local policy on any failure. Setting `command` keeps the external-program path. Implemented and tested against a local fake server; the live TypeSafe service was not run in this change.
+- `wev jev status|ask|batch`; `status` reports `orchestration` (`wev` or `harness`), which the `wev-orchestrate` skill reads first. Without JEV only the orchestration flow is off; guard hooks, approvals and loop detection stay active. Implemented and tested.
+
 ## [5.0.0] - 2026-10-20
 
 ### Fixed
