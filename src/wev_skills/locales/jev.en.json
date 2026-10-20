@@ -1,0 +1,21 @@
+{
+  "jev.group.help": "Check and use the built-in JEV client.",
+  "jev.status.help": "Show the JEV provider, client, key source and endpoint (no network call, no key printed).",
+  "jev.ask.help": "Ask JEV typed questions about a state and print the answers.",
+  "jev.batch.help": "Ask JEV the same questions about many items (JSONL) and write one answer line per item.",
+  "jev.arg.questions": "JSON file with the questions object.",
+  "jev.arg.state": "The state text to ask about.",
+  "jev.arg.state_file": "File with the state text to ask about.",
+  "jev.arg.items": "JSONL file with one {\"id\", \"state\"} object per line.",
+  "jev.arg.out": "JSONL file to write, one line per item, in input order.",
+  "jev.error.state_unreadable": "cannot read the state file {path}",
+  "jev.error.questions_not_object": "the questions file {path} must hold a JSON object",
+  "jev.error.items_unreadable": "cannot read the items file {path}",
+  "jev.error.item_line": "{path}, line {line}: {why}",
+  "jev.error.item_not_json": "not valid JSON",
+  "jev.error.item_shape": "each line must be an object with a string \"id\" and a string \"state\"",
+  "jev.error.item_duplicate_id": "the id {id} was already used on an earlier line",
+  "jev.error.no_items": "the items file {path} has no items",
+  "jev.error.out_unwritable": "cannot write the output file {path}",
+  "jev.error.item_failed": "JEV did not answer: {why}"
+}
