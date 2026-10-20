@@ -21,6 +21,7 @@ from wev_skills.agents.registry import AgentRegistry
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.core import shown_lessons, wiring
 from wev_skills.core.contracts import Mode, TaskStatus
+from wev_skills.core.engine import Engine
 from wev_skills.core.errors import StateConflict
 from wev_skills.state.model import RunState, TaskRecord
 from wev_skills.state.store import StateStore
@@ -133,12 +134,6 @@ class DeriveCountsUsage(OrchestratorCase):
         unknown = ended("run-2", TaskStatus.VERIFIED, ("lesson-unknown",))
         self.assertEqual(counts((self.source, other, unknown)), [(0, 0)])
 
-    def test_lessons_release_3_0_0_recorded_on_the_task_are_counted(self) -> None:
-        state, _ = ended("run-1", TaskStatus.VERIFIED, ())
-        task = replace(state.tasks[AGENT], lessons_shown=(self.lesson_id,))
-        legacy: Ended = (replace(state, tasks={AGENT: task}), ())
-        self.assertEqual(counts((self.source, legacy)), [(1, 0)])
-
 
 class StartChecksTheSourceFile(OrchestratorCase):
     """The catalog loaded ``builder`` from a file; a start rereads it under the lock."""
@@ -182,13 +177,31 @@ class StartChecksTheSourceFile(OrchestratorCase):
         self.path.unlink()
         self.assert_refused()
 
-    def test_a_failed_record_leaves_the_task_not_started(self) -> None:
+    def test_a_start_records_its_agent_and_attempt(self) -> None:
+        self.start()
+        self.run_task()
+        events = [e for e in self.orch().store.events() if e["type"] == "lessons.shown"]
+        expected = {"task_id": "task-1", "agent_id": "builder", "attempt": 1}
+        self.assertEqual(
+            [{**e["data"], "lessons": None} for e in events], [{**expected, "lessons": None}]
+        )
+
+    def test_a_failed_record_keeps_the_start_and_is_audited(self) -> None:
         self.start()
         self.orch().next_tasks()
         failing = mock.patch.object(StateStore, "append_event", side_effect=OSError("disk full"))
+        with failing:
+            self.orch().start_task("task-1")
+        self.assertEqual(self.status_of("task-1"), TaskStatus.RUNNING)
+        self.assertIn("lessons.shown_failed", self.audit_types())
+
+    def test_a_start_whose_commit_fails_leaves_no_record(self) -> None:
+        self.start()
+        self.orch().next_tasks()
+        failing = mock.patch.object(Engine, "commit", side_effect=OSError("disk full"))
         with failing, self.assertRaises(OSError):
             self.orch().start_task("task-1")
-        self.assertNotEqual(self.status_of("task-1"), TaskStatus.RUNNING)
+        self.assertEqual(shown_lessons.by_task(self.orch().store.events()), {})
 
 
 class InheritedLessonsDoNotBlockStarts(StartChecksTheSourceFile):
@@ -200,24 +213,66 @@ class InheritedLessonsDoNotBlockStarts(StartChecksTheSourceFile):
         self.assertEqual(self.lessons_shown(), ("l-top", "l-parent", "l-low"))
 
 
-class ByTaskTests(unittest.TestCase):
-    def test_starts_merge_in_first_shown_order_and_other_events_are_ignored(self) -> None:
-        events = [
-            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["a", "b"]}},
-            {"type": "run_created", "data": {"task_id": "t", "lessons": ["z"]}},
-            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["b", "c"]}},
-            {"type": "lessons.shown", "data": {"task_id": 3, "lessons": ["x"]}},
-        ]
-        self.assertEqual(shown_lessons.by_task(events), {"t": ("a", "b", "c")})
+def shown(task: Any, attempt: Any, agent: Any, lessons: Any) -> dict[str, Any]:
+    data = {"task_id": task, "attempt": attempt, "agent_id": agent, "lessons": lessons}
+    return {"type": "lessons.shown", "data": data}
 
-    def test_a_line_that_is_not_an_object_is_skipped(self) -> None:
+
+def credited(events: list[Any], agent: str, starts: int, legacy: tuple[str, ...] = ()) -> Any:
+    records = shown_lessons.by_task(events).get("t", ())
+    return shown_lessons.for_task(records, agent, starts, legacy)
+
+
+class ForTaskTests(unittest.TestCase):
+    def test_the_starts_of_a_cycle_are_merged_in_order(self) -> None:
+        events = [shown("t", 1, "a", ["x", "y"]), shown("t", 2, "a", ["y", "z"])]
+        self.assertEqual(credited(events, "a", 2), ("x", "y", "z"))
+        self.assertEqual(credited(events, "a", 1), ("x", "y"))
+
+    def test_lessons_shown_to_another_agent_are_not_credited(self) -> None:
+        events = [shown("t", 1, "former", ["old"]), shown("t", 2, "current", ["new"])]
+        self.assertEqual(credited(events, "current", 2), ("new",))
+
+    def test_after_a_reopen_only_the_last_cycle_counts(self) -> None:
+        events = [shown("t", 1, "a", ["x"]), shown("t", 2, "a", ["y"]), shown("t", 1, "a", ["z"])]
+        self.assertEqual(credited(events, "a", 1), ("z",))
+
+    def test_ids_release_3_0_0_kept_count_while_the_cycle_continues(self) -> None:
+        self.assertEqual(credited([], "a", 1, ("old",)), ("old",))
+        self.assertEqual(credited([shown("t", 2, "a", ["new"])], "a", 2, ("old",)), ("old", "new"))
+
+    def test_ids_release_3_0_0_kept_are_dropped_after_a_restart_or_a_reassignment(self) -> None:
+        self.assertEqual(credited([shown("t", 1, "a", ["new"])], "a", 1, ("old",)), ("new",))
+        self.assertEqual(credited([shown("t", 2, "b", [])], "a", 2, ("old",)), ())
+
+    def test_records_release_4_0_0_wrote_without_an_agent_are_not_counted(self) -> None:
+        unattributed = {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["v4"]}}
+        self.assertEqual(credited([unattributed, shown("t", 1, "a", ["new"])], "a", 1), ("new",))
+
+    def test_lines_that_are_not_well_formed_records_are_skipped(self) -> None:
         events: list[Any] = [
             3,
             "text",
             None,
-            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["a"]}},
+            {"type": "run_created", "data": {"task_id": "t"}},
+            {"type": "lessons.shown", "data": "x"},
+            shown(3, 1, "a", ["x"]),
+            shown("t", 1, 5, ["x"]),
+            shown("t", 1, "a", "x"),
+            shown("t", "1", "a", ["x"]),
+            shown("t", True, "a", ["x"]),
+            shown("t", 0, "a", ["x"]),
+            shown("t", 1, "a", ["ok", 7]),
         ]
-        self.assertEqual(shown_lessons.by_task(events), {"t": ("a",)})
+        self.assertEqual(shown_lessons.by_task(events), {"t": ((1, "a", ("ok",)),)})
+
+    def test_a_line_cut_short_is_skipped_when_reading(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "events.jsonl"
+            whole = json.dumps(shown("t", 1, "a", ["x"]))
+            path.write_text(whole + "\n" + whole[:20], encoding="utf-8")
+            self.assertEqual(shown_lessons.read_events(path), [json.loads(whole)])
+            self.assertEqual(shown_lessons.read_events(Path(temporary) / "missing"), [])
 
 
 class LegacyRecordTests(unittest.TestCase):

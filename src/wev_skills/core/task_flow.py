@@ -241,11 +241,17 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
 def _commit_start(
     engine: Engine, state: RunState, change: Change, data: dict[str, Any]
 ) -> RunState:
-    """Record the shown lessons, then commit the start, while the agent's lessons are still
-    those its contract shows (see ``shown_lessons``)."""
+    """Commit the start, then record the shown lessons, while the agent's lessons are still
+    those its contract shows (see ``shown_lessons``). The start stands when only the record
+    fails: that start goes uncounted and the failure is audited."""
     with shown_lessons.current_lessons(engine.services, data["agent_id"]):
-        shown_lessons.record(engine.store, data["task_id"], data["lessons_shown"])
-        return engine.commit(change, "task.started", data, base=state)
+        committed = engine.commit(change, "task.started", data, base=state)
+        try:
+            shown_lessons.record(engine.store, data)
+        except OSError as exc:
+            failure = {"run_id": committed.run_id, "task_id": data["task_id"], "error": str(exc)}
+            engine.services.audit.append("lessons.shown_failed", failure)
+    return committed
 
 
 def start_task(engine: Engine, task_id: str) -> dict[str, Any]:

@@ -53,7 +53,7 @@ _UNVERIFIED = frozenset({TaskStatus.FAILED, TaskStatus.BLOCKED, TaskStatus.PARTI
 
 
 Shown = Mapping[str, Mapping[str, tuple[str, ...]]]
-"""Per run id, per task id: the lesson ids its starts showed (``shown_lessons.by_task``)."""
+"""Per run id, per task id: the lesson ids its starts showed (``shown_lessons.for_task``)."""
 
 
 def _usage(states: Sequence[RunState], agent_id: str, shown: Shown) -> dict[str, tuple[int, int]]:
@@ -66,8 +66,7 @@ def _usage(states: Sequence[RunState], agent_id: str, shown: Shown) -> dict[str,
             if record.agent_id != agent_id or not ended:
                 continue
             good = int(record.status is TaskStatus.VERIFIED)
-            ids = dict.fromkeys([*record.lessons_shown, *run_shown.get(task_id, ())])
-            for lesson_id in ids:
+            for lesson_id in run_shown.get(task_id, ()):
                 verified, unverified = found.get(lesson_id, (0, 0))
                 found[lesson_id] = (verified + good, unverified + 1 - good)
     return found
