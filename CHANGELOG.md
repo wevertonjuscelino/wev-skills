@@ -4,9 +4,12 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-20
+
 ### Fixed
 
 - Lesson usage counts only what was shown: every committed start writes one `lessons.shown` record after the commit, naming the agent and the attempt, even when it showed no lesson; a failed write leaves the start standing and is audited (`lessons.shown_failed`). Learning counts only records for the agent that ended the task and, after a reopen, only the last cycle of starts; ids a 3.0.0 run kept on the task count only while no record shows another agent or a new cycle; records 4.0.0 wrote before the commit and without an agent are not counted; a line cut short is skipped; and only runs of this repository are read. Implemented and tested.
+- count only committed starts of the ending agent ([#4](https://github.com/wevertonjuscelino/wev-skills/pull/4))
 
 ## [4.0.0] - 2026-10-20
 
@@ -127,7 +130,8 @@ First published as 0.1.0 and renumbered on 2026-10-15 under the release-counting
 - When the JEV program is not found, the recorded fallback reason says it was not found on the allowed path and names the two fixes (`decision.jev.command` as an absolute path, or `permissions.exec_path`); an absolute path must be a regular executable file.
 - `wev agent export` named `agent-specs/examples/<id>.json` as the source of every agent; `wev agent list --dir` failed on a JSON file that is not a spec; remote alias errors showed the alias inside literal quotes.
 
-[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v1.0.0...v2.0.0
