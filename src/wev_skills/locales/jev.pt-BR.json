@@ -9,7 +9,6 @@
   "jev.arg.items": "Arquivo JSONL com um objeto {\"id\", \"state\"} por linha.",
   "jev.arg.out": "Arquivo JSONL a gravar, uma linha por item, na ordem da entrada.",
   "jev.error.state_unreadable": "não foi possível ler o arquivo de estado {path}",
-  "jev.error.questions_not_object": "o arquivo de perguntas {path} deve conter um objeto JSON",
   "jev.error.items_unreadable": "não foi possível ler o arquivo de itens {path}",
   "jev.error.item_line": "{path}, linha {line}: {why}",
   "jev.error.item_not_json": "não é JSON válido",

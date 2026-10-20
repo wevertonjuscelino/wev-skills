@@ -11,6 +11,7 @@ import io
 import json
 import os
 import tempfile
+import time
 import unittest
 from collections.abc import Iterator
 from pathlib import Path
@@ -121,12 +122,39 @@ class StatusTests(JevCliCase):
         self.assertIn("https", data["key_error"])
         self.assertNotIn(SECRET, output)
 
-    def test_status_local_provider_reports_env_key_source_only(self) -> None:
+    def test_status_local_provider_never_looks_up_the_key(self) -> None:
         os.environ["TYPESAFE_API_KEY"] = SECRET
-        _, data, output = run_main("jev", "status")
-        self.assertEqual(data["key_source"], "env")
+
+        def forbidden() -> str | None:
+            raise AssertionError("the keychain must not be read for provider local")
+
+        with mock.patch("wev_skills.commands.jev.macos_keychain", forbidden):
+            _, data, output = run_main("jev", "status")
+        self.assertIsNone(data["key_source"])
+        self.assertIsNone(data["key_error"])
         self.assertEqual(data["orchestration"], "harness")
         self.assertNotIn(SECRET, output)
+
+    def use_program(self, command: str) -> None:
+        config = {"decision": {"provider": "jev", "jev": {"command": command}}}
+        (self.work / "wev.config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    def test_status_missing_program_is_harness_with_a_reason(self) -> None:
+        self.use_program(str(self.dir / "no-such-jev"))
+        code, data, _ = run_main("jev", "status")
+        self.assertEqual(code, 0)
+        self.assertEqual(data["client"], "program")
+        self.assertEqual(data["orchestration"], "harness")
+        self.assertIn("no-such-jev", data["key_error"])
+
+    def test_status_usable_program_is_wev(self) -> None:
+        program = self.dir / "jev-tool"
+        program.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        program.chmod(0o755)
+        self.use_program(str(program))
+        _, data, _ = run_main("jev", "status")
+        self.assertEqual(data["orchestration"], "wev")
+        self.assertIsNone(data["key_error"])
 
 
 class AskTests(JevCliCase):
@@ -182,6 +210,46 @@ class BatchTests(JevCliCase):
         self.assertEqual(sum("error" in row for row in rows), 1)
         self.assertEqual(code, 8)
 
+    def fake_asker(self, behaviour: Any) -> Any:
+        return mock.patch("wev_skills.commands.jev.build_http_asker", lambda *_a, **_k: behaviour)
+
+    def test_batch_order_holds_when_completion_order_is_reversed(self) -> None:
+        questions = self.write("q.json", QUESTIONS)
+        out = str(self.dir / "out.jsonl")
+
+        def reversed_completion(_questions: object, state: str) -> str:
+            time.sleep((3 - int(state[1:])) * 0.15)  # s0 finishes last, s2 first
+            return json.dumps({"state": state})
+
+        with self.fake_asker(reversed_completion):
+            code, _, _ = run_main(
+                "jev", "batch", "--questions", questions, "--items", self.items(3), "--out", out
+            )
+        rows = [json.loads(line) for line in Path(out).read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(code, 0)
+        self.assertEqual([row["id"] for row in rows], ["i0", "i1", "i2"])
+        self.assertEqual([row["answers"]["state"] for row in rows], ["s0", "s1", "s2"])
+
+    def test_batch_unexpected_error_keeps_the_other_answers(self) -> None:
+        questions = self.write("q.json", QUESTIONS)
+        out = str(self.dir / "out.jsonl")
+
+        def flaky(_questions: object, state: str) -> str:
+            if state == "s1":
+                raise RuntimeError(f"Bearer {SECRET}")
+            return json.dumps({"state": state})
+
+        with self.fake_asker(flaky):
+            code, data, output = run_main(
+                "jev", "batch", "--questions", questions, "--items", self.items(3), "--out", out
+            )
+        text = Path(out).read_text(encoding="utf-8")
+        rows = [json.loads(line) for line in text.splitlines()]
+        self.assertEqual((code, data["ok"], data["failed"]), (8, 2, 1))
+        self.assertEqual([("error" in row) for row in rows], [False, True, False])
+        self.assertIn("RuntimeError", rows[1]["error"])
+        self.assertNotIn(SECRET, text + output)
+
     def test_batch_all_ok_exits_0(self) -> None:
         questions = self.write("q.json", QUESTIONS)
         out = str(self.dir / "out.jsonl")
@@ -199,7 +267,7 @@ class BatchTests(JevCliCase):
             "jev", "batch", "--questions", questions, "--items", items, "--out", out
         )
         self.assertEqual(code, 2)
-        self.assertIn("2", output)
+        self.assertIn("line 2", output)
         self.assertFalse(Path(out).exists())
 
     def test_batch_item_without_state_exit_2(self) -> None:

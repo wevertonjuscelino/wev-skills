@@ -13,7 +13,7 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.cli import EXIT_OK, CommandResult
 from wev_skills.commands import Subparsers
-from wev_skills.commands._scope import resolve_scope
+from wev_skills.commands._scope import Scope, resolve_scope
 from wev_skills.config import BUILTIN, read_json_object
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.fsutil import atomic_write_text
@@ -24,6 +24,7 @@ from wev_skills.decisions.jev_http import (
     validate_questions,
 )
 from wev_skills.decisions.jev_key import ApiKey, env_file_path, macos_keychain, resolve_api_key
+from wev_skills.decisions.jev_program import resolve_jev_program
 from wev_skills.decisions.jev_wire import JevUnavailable
 from wev_skills.security.redact import redact
 
@@ -49,12 +50,18 @@ def _key_or_error() -> tuple[ApiKey | None, str | None]:
         return None, _reason(exc)
 
 
-def _builtin_status() -> dict[str, Any]:
-    """Endpoint and key facts of the built-in client; no network call is made."""
+def _builtin_status(with_key: bool) -> dict[str, Any]:
+    """Endpoint and key facts of the built-in client; no network call is made.
+
+    The key is looked up only when the provider is jev: the lookup can reach the keychain.
+    """
     try:
         endpoint = resolve_endpoint(os.environ)
     except JevUnavailable as exc:
-        return {"key_source": None, "key_error": _reason(exc), "endpoint": "", "usable": False}
+        error = _reason(exc) if with_key else None
+        return {"key_source": None, "key_error": error, "endpoint": "", "usable": False}
+    if not with_key:
+        return {"key_source": None, "key_error": None, "endpoint": endpoint.url, "usable": False}
     key, error = _key_or_error()
     if key is None and error is None:
         error = i18n.t("decisions.jev.why.key_missing")
@@ -66,15 +73,27 @@ def _builtin_status() -> dict[str, Any]:
     }
 
 
+def _program_status(scope: Scope) -> dict[str, Any]:
+    """Whether the configured program resolves, the way ``jev_warnings`` decides it."""
+    config = scope.config
+    facts: dict[str, Any] = {"key_source": None, "key_error": None, "endpoint": ""}
+    if config.decision.provider != "jev":
+        return {**facts, "usable": False}
+    try:
+        resolve_jev_program(
+            config.decision.jev.command, config.permissions.exec_path, str(scope.root)
+        )
+    except JevUnavailable as exc:
+        return {**facts, "key_error": _reason(exc), "usable": False}
+    return {**facts, "usable": True}
+
+
 def _run_status(args: argparse.Namespace) -> dict[str, Any]:
-    decision = resolve_scope(args.config).config.decision
+    scope = resolve_scope(args.config)
+    decision = scope.config.decision
     program = decision.jev.command != BUILTIN
-    facts = (
-        {"key_source": None, "key_error": None, "endpoint": "", "usable": True}
-        if program
-        else _builtin_status()
-    )
     jev = decision.provider == "jev"
+    facts = _program_status(scope) if program else _builtin_status(jev)
     return {
         "provider": decision.provider,
         "client": "program" if program else "builtin",
@@ -156,6 +175,10 @@ def _answer_item(asker: HttpAsker, questions: dict[str, Any], item: _Item) -> di
         return {"id": item.id, "answers": json.loads(asker(questions, redact(item.state)))}
     except JevUnavailable as exc:
         return {"id": item.id, "error": i18n.t("jev.error.item_failed", why=_reason(exc))}
+    except Exception as exc:  # one bad item must not lose the answers already paid for
+        # The class name only: an exception message can carry the Authorization value.
+        why = type(exc).__name__
+        return {"id": item.id, "error": i18n.t("jev.error.item_failed", why=why)}
 
 
 def _run_batch(args: argparse.Namespace) -> CommandResult:

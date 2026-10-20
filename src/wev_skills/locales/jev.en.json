@@ -9,7 +9,6 @@
   "jev.arg.items": "JSONL file with one {\"id\", \"state\"} object per line.",
   "jev.arg.out": "JSONL file to write, one line per item, in input order.",
   "jev.error.state_unreadable": "cannot read the state file {path}",
-  "jev.error.questions_not_object": "the questions file {path} must hold a JSON object",
   "jev.error.items_unreadable": "cannot read the items file {path}",
   "jev.error.item_line": "{path}, line {line}: {why}",
   "jev.error.item_not_json": "not valid JSON",
