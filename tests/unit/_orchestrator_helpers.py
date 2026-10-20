@@ -163,8 +163,8 @@ class OrchestratorCase(unittest.TestCase):
         """What the task's committed starts recorded in the run's ``events.jsonl``."""
         orchestrator = self.orch()
         record = orchestrator.load().tasks[task_id]
-        attempts = shown_lessons.by_task(orchestrator.store.events()).get(task_id, {})
-        return shown_lessons.committed(attempts, record.starts, record.agent_id)
+        records = shown_lessons.by_task(orchestrator.store.events()).get(task_id, ())
+        return shown_lessons.for_task(records, record.agent_id, record.lessons_shown)
 
     def status_of(self, task_id: str) -> TaskStatus:
         status: TaskStatus = self.state().tasks[task_id].status

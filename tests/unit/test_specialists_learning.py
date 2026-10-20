@@ -99,17 +99,16 @@ class LearningTests(unittest.TestCase):
             store = StateStore(run_dir(root / ".wev", "run-1"))
             store.create("goal", Mode.EXECUTE, "run-1")
             source = recorded("run-1")
-            tasks = {key: replace(task, starts=1) for key, task in source.tasks.items()}
             store.update(
                 lambda current: replace(
                     current,
-                    tasks=tasks,
+                    tasks=source.tasks,
                     verifications=source.verifications,
                     repo=RepoSnapshot(str(root), "main", "abc"),
                 )
             )
             lesson_id = project.learn(root, config, "project-test").experience[0].id
-            data = {"task_id": "project-test", "agent_id": "project-test", "attempt": 1}
+            data = {"task_id": "project-test", "agent_id": "project-test"}
             store.append_event("lessons.shown", {**data, "lessons": [lesson_id]})
             other = StateStore(run_dir(root / ".wev", "run-2"))
             other.create("goal", Mode.EXECUTE, "run-2")

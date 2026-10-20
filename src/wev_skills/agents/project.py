@@ -120,10 +120,12 @@ def _same_repo(state: RunState, root: Path) -> bool:
 
 
 def _shown(store: StateStore, state: RunState) -> dict[str, tuple[str, ...]]:
-    """Per task of this run: the lessons its committed starts showed to its agent."""
-    attempts = shown_lessons.by_task(store.events())
+    """Per task of this run: the lessons its starts showed to the agent that has it now."""
+    records = shown_lessons.by_task(store.events())
     return {
-        task_id: shown_lessons.committed(attempts.get(task_id, {}), record.starts, record.agent_id)
+        task_id: shown_lessons.for_task(
+            records.get(task_id, ()), record.agent_id, record.lessons_shown
+        )
         for task_id, record in state.tasks.items()
     }
 

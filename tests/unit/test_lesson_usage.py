@@ -21,6 +21,7 @@ from wev_skills.agents.registry import AgentRegistry
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.core import shown_lessons, wiring
 from wev_skills.core.contracts import Mode, TaskStatus
+from wev_skills.core.engine import Engine
 from wev_skills.core.errors import StateConflict
 from wev_skills.state.model import RunState, TaskRecord
 from wev_skills.state.store import StateStore
@@ -133,12 +134,6 @@ class DeriveCountsUsage(OrchestratorCase):
         unknown = ended("run-2", TaskStatus.VERIFIED, ("lesson-unknown",))
         self.assertEqual(counts((self.source, other, unknown)), [(0, 0)])
 
-    def test_lessons_release_3_0_0_recorded_on_the_task_are_counted(self) -> None:
-        state, _ = ended("run-1", TaskStatus.VERIFIED, ())
-        task = replace(state.tasks[AGENT], lessons_shown=(self.lesson_id,))
-        legacy: Ended = (replace(state, tasks={AGENT: task}), ())
-        self.assertEqual(counts((self.source, legacy)), [(1, 0)])
-
 
 class StartChecksTheSourceFile(OrchestratorCase):
     """The catalog loaded ``builder`` from a file; a start rereads it under the lock."""
@@ -182,13 +177,13 @@ class StartChecksTheSourceFile(OrchestratorCase):
         self.path.unlink()
         self.assert_refused()
 
-    def test_a_failed_record_leaves_the_task_not_started(self) -> None:
+    def test_a_start_whose_commit_fails_leaves_no_record(self) -> None:
         self.start()
         self.orch().next_tasks()
-        failing = mock.patch.object(StateStore, "append_event", side_effect=OSError("disk full"))
+        failing = mock.patch.object(Engine, "commit", side_effect=OSError("disk full"))
         with failing, self.assertRaises(OSError):
             self.orch().start_task("task-1")
-        self.assertNotEqual(self.status_of("task-1"), TaskStatus.RUNNING)
+        self.assertEqual(shown_lessons.by_task(self.orch().store.events()), {})
 
 
 class InheritedLessonsDoNotBlockStarts(StartChecksTheSourceFile):
@@ -200,27 +195,33 @@ class InheritedLessonsDoNotBlockStarts(StartChecksTheSourceFile):
         self.assertEqual(self.lessons_shown(), ("l-top", "l-parent", "l-low"))
 
 
-def shown(task: Any, attempt: Any, agent: Any, lessons: list[Any]) -> dict[str, Any]:
-    data = {"task_id": task, "attempt": attempt, "agent_id": agent, "lessons": lessons}
-    return {"type": "lessons.shown", "data": data}
+def shown(task: Any, agent: Any, lessons: list[Any]) -> dict[str, Any]:
+    return {
+        "type": "lessons.shown",
+        "data": {"task_id": task, "agent_id": agent, "lessons": lessons},
+    }
 
 
-class ByTaskTests(unittest.TestCase):
-    def test_the_last_record_of_an_attempt_replaces_one_whose_commit_failed(self) -> None:
-        events = [shown("t", 1, "a", ["failed"]), shown("t", 1, "a", ["kept"])]
-        attempts = shown_lessons.by_task(events)["t"]
-        self.assertEqual(shown_lessons.committed(attempts, 1, "a"), ("kept",))
-
-    def test_an_attempt_the_state_does_not_count_is_left_out(self) -> None:
-        events = [shown("t", 1, "a", ["x", "y"]), shown("t", 2, "a", ["y", "z"])]
-        attempts = shown_lessons.by_task(events)["t"]
-        self.assertEqual(shown_lessons.committed(attempts, 1, "a"), ("x", "y"))
-        self.assertEqual(shown_lessons.committed(attempts, 2, "a"), ("x", "y", "z"))
+class ForTaskTests(unittest.TestCase):
+    def test_records_of_every_start_are_merged_in_order(self) -> None:
+        events = [shown("t", "a", ["x", "y"]), shown("t", "a", ["y", "z"])]
+        records = shown_lessons.by_task(events)["t"]
+        self.assertEqual(shown_lessons.for_task(records, "a"), ("x", "y", "z"))
 
     def test_lessons_shown_to_another_agent_are_not_credited(self) -> None:
-        events = [shown("t", 1, "former", ["old"]), shown("t", 2, "current", ["new"])]
-        attempts = shown_lessons.by_task(events)["t"]
-        self.assertEqual(shown_lessons.committed(attempts, 2, "current"), ("new",))
+        events = [shown("t", "former", ["old"]), shown("t", "current", ["new"])]
+        records = shown_lessons.by_task(events)["t"]
+        self.assertEqual(shown_lessons.for_task(records, "current"), ("new",))
+
+    def test_lessons_release_3_0_0_kept_on_the_task_count_without_a_reassignment(self) -> None:
+        records = shown_lessons.by_task([shown("t", "a", ["new"])])["t"]
+        self.assertEqual(shown_lessons.for_task(records, "a", ("old",)), ("old", "new"))
+        self.assertEqual(shown_lessons.for_task((), "a", ("old",)), ("old",))
+
+    def test_lessons_release_3_0_0_kept_on_the_task_are_dropped_after_a_reassignment(self) -> None:
+        events = [shown("t", "former", ["x"]), shown("t", "current", ["new"])]
+        records = shown_lessons.by_task(events)["t"]
+        self.assertEqual(shown_lessons.for_task(records, "current", ("old",)), ("new",))
 
     def test_lines_that_are_not_well_formed_records_are_skipped(self) -> None:
         events: list[Any] = [
@@ -228,13 +229,13 @@ class ByTaskTests(unittest.TestCase):
             "text",
             None,
             {"type": "run_created", "data": {"task_id": "t"}},
-            shown(3, 1, "a", ["x"]),
-            shown("t", "1", "a", ["x"]),
-            shown("t", True, "a", ["x"]),
-            shown("t", 1, None, ["x"]),
-            shown("t", 1, "a", ["ok", 7]),
+            {"type": "lessons.shown", "data": "x"},
+            shown(3, "a", ["x"]),
+            shown("t", None, ["x"]),
+            shown("t", "a", "x"),
+            shown("t", "a", ["ok", 7]),
         ]
-        self.assertEqual(shown_lessons.by_task(events), {"t": {1: ("a", ("ok",))}})
+        self.assertEqual(shown_lessons.by_task(events), {"t": (("a", ("ok",)),)})
 
 
 class LegacyRecordTests(unittest.TestCase):
