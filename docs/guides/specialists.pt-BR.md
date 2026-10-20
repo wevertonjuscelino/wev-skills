@@ -74,13 +74,16 @@ pela 3.0.0 guardam os ids no campo `lessons_shown` da tarefa, que continua sendo
 contado. Antes de
 gravar, o início lê de novo o arquivo do especialista sob o lock que `specialists accept` e
 `specialists retire` usam; se o arquivo sumiu ou as lições mudaram desde que o comando as
-carregou, o início é recusado (`lessons_changed`, saída 5) e precisa ser rodado de novo. O
-evento só é gravado depois do estado, então todo registro é um início que aconteceu; um
-processo que morre entre os dois deixa aquele início sem contar, em vez de creditar uma lição
-que nunca foi mostrada. Cada registro traz o agente, e o aprendizado conta só os registros do
-agente que terminou a tarefa; ids que um run da 3.0.0 guardou na tarefa, e registros que a 4.0.0
-gravou sem agente, só contam enquanto nenhum registro mostrar outro agente. O aprendizado lê os eventos apenas dos runs deste
-repositório. Uma decisão tomada depois
+carregou, o início é recusado (`lessons_changed`, saída 5) e precisa ser rodado de novo. Todo
+início gravado escreve um evento, mesmo sem lições, com o agente e a tentativa, e só depois
+de o estado ser gravado: todo registro é um início que aconteceu. Se o evento não puder ser
+escrito, o início vale, não é contado e é auditado como `lessons.shown_failed`; o desenho
+prefere perder uso a creditar uma lição que nunca foi mostrada. Pelo mesmo motivo os
+registros que a 4.0.0 gravou (antes do commit, sem agente) não são contados. O aprendizado
+conta só os registros do agente que terminou a tarefa e, depois de uma reabertura, só o
+último ciclo de inícios; ids que um run da 3.0.0 guardou na tarefa só contam enquanto nenhum
+registro mostrar outro agente ou um novo ciclo. Uma linha do `events.jsonl` cortada no meio
+é ignorada, e o aprendizado lê os eventos apenas dos runs deste repositório. Uma decisão tomada depois
 do início vale a partir do próximo início. O aprendizado então conta,
 por lição, as tarefas do agente que a receberam e terminaram verificadas (`shown_verified`)
 ou com falha, bloqueio ou resultado parcial (`shown_unverified`); tarefas não terminadas não

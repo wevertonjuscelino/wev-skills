@@ -242,10 +242,15 @@ def _commit_start(
     engine: Engine, state: RunState, change: Change, data: dict[str, Any]
 ) -> RunState:
     """Commit the start, then record the shown lessons, while the agent's lessons are still
-    those its contract shows (see ``shown_lessons``)."""
+    those its contract shows (see ``shown_lessons``). The start stands when only the record
+    fails: that start goes uncounted and the failure is audited."""
     with shown_lessons.current_lessons(engine.services, data["agent_id"]):
         committed = engine.commit(change, "task.started", data, base=state)
-        shown_lessons.record(engine.store, data)
+        try:
+            shown_lessons.record(engine.store, data)
+        except OSError as exc:
+            failure = {"run_id": committed.run_id, "task_id": data["task_id"], "error": str(exc)}
+            engine.services.audit.append("lessons.shown_failed", failure)
     return committed
 
 

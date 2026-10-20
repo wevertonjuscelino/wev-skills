@@ -67,13 +67,16 @@ refuses fields it does not know there; runs written by 3.0.0 keep the ids in a
 `lessons_shown` field of the task, which is still read and counted. Before it commits, the start reads the specialist's
 file again under the lock that `specialists accept` and `specialists retire` take; if the
 file is gone or its lessons changed since the command loaded them, the start is refused
-(`lessons_changed`, exit 5) and must be run again. The event is written only after the state, so
-every record is a start that happened; a process that dies between the two leaves that
-start uncounted rather than crediting a lesson that was never shown. Each record names the
-agent, and learning counts only records for the agent that ended the task; ids a 3.0.0 run
-kept on the task, and records 4.0.0 wrote without an agent, count only while no record shows
-another agent. Learning reads the events
-only of runs of this repository. A decision made after the start applies from the next start.
+(`lessons_changed`, exit 5) and must be run again. Every committed start writes one event, even when it
+showed no lesson, naming the agent and the attempt, and only after the state is committed:
+every record is a start that happened. If the event cannot be written, the start stands,
+goes uncounted and is audited as `lessons.shown_failed`; the design errs toward missing usage
+rather than crediting a lesson that was never shown. For the same reason the records 4.0.0
+wrote (before the commit, without an agent) are not counted. Learning counts only records
+for the agent that ended the task and, after a reopen, only the last cycle of starts; ids a
+3.0.0 run kept on the task count only while no record shows another agent or a new cycle.
+A line of `events.jsonl` cut short is skipped, and learning reads the events only of runs of
+this repository. A decision made after the start applies from the next start.
 Learning then counts, per lesson, the
 agent's tasks that were shown it and ended verified (`shown_verified`) or failed, blocked or
 partial (`shown_unverified`); tasks that have not ended count in neither.

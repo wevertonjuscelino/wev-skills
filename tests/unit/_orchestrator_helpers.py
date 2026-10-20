@@ -164,7 +164,7 @@ class OrchestratorCase(unittest.TestCase):
         orchestrator = self.orch()
         record = orchestrator.load().tasks[task_id]
         records = shown_lessons.by_task(orchestrator.store.events()).get(task_id, ())
-        return shown_lessons.for_task(records, record.agent_id, record.lessons_shown)
+        return shown_lessons.for_task(records, record.agent_id, record.starts, record.lessons_shown)
 
     def status_of(self, task_id: str) -> TaskStatus:
         status: TaskStatus = self.state().tasks[task_id].status
