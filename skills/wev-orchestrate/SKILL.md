@@ -25,7 +25,9 @@ Where things live:
 Before anything else in a session, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" jev status` and read `orchestration` in its answer.
 
 - `"wev"`: follow the flow below as written.
-- `"harness"`: do not run `run start` or the task commands. Plan and track the work with the harness's own tools. When `key_error` is set, tell the user what it says and that rerunning setup turns JEV on.
+- `"harness"`: do not run `run start` or the task commands. Plan and track the work with the harness's own tools.
+  - When `key_error` is set, tell the user what it says.
+  - When `key_error` is null, JEV is simply not configured. Tell the user once how to turn it on: set `decision.provider` to `jev` in the config (`wev.config.json` or the run's `--config`), and provide a key through `TYPESAFE_API_KEY`, the file `~/.config/wev-skills/.env` (mode 600) or the keychain item `typesafe-api-key`.
 
 The guard hooks, approvals and loop detection stay active in both modes.
 
