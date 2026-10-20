@@ -1,12 +1,12 @@
 # wev-skills
 
-Um motor de orquestração de código aberto para quem quer que agentes de programação com IA planejem, executem e relatem trabalho com evidências de verificação registradas.
+Um motor de orquestração, com código-fonte disponível, para quem quer que agentes de programação com IA planejem, executem e relatem trabalho com evidências de verificação registradas.
 
 [English](README.md) · [Instalação](docs/guides/installation.pt-BR.md) · [Arquitetura](docs/architecture/architecture.pt-BR.md) · [Exemplos](examples/README.md)
 
 [![CI](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/wevertonjuscelino/wev-skills/actions/workflows/ci.yml)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-green)](LICENSE)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](CHANGELOG.md)
 
 O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um plugin para Claude Code conecta o motor a skills, subagentes e hooks. Contratos de tarefa, estado retomável e rótulos de evidência permitem inspecionar o trabalho; o motor impõe as regras que código consegue verificar.
@@ -100,7 +100,9 @@ docs/           Guides, architecture, evidence and provenance
 examples/       Sample configuration and task contracts
 ```
 
-Arquivos do projeto: [contribuição](CONTRIBUTING.pt-BR.md), [política de segurança](SECURITY.pt-BR.md), [changelog](CHANGELOG.md), [código de conduta](CODE_OF_CONDUCT.md), [licença MIT](LICENSE) e [NOTICE](NOTICE). Materiais externos e condições próprias de licença estão registrados na [procedência de terceiros](docs/THIRD-PARTY.pt-BR.md).
+Arquivos do projeto: [contribuição](CONTRIBUTING.pt-BR.md), [política de segurança](SECURITY.pt-BR.md), [changelog](CHANGELOG.md), [código de conduta](CODE_OF_CONDUCT.md), [licença](LICENSE) e [NOTICE](NOTICE). Materiais externos e condições próprias de licença estão registrados na [procedência de terceiros](docs/THIRD-PARTY.pt-BR.md).
+
+O wev-skills é de código-fonte disponível, e não open source no sentido da Open Source Initiative (OSI). A partir do próximo release (3.0.0), ele é licenciado sob a [PolyForm Noncommercial License 1.0.0](LICENSE): qualquer pessoa pode usá-lo, alterá-lo e redistribuí-lo para qualquer finalidade não comercial, e o uso comercial é proibido. Tudo o que foi publicado antes da mudança continua sob a licença MIT: os releases 1.0.0 a 2.0.0 e os commits até `577a6f6`. Material de terceiros mantém a própria licença.
 
 ## Verificação
 

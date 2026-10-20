@@ -100,5 +100,14 @@
   "agents.learning.guard": "The engine recorded guard rule {rule}; account for this pitfall before retrying.",
   "agents.learning.check": "Recorded outcomes of check fingerprint {rule}; confirmations count passes and contradictions count failures.",
   "agents.specialists.id_mismatch": "Specialist id must match its file name",
-  "agents.specialists.symlink": "Specialist paths cannot be symbolic links"
+  "agents.specialists.symlink": "Specialist paths cannot be symbolic links",
+  "agents.specialists.accept": "Accept a proposed lesson (human operator; needs a terminal)",
+  "agents.specialists.retire": "Retire a lesson (human operator; needs a terminal)",
+  "agents.specialists.human_required": "Accepting or retiring lesson {lesson} of {specialist} is the human operator's decision and needs a terminal. An agent must stop here and ask the human to run this command.",
+  "agents.specialists.confirm.accept": "Accept this lesson. Task contracts of the specialist will show it as advisory text:",
+  "agents.specialists.confirm.retire": "Retire this lesson. It will not be shown again, and learning keeps it retired:",
+  "agents.specialists.lesson_not_found": "Specialist {specialist} has no lesson {lesson}",
+  "agents.specialists.wrong_status": "Lesson {lesson} is {status}; this decision does not apply to it",
+  "agents.specialists.lesson_changed": "Lesson {lesson} changed after it was shown; nothing was decided. Run the command again to review the current lesson",
+  "agents.specialists.operator_reserved": "The operator name {operator} is reserved for lessons no person has decided on; run the command as another user"
 }

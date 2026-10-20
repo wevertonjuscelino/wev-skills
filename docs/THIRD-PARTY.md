@@ -35,7 +35,7 @@ Official Claude Code documentation pages (see [research/sources.md](research/sou
 
 Before any third-party file, snippet, schema, prompt or dataset is added to this repository, the contributor must:
 
-1. Identify its license and confirm it is compatible with this project's license (the project prefers MIT for original code). If the license is missing, unclear or incompatible, do not add the file.
+1. Identify its license and confirm it is compatible with this project's license, the PolyForm Noncommercial License 1.0.0 (see [LICENSE](../LICENSE)). Material under a permissive license such as MIT is compatible when its notices are kept. If the license is missing, unclear or incompatible, do not add the file.
 2. Preserve the original copyright and license notices in the file or alongside it, and add a `NOTICE` entry when the license requires one.
 3. Record it in this file in the same change: source URL, commit or version, license, copyright line, the files affected, and whether the use is reuse, adaptation (what changed) or inspiration.
 4. Never imply affiliation with or endorsement by the source's author or organization.
@@ -48,8 +48,8 @@ Netresearch DTT GmbH's [skill-repo-skill](https://github.com/netresearch/skill-r
 version 2.4.0 at commit `42a5e85798a8cdfda2866afb0de9aadb04e187f3`, consulted 2026-10-13,
 is an external dependency for repository-structure guidance. Copyright (c) 2025-2026
 Netresearch DTT GmbH. Content: CC-BY-SA-4.0; scripts/configuration: MIT. Its files are
-installed separately and are not redistributed in this repository. The original MIT
-`skills/wev-skill-maintenance/` coordinates review and local exceptions; it records provenance
+installed separately and are not redistributed in this repository. The original
+`skills/wev-skill-maintenance/`, licensed with the rest of wev-skills, coordinates review and local exceptions; it records provenance
 in `references/upstream.json` and links to the guide without copying its instructions or scripts.
 The project's licensing, branding, engine dependencies and CI are not migrated by this reference.
 No affiliation or endorsement is implied.

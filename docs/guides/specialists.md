@@ -23,6 +23,27 @@ bin/wev specialists learn project-engineer
 bin/wev specialists export --lang en
 ```
 
+Learning only proposes. A new lesson has status `proposed` and is not shown anywhere until
+the person at a terminal accepts it; a lesson the engine accepted before this step existed
+(`accepted_by` is `engine`) is proposed again, and is not shown even before learning runs
+again. The operator reviews the lessons in
+`wev specialists list` and decides each one:
+
+```sh
+bin/wev specialists accept project-engineer lesson-0123456789abcdef01234567
+bin/wev specialists retire project-engineer lesson-0123456789abcdef01234567
+```
+
+Both are human-operator commands, like `approval grant`: they need a terminal on stdin and
+stdout, show the lesson, its full text, its authored excerpts and note, and its evidence, ask
+for a word printed on screen, and record the operating-system user in `accepted_by` and the
+user and terminal in the audit log. The audit event is written before the specialist file,
+so a failed audit leaves no decision. If the lesson changed after it was shown, nothing is
+decided (exit 5) and the command must be run again. The user name `engine` is reserved and
+refused. An agent never runs them; the plugin's Bash hook answers `ask` for them. Acceptance
+and retirement survive relearning, and when more lessons are found than the cap allows,
+proposals are dropped before decided lessons; counters keep being recalculated.
+
 Learning recalculates counters from stored engine runs, so running it again does not add
 confirmations. A successful check contributes only for a verified task with an `all_met`
 verification. Failed checks count as contradictions; guard trips become pitfalls. Trivial
@@ -38,6 +59,24 @@ for `specialists.stale_after_runs` runs (default 20) become stale. At most
 or permissions. Rebuilding uses the local retained history; deleting history also removes
 its contribution to counters. Files remain subject to the engine's local state trust
 boundary: learning does not authenticate externally supplied or manually modified states.
+
+`task start` records on the task (`lessons_shown`, also in the `task.started` audit
+event) the ids of the lessons its contract shows. Learning then counts, per lesson, the
+agent's tasks that were shown it and ended verified (`shown_verified`) or failed, blocked or
+partial (`shown_unverified`); tasks that have not ended count in neither.
+
+Ranking uses these counters conservatively, against the agent's own average: the verified
+share over every ending of its active lessons, recomputed at each learning, so the bar moves
+as the agent improves or gets worse. Each lesson's share is pulled toward that average by
+three virtual tasks, so a lesson with few endings stays near it. A lesson with at least three
+endings whose adjusted share is more than 0.1 below the average goes after the others. Its
+rate never promotes a lesson, and never hides or retires one: a demoted lesson still counts
+toward the rendered cap, keeps its counters and moves back once its share recovers. A
+correlation between a lesson and an outcome is not evidence that the lesson caused it.
+
+In a task contract, a lesson learned from a check the task will run (same argv) goes
+before the other lessons, after the demotion above; relevance never hides a lesson and does
+not lift a demoted one. Exported subagents have no task, so they keep the plain order.
 
 The whole-run budget uses engine command units, **not currency or model tokens**:
 `limits.run_budget_units` defaults to 400, and `limits.run_max_attempts_total` defaults to

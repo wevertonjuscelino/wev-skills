@@ -19,6 +19,7 @@ from wev_skills.core import (
 from wev_skills.core.contracts import Mode, PlanTask, TaskStatus
 from wev_skills.core.engine import REQUESTER, Engine, refuse_finished, task_action
 from wev_skills.core.errors import ApprovalRequired, PermissionDenied, ValidationError
+from wev_skills.core.task_contract import lessons_shown
 from wev_skills.governance.approvals import ApprovalStatus, approval_id
 from wev_skills.guards.events import handoff_event
 from wev_skills.state.model import (
@@ -196,6 +197,8 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
     attempt = record.starts + 1
     now, stamp = engine.now(), engine.stamp()
     tools = tool_select.compute(engine, state, [task.id])
+    spec = engine.services.agents.resolved(record.agent_id)
+    shown = tuple(dict.fromkeys([*record.lessons_shown, *lessons_shown(state, task, spec)]))
     text = i18n.t(
         "orch.decision.start",
         task=task.id,
@@ -211,7 +214,13 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
             raise ApprovalRequired("approval_required", message, {"approval_ids": [pending]})
         moved = with_task_status(current, task.id, TaskStatus.RUNNING, stamp)
         moved = tool_select.store(engine, moved, tools)
-        started = replace(moved.tasks[task.id], starts=attempt, baseline=None, tree_changed=None)
+        started = replace(
+            moved.tasks[task.id],
+            starts=attempt,
+            baseline=None,
+            tree_changed=None,
+            lessons_shown=shown,
+        )
         moved = replace(moved, tasks={**moved.tasks, task.id: started})
         event = handoff_event(task.id, now, "orchestrator", record.agent_id)
         moved = with_guard_event(moved, event.to_dict())
@@ -224,6 +233,7 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
         "attempt": attempt,
         "agent_id": record.agent_id,
         "model": record.model,
+        "lessons_shown": list(shown),
     }
     return engine.commit(change, "task.started", data, base=state), attempt
 

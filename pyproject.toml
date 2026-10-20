@@ -11,10 +11,9 @@ authors = [{ name = "Weverton Juscelino" }]
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.14",
-  "License :: OSI Approved :: MIT License",
   "Development Status :: 3 - Alpha",
 ]
-license = { text = "MIT" }
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 dependencies = []
 
 [project.urls]

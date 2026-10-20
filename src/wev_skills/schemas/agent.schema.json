@@ -91,7 +91,7 @@
         "confirmations": { "type": "integer", "minimum": 0 },
         "contradictions": { "type": "integer", "minimum": 0 },
         "last_seen_run": { "type": "string", "maxLength": 64 },
-        "status": { "enum": ["active", "stale", "retired"] },
+        "status": { "enum": ["active", "stale", "retired", "proposed"] },
         "derivation": { "type": "string", "maxLength": 64 },
         "key": {
           "type": "array",
@@ -112,7 +112,9 @@
             }
           }
         },
-        "note": { "type": "string", "maxLength": 400 }
+        "note": { "type": "string", "maxLength": 400 },
+        "shown_verified": { "type": "integer", "minimum": 0 },
+        "shown_unverified": { "type": "integer", "minimum": 0 }
       }
     }
   },

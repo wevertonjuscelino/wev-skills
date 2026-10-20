@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Sequence
 
 from wev_skills import i18n
-from wev_skills.agents.experience import lead_line, rendered_lessons
+from wev_skills.agents.experience import check_key, lead_line, rendered_lessons, shown_lesson_ids
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.agents.tool_profile import STRUCTURED, apply_profile
 from wev_skills.core import agent_rules, progress
@@ -120,7 +121,7 @@ def build_contract(
     return TaskContract(
         task_id=task.id,
         objective=task.objective or task.title,
-        context=_with_experience(_context(state, task, selection), state, spec),
+        context=_with_experience(_context(state, task, selection), state, task, spec),
         scope=task.files,
         exclusions=_exclusions(state, task, protected),
         constraints=constraints,
@@ -145,9 +146,31 @@ def build_contract(
     )
 
 
-def _with_experience(context: str, state: RunState, spec: AgentSpec) -> str:
+def _lesson_limit(state: RunState) -> int:
     from wev_skills.config import parse_config
 
-    limit = parse_config(overrides=state.config).specialists.max_lessons_rendered
-    lessons = rendered_lessons(spec.experience, limit)
+    return parse_config(overrides=state.config).specialists.max_lessons_rendered
+
+
+def _relevant(state: RunState, task: PlanTask, spec: AgentSpec) -> frozenset[tuple[str, ...]]:
+    """Keys of the lessons about the checks this task will run. A check that does not parse
+    is skipped here; verification refuses it with its own error."""
+    keys: set[tuple[str, ...]] = set()
+    for command in _checks(state, task, spec):
+        try:
+            keys.add(check_key(shlex.split(command)))
+        except ValueError:
+            continue
+    return frozenset(keys)
+
+
+def lessons_shown(state: RunState, task: PlanTask, spec: AgentSpec) -> tuple[str, ...]:
+    """Ids of the lessons the contract of ``task``, assigned to ``spec``, shows."""
+    relevant = _relevant(state, task, spec)
+    return shown_lesson_ids(spec.experience, _lesson_limit(state), relevant=relevant)
+
+
+def _with_experience(context: str, state: RunState, task: PlanTask, spec: AgentSpec) -> str:
+    relevant = _relevant(state, task, spec)
+    lessons = rendered_lessons(spec.experience, _lesson_limit(state), relevant=relevant)
     return "\n".join((context, lead_line(), *lessons)) if lessons else context

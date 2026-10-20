@@ -26,6 +26,28 @@ bin/wev specialists learn project-engineer
 bin/wev specialists export --lang pt-BR
 ```
 
+O aprendizado só propõe. Uma lição nova fica com status `proposed` e não aparece em lugar
+nenhum até a pessoa no terminal aceitá-la; uma lição que o motor aceitou antes desta etapa
+existir (`accepted_by` igual a `engine`) volta a ser proposta e não aparece mesmo antes de o
+aprendizado rodar de novo. O operador revisa as lições em
+`wev specialists list` e decide cada uma:
+
+```sh
+bin/wev specialists accept project-engineer lesson-0123456789abcdef01234567
+bin/wev specialists retire project-engineer lesson-0123456789abcdef01234567
+```
+
+Os dois são comandos do operador humano, como `approval grant`: exigem terminal em stdin e
+stdout, mostram a lição, seu texto completo, seus trechos de autoria e nota e sua evidência,
+pedem uma palavra exibida na tela e registram o usuário do sistema operacional em
+`accepted_by` e o usuário e o terminal no log de auditoria. O evento de auditoria é gravado
+antes do arquivo do especialista, então uma auditoria que falha não deixa decisão. Se a lição
+mudou depois de exibida, nada é decidido (saída 5) e o comando precisa ser rodado de novo. O
+nome de usuário `engine` é reservado e recusado. Um agente nunca os executa; o hook de Bash
+do plugin responde `ask` para eles. Aceite e aposentadoria sobrevivem ao reaprendizado, e
+quando há mais lições do que o limite permite, as propostas saem antes das lições decididas;
+os contadores continuam sendo recalculados.
+
 O aprendizado recalcula os contadores a partir das execuções armazenadas pelo motor;
 repetir o comando não acrescenta confirmações. Uma verificação bem-sucedida contribui
 somente quando a tarefa está verificada e o registro indica `all_met`. Verificações que
@@ -43,6 +65,27 @@ não amplia ferramentas ou permissões. A reconstrução usa o histórico local 
 apagá-lo também remove sua contribuição aos contadores. Os arquivos seguem o limite de
 confiança do estado local do motor: o aprendizado não autentica estados fornecidos de
 fora ou modificados manualmente.
+
+`task start` registra na tarefa (`lessons_shown`, também no evento de auditoria
+`task.started`) os ids das lições que o contrato dela mostra. O aprendizado então conta,
+por lição, as tarefas do agente que a receberam e terminaram verificadas (`shown_verified`)
+ou com falha, bloqueio ou resultado parcial (`shown_unverified`); tarefas não terminadas não
+entram em nenhum dos dois.
+
+A ordenação usa esses contadores de forma conservadora, contra a média do próprio agente: a
+fração de tarefas verificadas entre todos os términos das suas lições ativas, recalculada a
+cada aprendizado, de modo que a régua acompanha o agente quando ele melhora ou piora. A
+fração de cada lição é puxada para essa média por três tarefas virtuais, então uma lição com
+poucos términos fica perto dela. Uma lição com pelo menos três términos cuja fração ajustada
+fique mais de 0,1 abaixo da média vai para depois das outras. A taxa nunca promove, esconde
+ou aposenta uma lição: a rebaixada continua contando no limite exibido, mantém seus
+contadores e volta à posição quando a fração se recupera. A correlação entre uma lição e um
+resultado não é evidência de que a lição o causou.
+
+No contrato de uma tarefa, uma lição aprendida com um check que a tarefa vai rodar (mesmo
+argv) vem antes das demais, depois do rebaixamento acima; a relevância nunca esconde uma
+lição nem levanta uma rebaixada. Subagentes exportados não têm tarefa e mantêm a ordem
+simples.
 
 O orçamento da execução usa unidades de comandos do motor, **não dinheiro ou tokens**:
 `limits.run_budget_units` vale 400 por padrão; `limits.run_max_attempts_total` permite 12

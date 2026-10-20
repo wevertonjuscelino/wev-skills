@@ -55,7 +55,7 @@ These five labels describe the state of every piece of work in the project. Do n
 | drift | divergência (drift) | Difference between the recorded state of a run and the real repository, found by `wev run resume`. |
 | approval | aprovação | A record that binds a human decision to one exact command. |
 | grant | concessão | The human decision that approves a pending approval. It is single-use, expires, and covers one argv in one directory of one run (and one host for a remote action). There are no reusable grants. |
-| operator | operador | The human who reviews and grants approvals in their own terminal. Operator commands (`approval grant`, `approval deny`, `guard acknowledge`, `task reopen`) need a terminal and a typed confirmation and have no bypass flag. |
+| operator | operador | The human who reviews and grants approvals in their own terminal. Operator commands (`approval grant`, `approval deny`, `guard acknowledge`, `task reopen`, `specialists accept`, `specialists retire`) need a terminal and a typed confirmation and have no bypass flag. |
 | execution guard | guarda de execução | The pure function that detects loops, repeated failures, no progress and budget or time overruns. |
 | guard trip | disparo da guarda | A guard verdict other than `continue`. |
 | acknowledge | reconhecer (guard) | The human step (`wev guard acknowledge`) that lets the guard count again after a STOP or ASK_HUMAN verdict. |

@@ -7,7 +7,17 @@ from collections.abc import Sequence
 from dataclasses import replace
 
 from wev_skills import i18n
-from wev_skills.agents.experience import ACTIVE, RETIRED, STALE, Lesson, LessonEvidence, RecordRef
+from wev_skills.agents.experience import (
+    ACTIVE,
+    PROPOSED,
+    PROPOSER,
+    RETIRED,
+    STALE,
+    Lesson,
+    LessonEvidence,
+    RecordRef,
+    check_key,
+)
 from wev_skills.core.contracts import TaskStatus
 from wev_skills.state.model import RunState
 
@@ -30,13 +40,31 @@ def _observations(state: RunState, agent_id: str) -> list[tuple[tuple[str, ...],
                 not record.all_met or state.tasks[record.task_id].status is not TaskStatus.VERIFIED
             ):
                 continue
-            key = ("check", hashlib.sha256("\0".join(check.argv).encode()).hexdigest())
+            key = check_key(check.argv)
             found[key] = (key, check.state == "passed", record.task_id, record.at)
     for trip in state.guard_trips:
         if trip.task_id in tasks:
             key = ("guard", trip.rule)
             found[key] = (key, True, trip.task_id, trip.at)
     return list(found.values())
+
+
+_UNVERIFIED = frozenset({TaskStatus.FAILED, TaskStatus.BLOCKED, TaskStatus.PARTIAL})
+
+
+def _usage(states: Sequence[RunState], agent_id: str) -> dict[str, tuple[int, int]]:
+    """Per lesson id: (ended verified, ended unverified) over the agent's tasks that ended."""
+    found: dict[str, tuple[int, int]] = {}
+    for state in states:
+        for record in state.tasks.values():
+            ended = record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
+            if record.agent_id != agent_id or not ended:
+                continue
+            good = int(record.status is TaskStatus.VERIFIED)
+            for lesson_id in record.lessons_shown:
+                verified, unverified = found.get(lesson_id, (0, 0))
+                found[lesson_id] = (verified + good, unverified + 1 - good)
+    return found
 
 
 def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> tuple[Lesson, ...]:
@@ -74,21 +102,44 @@ def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> 
                 evidence=evidence,
             )
             last_seen[key] = index
+    usage = _usage(ordered, agent_id)
     return tuple(
-        replace(item, status=STALE if len(ordered) - 1 - last_seen[key] >= stale_after else ACTIVE)
+        replace(
+            item,
+            status=STALE if len(ordered) - 1 - last_seen[key] >= stale_after else ACTIVE,
+            shown_verified=usage.get(item.id, (0, 0))[0],
+            shown_unverified=usage.get(item.id, (0, 0))[1],
+        )
         for key, item in lessons.items()
     )
+
+
+def _carry(lesson: Lesson, before: Lesson | None) -> Lesson:
+    """A person's decision outlives relearning; anything no person decided is proposed,
+    including a lesson the engine accepted or retired before acceptance existed."""
+    if before is None or before.accepted_by == PROPOSER or before.status == PROPOSED:
+        return replace(lesson, status=PROPOSED, accepted_by=PROPOSER)
+    if before.status == RETIRED:
+        return replace(lesson, status=RETIRED, accepted_by=before.accepted_by)
+    return replace(lesson, accepted_by=before.accepted_by)
 
 
 def reconcile(
     old: Sequence[Lesson], derived: Sequence[Lesson], maximum: int = 30
 ) -> tuple[Lesson, ...]:
-    """Preserve retirement decisions and retain at most the configured, hard-capped 30 lessons."""
-    retired = {lesson.id for lesson in old if lesson.status == RETIRED}
-    found = [
-        replace(lesson, status=RETIRED) if lesson.id in retired else lesson for lesson in derived
-    ]
+    """Preserve the operator's decisions and retain at most the configured, hard-capped 30
+    lessons. A new lesson, or one only the engine accepted (before acceptance existed), is
+    proposed: it is not shown until a person accepts it. Lessons a person decided on are kept
+    before proposed ones, so the cap drops proposals before it drops a decision."""
+    before = {lesson.id: lesson for lesson in old}
+    found = [_carry(lesson, before.get(lesson.id)) for lesson in derived]
     found.sort(
-        key=lambda item: (item.status != ACTIVE, -item.confirmations, item.contradictions, item.id)
+        key=lambda item: (
+            item.accepted_by == PROPOSER,
+            item.status != ACTIVE,
+            -item.confirmations,
+            item.contradictions,
+            item.id,
+        )
     )
     return tuple(found[: min(30, maximum)])

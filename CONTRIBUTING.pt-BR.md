@@ -81,7 +81,7 @@ O repositório traz seis skills: `wev-orchestrate`, `wev-agent-builder`, `wev-ha
 
 Antes de adicionar qualquer arquivo, trecho, schema, prompt ou dataset de terceiros:
 
-1. Verifique a licença e confirme que ela é compatível com a distribuição sob MIT.
+1. Verifique a licença e confirme que ela é compatível com a distribuição sob a licença deste projeto, a [PolyForm Noncommercial License 1.0.0](LICENSE).
 2. Preserve os avisos de copyright e de licença.
 3. Registre em [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) (e em `NOTICE` quando a licença exigir), indicando se é inspiração, adaptação ou reuso.
 

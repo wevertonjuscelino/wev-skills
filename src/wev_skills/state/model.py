@@ -93,6 +93,8 @@ class TaskRecord(Serializable):
     tool_selection: ToolSelection | None = None
     """The tools chosen for this task; ``None`` when selection is off (and in older states)."""
     tool_misses: tuple[ToolMiss, ...] = ()
+    lessons_shown: tuple[str, ...] = ()
+    """Ids of the agent's lessons its contract showed at any start of this task."""
 
 
 @dataclass(frozen=True)

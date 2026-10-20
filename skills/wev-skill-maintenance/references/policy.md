@@ -29,7 +29,7 @@ proposed behavior, local exception and reason. Resolve conflicts explicitly; do 
 ordering determine which repository's rules win. A skill is guidance, not authority to override
 user instructions, local security requirements or human approval gates.
 
-For wev-skills retain the standard-library-only Python engine, existing MIT licensing,
+For wev-skills retain the standard-library-only Python engine, existing PolyForm Noncommercial 1.0.0 licensing,
 `.claude-plugin/plugin.json` as the current manifest, English and Brazilian Portuguese twins,
 and existing tests and lint. Composer packaging, Netresearch branding, split licensing and
 upstream CI are optional migration proposals, never automatic requirements here. Do not run
