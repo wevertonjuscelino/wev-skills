@@ -26,7 +26,7 @@
   "hooks.reason.assignment": "This command line sets variables before a command ({names}). Variables such as PATH, GIT_* or DYLD_* change which program runs; a person decides (denied in plan mode).",
   "hooks.reason.git_outside": "git is pointed at a directory outside the run's root ({directory}); a person decides.",
   "hooks.reason.directory_unknown": "The working directory cannot be followed after an earlier part of this line (cd -, popd), so a person decides.",
-  "hooks.reason.engine_operator": "This wev command is a human-operator decision (approval grant or deny, reopening, guard acknowledge). Only the person may answer this prompt; an agent must not run it for itself.",
+  "hooks.reason.engine_operator": "This wev command is a human-operator decision (approval grant or deny, reopening, guard acknowledge, accepting or retiring a specialist lesson). Only the person may answer this prompt; an agent must not run it for itself.",
   "hooks.reason.engine_run": "This wev command starts or finishes a run, writes agent files or starts or stops a remote session, which changes what the run allows; a person decides.",
   "hooks.reason.engine_request": "This wev command files an approval request in the run's store; whether an action is asked for (again) is for a person to see, so a person decides.",
   "hooks.reason.engine_config": "This wev command names a configuration file on the command line; the policy in force is the run's pinned one, so a person decides.",

@@ -9,6 +9,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Automatic versioning from git history: `scripts/versioning.py` prints `X.Y.Z` for a ref (`X` counts releases to `main`, `Y` the pull requests merged into `dev` since the last release, `Z` the commits of the pull request in progress), and `--next-release` prints the next release. Implemented and tested against temporary repositories. CI prints the computed version in the job summary of `lint`.
 - Release automation: `.github/workflows/release.yml` now runs on every push to `main` and releases only when the pushed commit is the merge of a pull request from `dev`. It computes the version, collects the merged pull requests (`scripts/collect_release_prs.py`), rewrites the version files, the changelog and the generated release-status blocks (`scripts/release_prep.py`), commits as `github-actions[bot]`, tags, publishes a final release, rotates the milestones and fast-forwards `dev`. The scripts are implemented and tested; the workflow is implemented but untested, because it can only run on GitHub.
 - `.github/workflows/pr-policy.yml` with the checks `pr-title` (conventional title for the changelog) and `source-branch` (only `dev` may target `main`).
+- Specialist lessons are measured and ranked: `task start` records the lessons a contract shows (`lessons_shown`), learning counts the tasks shown each lesson that ended verified or not, a lesson clearly below the agent's own average (shrunk toward it, at least three endings) goes after the others, and in a task contract lessons about a check the task will run come first. Implemented and tested with fake runs; the thresholds are untuned and no effect on task outcomes has been measured.
+- `wev specialists accept` and `wev specialists retire`: human-operator commands (terminal and typed word, `ask` in the Bash hook) that decide a proposed lesson. Implemented and tested.
 
 ### Changed
 
@@ -16,6 +18,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Releases are numbered by counting: the two published releases are now `v1.0.0` (first published as 0.1.0) and `v2.0.0` (first published as 0.2.0), and all releases are final releases, never pre-releases. The next release is `v3.0.0`. The major number does not signal breaking changes.
 - Contributions target `dev`; `dev` is merged into `main` with a merge commit to release. The maintaining and contributing guides, the roadmap and the MVP status describe the new flow; the version sentence of the READMEs, `CLAUDE.md` and the installation guides are marker-driven so the release job can rewrite them.
 - `SECURITY.md` no longer lists versions: the latest release receives security fixes.
+- `wev specialists learn` only proposes lessons: a new lesson is `proposed` and shown nowhere until an operator accepts it. Lessons stored before this change with `accepted_by: engine` become proposed again and disappear from contracts and exports until accepted.
 
 ## [2.0.0] - 2026-10-15
 

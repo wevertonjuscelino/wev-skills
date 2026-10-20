@@ -138,6 +138,8 @@ class EngineCommandTests(HookCase):
             "approval request --risk low --reason r --reopen -- rm -rf x",
             "guard acknowledge --run r1 --reason x",
             "task reopen t1 --reason x",
+            "specialists accept project-test lesson-0123",
+            "specialists retire project-test lesson-0123",
             "run start --objective x --mode execute",
             "run finish",
             "agent create --template base --id z1 --out a.json",

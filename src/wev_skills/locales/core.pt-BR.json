@@ -26,7 +26,7 @@
   "hooks.reason.assignment": "Esta linha define variáveis antes de um comando ({names}). Variáveis como PATH, GIT_* ou DYLD_* mudam qual programa é executado; uma pessoa decide (negado no modo plan).",
   "hooks.reason.git_outside": "O git foi apontado para um diretório fora da raiz da execução ({directory}); uma pessoa decide.",
   "hooks.reason.directory_unknown": "O diretório de trabalho não pode ser acompanhado depois de uma parte anterior desta linha (cd -, popd), então uma pessoa decide.",
-  "hooks.reason.engine_operator": "Este comando wev é uma decisão do operador humano (conceder ou negar aprovação, reabrir, reconhecer o guarda). Só a pessoa pode responder a este prompt; um agente não deve executá-lo para si.",
+  "hooks.reason.engine_operator": "Este comando wev é uma decisão do operador humano (conceder ou negar aprovação, reabrir, reconhecer o guarda, aceitar ou aposentar uma lição de especialista). Só a pessoa pode responder a este prompt; um agente não deve executá-lo para si.",
   "hooks.reason.engine_run": "Este comando wev inicia ou encerra uma execução, grava arquivos de agentes ou inicia ou encerra uma sessão remota, o que muda o que a execução permite; uma pessoa decide.",
   "hooks.reason.engine_request": "Este comando wev registra um pedido de aprovação no armazenamento da execução; se uma ação é pedida (de novo) é algo que uma pessoa precisa ver, então uma pessoa decide.",
   "hooks.reason.engine_config": "Este comando wev indica um arquivo de configuração na linha de comando; a política em vigor é a fixada pela execução, então uma pessoa decide.",

@@ -10,11 +10,12 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.adapters.claude_code.subagent import export_all
 from wev_skills.agents import learning
+from wev_skills.agents.experience import ACTIVE, PROPOSED, RETIRED, STALE, Lesson
 from wev_skills.agents.output import OutputScope, confine, confine_export_dir, confine_export_file
 from wev_skills.agents.registry import load_file
 from wev_skills.agents.spec import AgentSpec, LocalText
 from wev_skills.config import Config
-from wev_skills.core.errors import PermissionDenied, ValidationError
+from wev_skills.core.errors import NotFound, PermissionDenied, ValidationError
 from wev_skills.core.fsutil import atomic_write_text, locked
 from wev_skills.core.wiring import build_agents, state_dir
 from wev_skills.state.store import StateStore, list_runs, run_dir
@@ -85,14 +86,17 @@ def create(
     return spec
 
 
+def _load(root: Path, config: Config, agent_id: str) -> AgentSpec:
+    spec = load_file(_target(root, config, agent_id))
+    if spec.id != agent_id:
+        raise ValidationError("specialist_id_mismatch", i18n.t("agents.specialists.id_mismatch"))
+    return spec
+
+
 def learn(root: Path, config: Config, agent_id: str) -> AgentSpec:
     """Recalculate observations from stored runs and update only the experience field."""
     with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
-        spec = load_file(_target(root, config, agent_id))
-        if spec.id != agent_id:
-            raise ValidationError(
-                "specialist_id_mismatch", i18n.t("agents.specialists.id_mismatch")
-            )
+        spec = _load(root, config, agent_id)
         states = [
             StateStore(run_dir(state_dir(config, root), run_id)).load()
             for run_id in list_runs(state_dir(config, root))
@@ -107,6 +111,59 @@ def learn(root: Path, config: Config, agent_id: str) -> AgentSpec:
         updated = replace(spec, experience=lessons)
         _write(root, config, updated)
     return updated
+
+
+def _find(spec: AgentSpec, lesson_id: str) -> Lesson:
+    for lesson in spec.experience:
+        if lesson.id == lesson_id:
+            return lesson
+    message = i18n.t("agents.specialists.lesson_not_found", lesson=lesson_id, specialist=spec.id)
+    raise NotFound("lesson_not_found", message, {"lesson": lesson_id})
+
+
+def find_lesson(root: Path, config: Config, agent_id: str, lesson_id: str) -> Lesson:
+    return _find(_load(root, config, agent_id), lesson_id)
+
+
+def _decide(
+    root: Path,
+    config: Config,
+    ids: tuple[str, str],
+    allowed: tuple[str, ...],
+    decided: tuple[str, str],
+) -> AgentSpec:
+    """Set ``decided`` (status, operator) on one lesson, under the lock, when its current
+    status is in ``allowed``."""
+    agent_id, lesson_id = ids
+    with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
+        spec = _load(root, config, agent_id)
+        current = _find(spec, lesson_id)
+        if current.status not in allowed:
+            message = i18n.t(
+                "agents.specialists.wrong_status", lesson=lesson_id, status=current.status
+            )
+            raise ValidationError("lesson_status", message, {"lesson": lesson_id})
+        status, operator = decided
+        changed = replace(current, status=status, accepted_by=operator)
+        lessons = tuple(changed if item.id == lesson_id else item for item in spec.experience)
+        updated = replace(spec, experience=lessons)
+        _write(root, config, updated)
+    return updated
+
+
+def accept_lesson(
+    root: Path, config: Config, agent_id: str, lesson_id: str, operator: str
+) -> AgentSpec:
+    """A proposed lesson becomes active, recorded as accepted by ``operator``."""
+    return _decide(root, config, (agent_id, lesson_id), (PROPOSED,), (ACTIVE, operator))
+
+
+def retire_lesson(
+    root: Path, config: Config, agent_id: str, lesson_id: str, operator: str
+) -> AgentSpec:
+    """Any lesson not yet retired is retired, by ``operator``; relearning keeps it retired."""
+    allowed = (ACTIVE, STALE, PROPOSED)
+    return _decide(root, config, (agent_id, lesson_id), allowed, (RETIRED, operator))
 
 
 def export(root: Path, config: Config, lang: str | None = None) -> list[Path]:

@@ -1,7 +1,8 @@
 """Experience of a project specialist: reviewed lessons, shown as advisory text.
 
 A lesson is derived from the engine's own records of a run (``learning.derive``) and
-stored in the specialist's spec by an explicit learning command. It is text the agent reads:
+stored in the specialist's spec by an explicit learning command, as ``proposed``; it is shown
+only after the person at a terminal accepts it. It is text the agent reads:
 nothing in
 this module, in the factory or in the exporter lets a lesson change tools, permissions or
 any other field of the spec, and experience is not inherited through ``extends``.
@@ -24,8 +25,10 @@ from wev_skills.security import untrusted
 
 KIND_PRACTICE, KIND_PITFALL, KIND_NEED = "practice", "pitfall", "need"
 LESSON_KINDS = (KIND_PRACTICE, KIND_PITFALL, KIND_NEED)
-ACTIVE, STALE, RETIRED = "active", "stale", "retired"
-LESSON_STATUSES = (ACTIVE, STALE, RETIRED)
+ACTIVE, STALE, RETIRED, PROPOSED = "active", "stale", "retired", "proposed"
+LESSON_STATUSES = (ACTIVE, STALE, RETIRED, PROPOSED)
+PROPOSER = "engine"
+"""``accepted_by`` of a lesson no person has accepted yet."""
 LESSON_TEXT_MAX = 600
 """The schema's bound on a lesson's text; rendering cleans the text to the same length."""
 AUTHORED_MAX = 240

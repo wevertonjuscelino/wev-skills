@@ -9,6 +9,8 @@ from dataclasses import replace
 from wev_skills import i18n
 from wev_skills.agents.experience import (
     ACTIVE,
+    PROPOSED,
+    PROPOSER,
     RETIRED,
     STALE,
     Lesson,
@@ -112,14 +114,23 @@ def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> 
     )
 
 
+def _carry(lesson: Lesson, before: Lesson | None) -> Lesson:
+    """A person's decision outlives relearning; anything no person accepted stays proposed."""
+    if before is not None and before.status == RETIRED:
+        return replace(lesson, status=RETIRED, accepted_by=before.accepted_by)
+    if before is not None and before.accepted_by != PROPOSER and before.status != PROPOSED:
+        return replace(lesson, accepted_by=before.accepted_by)
+    return replace(lesson, status=PROPOSED, accepted_by=PROPOSER)
+
+
 def reconcile(
     old: Sequence[Lesson], derived: Sequence[Lesson], maximum: int = 30
 ) -> tuple[Lesson, ...]:
-    """Preserve retirement decisions and retain at most the configured, hard-capped 30 lessons."""
-    retired = {lesson.id for lesson in old if lesson.status == RETIRED}
-    found = [
-        replace(lesson, status=RETIRED) if lesson.id in retired else lesson for lesson in derived
-    ]
+    """Preserve the operator's decisions and retain at most the configured, hard-capped 30
+    lessons. A new lesson, or one only the engine accepted (before acceptance existed), is
+    proposed: it is not shown until a person accepts it."""
+    before = {lesson.id: lesson for lesson in old}
+    found = [_carry(lesson, before.get(lesson.id)) for lesson in derived]
     found.sort(
         key=lambda item: (item.status != ACTIVE, -item.confirmations, item.contradictions, item.id)
     )
