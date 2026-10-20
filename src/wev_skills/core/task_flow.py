@@ -6,7 +6,6 @@ from dataclasses import replace
 from typing import Any
 
 from wev_skills import i18n
-from wev_skills.agents.spec import AgentSpec
 from wev_skills.core import (
     agent_rules,
     baseline,
@@ -236,17 +235,17 @@ def _mark_running(engine: Engine, state: RunState, task: PlanTask) -> tuple[RunS
         "model": record.model,
         "lessons_shown": list(shown),
     }
-    return _commit_start(engine, state, spec, change, data), attempt
+    return _commit_start(engine, state, change, data), attempt
 
 
 def _commit_start(
-    engine: Engine, state: RunState, spec: AgentSpec, change: Change, data: dict[str, Any]
+    engine: Engine, state: RunState, change: Change, data: dict[str, Any]
 ) -> RunState:
-    """Commit the start while the specialist's lessons are still those its contract shows."""
-    with shown_lessons.current_lessons(engine.services, spec):
-        committed = engine.commit(change, "task.started", data, base=state)
+    """Record the shown lessons, then commit the start, while the agent's lessons are still
+    those its contract shows (see ``shown_lessons``)."""
+    with shown_lessons.current_lessons(engine.services, data["agent_id"]):
         shown_lessons.record(engine.store, data["task_id"], data["lessons_shown"])
-    return committed
+        return engine.commit(change, "task.started", data, base=state)
 
 
 def start_task(engine: Engine, task_id: str) -> dict[str, Any]:

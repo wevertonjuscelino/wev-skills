@@ -66,8 +66,9 @@ event). They are kept out of `state.json`, so a run stays resumable by release 2
 refuses fields it does not know there; runs written by 3.0.0 keep the ids in a
 `lessons_shown` field of the task, which is still read and counted. Before it commits, the start reads the specialist's
 file again under the lock that `specialists accept` and `specialists retire` take; if the
-lessons changed since the command loaded them, the start is refused (`lessons_changed`,
-exit 5) and must be run again. A decision made after the start applies from the next start.
+file is gone or its lessons changed since the command loaded them, the start is refused
+(`lessons_changed`, exit 5) and must be run again. The event is written before the state, so
+a committed start always has its record. A decision made after the start applies from the next start.
 Learning then counts, per lesson, the
 agent's tasks that were shown it and ended verified (`shown_verified`) or failed, blocked or
 partial (`shown_unverified`); tasks that have not ended count in neither.

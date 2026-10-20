@@ -8,15 +8,17 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 from tests.unit._agent_helpers import make
 from tests.unit._orchestrator_helpers import DOER, OrchestratorCase
 from tests.unit.test_agents_experience import lesson
 from tests.unit.test_specialists_learning import recorded
 from wev_skills.agents import learning
-from wev_skills.agents.experience import shown_lesson_ids
+from wev_skills.agents.experience import Lesson, shown_lesson_ids
 from wev_skills.agents.factory import AgentFactory
 from wev_skills.agents.registry import AgentRegistry
+from wev_skills.agents.spec import AgentSpec
 from wev_skills.core import shown_lessons, wiring
 from wev_skills.core.contracts import Mode, TaskStatus
 from wev_skills.core.errors import StateConflict
@@ -26,7 +28,9 @@ from wev_skills.state.store import StateStore
 AGENT = "project-test"
 
 
-def experienced_catalog() -> wiring.AgentCatalog:
+def experienced_catalog(
+    source: Path | None = None, factory: type[AgentFactory] = AgentFactory
+) -> wiring.AgentCatalog:
     lessons = [
         lesson("l-top", text="most confirmed", confirmations=5),
         lesson("l-low", text="less confirmed", confirmations=1),
@@ -39,8 +43,17 @@ def experienced_catalog() -> wiring.AgentCatalog:
         tools={"allow": ["Read", "Edit", "Bash"]},
         experience=lessons,
     )
-    registry = AgentRegistry([spec])
-    return wiring.AgentCatalog(registry, AgentFactory(registry), frozenset())
+    registry = AgentRegistry([spec], {"builder": source} if source else None)
+    return wiring.AgentCatalog(registry, factory(registry), frozenset())
+
+
+class InheritingFactory(AgentFactory):
+    """Resolves with one more lesson, as an ``extends`` chain that adds lessons would."""
+
+    def resolve(self, spec: AgentSpec) -> AgentSpec:
+        resolved = super().resolve(spec)
+        extra = Lesson.from_dict(lesson("l-parent", text="inherited", confirmations=2))
+        return replace(resolved, experience=(*resolved.experience, extra))
 
 
 class StartRecordsShownLessons(OrchestratorCase):
@@ -62,29 +75,6 @@ class StartRecordsShownLessons(OrchestratorCase):
         self.start()
         self.run_task()
         self.assertNotIn("lessons_shown", self.orch().store.state_path.read_text())
-        self.assertEqual(self.lessons_shown(), ("l-top", "l-low"))
-
-    def write_specialist(self, experience: tuple[Any, ...]) -> None:
-        spec = replace(experienced_catalog().registry.get("builder"), experience=experience)
-        path = self.root / "wev-specialists" / "builder.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(spec.to_dict()), encoding="utf-8")
-
-    def test_a_start_is_refused_when_the_lessons_changed_after_loading(self) -> None:
-        loaded = experienced_catalog().registry.get("builder").experience
-        self.write_specialist(loaded[1:])
-        self.start()
-        self.orch().next_tasks()
-        with self.assertRaises(StateConflict) as caught:
-            self.orch().start_task("task-1")
-        self.assertEqual(caught.exception.code, "lessons_changed")
-        self.assertNotEqual(self.status_of("task-1"), TaskStatus.RUNNING)
-        self.assertEqual(self.lessons_shown(), ())
-
-    def test_a_start_goes_on_when_the_file_has_the_loaded_lessons(self) -> None:
-        self.write_specialist(experienced_catalog().registry.get("builder").experience)
-        self.start()
-        self.run_task()
         self.assertEqual(self.lessons_shown(), ("l-top", "l-low"))
 
     def test_shown_ids_follow_the_rendered_selection(self) -> None:
@@ -150,6 +140,66 @@ class DeriveCountsUsage(OrchestratorCase):
         self.assertEqual(counts((self.source, legacy)), [(1, 0)])
 
 
+class StartChecksTheSourceFile(OrchestratorCase):
+    """The catalog loaded ``builder`` from a file; a start rereads it under the lock."""
+
+    factory: type[AgentFactory] = AgentFactory
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.path = self.root / "wev-specialists" / "builder.json"
+        self.loaded = experienced_catalog().registry.get("builder")
+        self.write(self.loaded.experience)
+
+    def services(self) -> wiring.Services:
+        catalog = experienced_catalog(self.path, self.factory)
+        return replace(super().services(), agents=catalog)
+
+    def write(self, experience: tuple[Any, ...]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        data = replace(self.loaded, experience=experience).to_dict()
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+
+    def assert_refused(self) -> None:
+        self.start()
+        self.orch().next_tasks()
+        with self.assertRaises(StateConflict) as caught:
+            self.orch().start_task("task-1")
+        self.assertEqual(caught.exception.code, "lessons_changed")
+        self.assertNotEqual(self.status_of("task-1"), TaskStatus.RUNNING)
+        self.assertEqual(self.lessons_shown(), ())
+
+    def test_a_start_goes_on_when_the_file_has_the_loaded_lessons(self) -> None:
+        self.start()
+        self.run_task()
+        self.assertEqual(self.lessons_shown(), ("l-top", "l-low"))
+
+    def test_a_start_is_refused_when_the_lessons_changed_after_loading(self) -> None:
+        self.write(self.loaded.experience[1:])
+        self.assert_refused()
+
+    def test_a_start_is_refused_when_the_file_was_deleted(self) -> None:
+        self.path.unlink()
+        self.assert_refused()
+
+    def test_a_failed_record_leaves_the_task_not_started(self) -> None:
+        self.start()
+        self.orch().next_tasks()
+        failing = mock.patch.object(StateStore, "append_event", side_effect=OSError("disk full"))
+        with failing, self.assertRaises(OSError):
+            self.orch().start_task("task-1")
+        self.assertNotEqual(self.status_of("task-1"), TaskStatus.RUNNING)
+
+
+class InheritedLessonsDoNotBlockStarts(StartChecksTheSourceFile):
+    factory = InheritingFactory
+
+    def test_a_start_goes_on_when_the_file_has_the_loaded_lessons(self) -> None:
+        self.start()
+        self.run_task()
+        self.assertEqual(self.lessons_shown(), ("l-top", "l-parent", "l-low"))
+
+
 class ByTaskTests(unittest.TestCase):
     def test_starts_merge_in_first_shown_order_and_other_events_are_ignored(self) -> None:
         events = [
@@ -159,6 +209,15 @@ class ByTaskTests(unittest.TestCase):
             {"type": "lessons.shown", "data": {"task_id": 3, "lessons": ["x"]}},
         ]
         self.assertEqual(shown_lessons.by_task(events), {"t": ("a", "b", "c")})
+
+    def test_a_line_that_is_not_an_object_is_skipped(self) -> None:
+        events: list[Any] = [
+            3,
+            "text",
+            None,
+            {"type": "lessons.shown", "data": {"task_id": "t", "lessons": ["a"]}},
+        ]
+        self.assertEqual(shown_lessons.by_task(events), {"t": ("a",)})
 
 
 class LegacyRecordTests(unittest.TestCase):

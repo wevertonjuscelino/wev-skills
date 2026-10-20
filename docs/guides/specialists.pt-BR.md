@@ -73,8 +73,9 @@ podendo ser retomado pela versão 2.0.0, que recusa ali campos que não conhece;
 pela 3.0.0 guardam os ids no campo `lessons_shown` da tarefa, que continua sendo lido e
 contado. Antes de
 gravar, o início lê de novo o arquivo do especialista sob o lock que `specialists accept` e
-`specialists retire` usam; se as lições mudaram desde que o comando as carregou, o início é
-recusado (`lessons_changed`, saída 5) e precisa ser rodado de novo. Uma decisão tomada depois
+`specialists retire` usam; se o arquivo sumiu ou as lições mudaram desde que o comando as
+carregou, o início é recusado (`lessons_changed`, saída 5) e precisa ser rodado de novo. O
+evento é gravado antes do estado, então um início gravado sempre tem seu registro. Uma decisão tomada depois
 do início vale a partir do próximo início. O aprendizado então conta,
 por lição, as tarefas do agente que a receberam e terminaram verificadas (`shown_verified`)
 ou com falha, bloqueio ou resultado parcial (`shown_unverified`); tarefas não terminadas não

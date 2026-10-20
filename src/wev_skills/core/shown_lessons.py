@@ -5,11 +5,15 @@ The record is a ``lessons.shown`` event in the run's ``events.jsonl``, not a fie
 run that carries a field it does not know, while it reads events as plain JSON. Release
 3.0.0 wrote ``lessons_shown`` on the task; that field is still read and counted.
 
-A start reads the specialist's file again under the lock that ``specialists accept`` and
-``specialists retire`` take, and refuses when the lessons changed since the catalog was
-loaded. The lock is held until the start is committed and recorded, so a decision lands
-either before this start (and the start is refused, to be run again) or after it (and applies
-from the next start).
+A start reads the agent's source file again under the lock that ``specialists accept`` and
+``specialists retire`` take, and refuses when the file is gone or its lessons differ from
+the spec as loaded (before ``extends`` is resolved). The lock is held until the start is
+recorded and committed, so a decision lands either before this start (and the start is
+refused, to be run again) or after it (and applies from the next start).
+
+The event is appended before the state is committed: a start whose commit then fails leaves
+a record for a task that did not start, which counts only if that task later ends, while a
+committed start can never lack its record.
 """
 
 from __future__ import annotations
@@ -20,7 +24,6 @@ from typing import Any
 
 from wev_skills import i18n
 from wev_skills.agents.registry import load_file
-from wev_skills.agents.spec import AgentSpec
 from wev_skills.core.errors import StateConflict
 from wev_skills.core.fsutil import locked
 from wev_skills.core.wiring import Services
@@ -41,6 +44,8 @@ def by_task(events: Iterable[Mapping[str, Any]]) -> dict[str, tuple[str, ...]]:
     """Per task id: every lesson id any start of that task showed, first shown first."""
     found: dict[str, dict[str, None]] = {}
     for event in events:
+        if not isinstance(event, Mapping):
+            continue
         data = event.get("data")
         if event.get("type") != EVENT or not isinstance(data, Mapping):
             continue
@@ -53,13 +58,17 @@ def by_task(events: Iterable[Mapping[str, Any]]) -> dict[str, tuple[str, ...]]:
 
 
 @contextmanager
-def current_lessons(services: Services, spec: AgentSpec) -> Iterator[None]:
-    """Hold the specialists lock and refuse when the project specialist's file no longer
-    has the lessons ``spec`` was loaded with. An agent without a file there passes."""
-    path = services.root / services.config.agents.project_dir / f"{spec.id}.json"
+def current_lessons(services: Services, agent_id: str) -> Iterator[None]:
+    """Hold the specialists lock and refuse when the agent's source file is gone or no longer
+    has the lessons the catalog loaded. An agent registered without a file passes."""
+    registry = services.agents.registry
+    source = registry.source(agent_id)
     timeout = services.config.limits.lock_timeout_seconds
     with locked(services.state_dir / LOCK_NAME, timeout):
-        if path.is_file() and load_file(path).experience != spec.experience:
-            message = i18n.t("orch.error.lessons_changed", agent=spec.id)
-            raise StateConflict("lessons_changed", message, {"agent_id": spec.id})
+        if source is not None and (
+            not source.is_file()
+            or load_file(source).experience != registry.get(agent_id).experience
+        ):
+            message = i18n.t("orch.error.lessons_changed", agent=agent_id)
+            raise StateConflict("lessons_changed", message, {"agent_id": agent_id})
         yield
