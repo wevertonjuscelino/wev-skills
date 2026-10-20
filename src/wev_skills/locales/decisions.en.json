@@ -87,6 +87,7 @@
   "decisions.jev.why.exit_code": "exit code {code}",
   "decisions.jev.why.not_on_path": "program {program} was not found on the allowed path (permissions.exec_path). Fix it by setting decision.jev.command to the program's absolute path, or by adding its directory to permissions.exec_path",
   "decisions.jev.why.not_a_file": "program {program} was not found as an executable regular file. Fix it by setting decision.jev.command to the program's absolute path, or by adding its directory to permissions.exec_path and naming it without a path",
+  "decisions.jev.warning_endpoint": "decision.provider is jev but the endpoint cannot be used, so the local policy is used: {why}",
   "decisions.jev.warning_key": "decision.provider is jev but no JEV key was found ({why}); the local policy is used",
   "decisions.jev.warning": "decision.provider is jev but the program does not resolve, so the local policy is used: {why}",
   "decisions.jev.why.in_run_root": "program {program} is inside the run root, which the agent can write",

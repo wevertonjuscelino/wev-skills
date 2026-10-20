@@ -24,6 +24,7 @@ from wev_skills.decisions.local import LocalPolicyProvider
 from wev_skills.tools.registry import ToolRegistry
 
 FAKE_SCRIPT = "#!/bin/sh\nexit 1\n"
+LOOPBACK = "http://127.0.0.1:9/v1/systemone"
 
 
 def english() -> contextlib.AbstractContextManager[None]:
@@ -193,6 +194,18 @@ class ProviderFallbackTests(unittest.TestCase):
     def test_builtin_no_warning_with_key(self) -> None:
         with isolated_keys("k-value"):
             self.assertEqual(jev_warnings(self.jev_config(BUILTIN), os.getcwd()), [])
+
+    def test_builtin_no_key_warning_for_a_loopback_endpoint(self) -> None:
+        with isolated_keys(None), mock.patch.dict(os.environ, {"JEV_API_URL": LOOPBACK}):
+            self.assertEqual(jev_warnings(self.jev_config(BUILTIN), os.getcwd()), [])
+
+    def test_builtin_warns_with_the_reason_for_a_bad_endpoint(self) -> None:
+        bad = {"JEV_API_URL": "http://example.com/v1"}
+        with isolated_keys("k-value"), mock.patch.dict(os.environ, bad):
+            warnings = jev_warnings(self.jev_config(BUILTIN), os.getcwd())
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("https", warnings[0])
+        self.assertNotIn("k-value", warnings[0])
 
 
 if __name__ == "__main__":
