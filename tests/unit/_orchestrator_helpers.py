@@ -160,8 +160,11 @@ class OrchestratorCase(unittest.TestCase):
         return str(path)
 
     def lessons_shown(self, task_id: str = "task-1") -> tuple[str, ...]:
-        """What the task's starts recorded in the run's ``events.jsonl``."""
-        return shown_lessons.by_task(self.orch().store.events()).get(task_id, ())
+        """What the task's committed starts recorded in the run's ``events.jsonl``."""
+        orchestrator = self.orch()
+        record = orchestrator.load().tasks[task_id]
+        records = shown_lessons.by_task(orchestrator.store.events()).get(task_id, ())
+        return shown_lessons.for_task(records, record.agent_id, record.lessons_shown)
 
     def status_of(self, task_id: str) -> TaskStatus:
         status: TaskStatus = self.state().tasks[task_id].status
