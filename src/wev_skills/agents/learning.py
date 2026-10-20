@@ -115,12 +115,13 @@ def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> 
 
 
 def _carry(lesson: Lesson, before: Lesson | None) -> Lesson:
-    """A person's decision outlives relearning; anything no person accepted stays proposed."""
-    if before is not None and before.status == RETIRED:
+    """A person's decision outlives relearning; anything no person decided is proposed,
+    including a lesson the engine accepted or retired before acceptance existed."""
+    if before is None or before.accepted_by == PROPOSER or before.status == PROPOSED:
+        return replace(lesson, status=PROPOSED, accepted_by=PROPOSER)
+    if before.status == RETIRED:
         return replace(lesson, status=RETIRED, accepted_by=before.accepted_by)
-    if before is not None and before.accepted_by != PROPOSER and before.status != PROPOSED:
-        return replace(lesson, accepted_by=before.accepted_by)
-    return replace(lesson, status=PROPOSED, accepted_by=PROPOSER)
+    return replace(lesson, accepted_by=before.accepted_by)
 
 
 def reconcile(
@@ -128,10 +129,17 @@ def reconcile(
 ) -> tuple[Lesson, ...]:
     """Preserve the operator's decisions and retain at most the configured, hard-capped 30
     lessons. A new lesson, or one only the engine accepted (before acceptance existed), is
-    proposed: it is not shown until a person accepts it."""
+    proposed: it is not shown until a person accepts it. Lessons a person decided on are kept
+    before proposed ones, so the cap drops proposals before it drops a decision."""
     before = {lesson.id: lesson for lesson in old}
     found = [_carry(lesson, before.get(lesson.id)) for lesson in derived]
     found.sort(
-        key=lambda item: (item.status != ACTIVE, -item.confirmations, item.contradictions, item.id)
+        key=lambda item: (
+            item.accepted_by == PROPOSER,
+            item.status != ACTIVE,
+            -item.confirmations,
+            item.contradictions,
+            item.id,
+        )
     )
     return tuple(found[: min(30, maximum)])

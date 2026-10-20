@@ -11,6 +11,7 @@ from typing import Any
 
 from wev_skills import i18n
 from wev_skills.agents import project
+from wev_skills.agents.experience import AUTHORED_MAX, LESSON_TEXT_MAX, Lesson
 from wev_skills.commands import Subparsers
 from wev_skills.commands._human import confirm_human, summary_lines
 from wev_skills.commands._scope import resolve_scope
@@ -19,7 +20,6 @@ from wev_skills.core.textsafe import clean_text
 from wev_skills.governance.audit import AuditLog
 
 DECISIONS = {"accept": project.accept_lesson, "retire": project.retire_lesson}
-SHOWN_TEXT_MAX = 200
 
 
 def _handle(args: argparse.Namespace) -> dict[str, Any]:
@@ -40,19 +40,29 @@ def _handle(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _shown(specialist: str, lesson: Lesson) -> dict[str, str]:
+    """Everything the decision covers: the full text, each authored excerpt and the note."""
+    fields = {
+        "specialist": specialist,
+        "lesson": lesson.id,
+        "status": lesson.status,
+        "text": clean_text(lesson.text, LESSON_TEXT_MAX),
+        "evidence": f"{lesson.evidence.run_id} / {lesson.evidence.task_id}",
+    }
+    for index, item in enumerate(lesson.authored, 1):
+        fields[f"authored {index}"] = clean_text(f"{item.label}: {item.text}", AUTHORED_MAX)
+    if lesson.note:
+        fields["note"] = clean_text(lesson.note, AUTHORED_MAX)
+    return fields
+
+
 def _decide(args: argparse.Namespace) -> dict[str, Any]:
     """Show the lesson, require the person at the terminal, then record the decision."""
     scope = resolve_scope(args.config)
     verb, subject = args.specialists_command, {"specialist": args.id, "lesson": args.lesson}
     lesson = project.find_lesson(scope.root, scope.config, args.id, args.lesson)
     audit = AuditLog(scope.state_dir / wiring.AUDIT_FILE)
-    shown = {
-        "specialist": args.id,
-        "lesson": lesson.id,
-        "status": lesson.status,
-        "text": clean_text(lesson.text, SHOWN_TEXT_MAX),
-        "evidence": f"{lesson.evidence.run_id} / {lesson.evidence.task_id}",
-    }
+    shown = _shown(args.id, lesson)
     confirmed = confirm_human(
         audit,
         f"specialists.{verb}_refused",
@@ -60,8 +70,15 @@ def _decide(args: argparse.Namespace) -> dict[str, Any]:
         i18n.t("agents.specialists.human_required", **subject),
         summary_lines(i18n.t(f"agents.specialists.confirm.{verb}"), shown),
     )
-    spec = DECISIONS[verb](scope.root, scope.config, args.id, args.lesson, confirmed.os_user)
-    audit.append(f"specialists.{verb}", {**subject, "operator": confirmed.os_user})
+    event = {**subject, "operator": confirmed.os_user, "terminal": confirmed.terminal}
+    spec = DECISIONS[verb](
+        scope.root,
+        scope.config,
+        (args.id, args.lesson),
+        confirmed.os_user,
+        lesson,
+        lambda: audit.append(f"specialists.{verb}", event),
+    )
     return {
         "specialist": project.summary(spec),
         "operator": confirmed.os_user,

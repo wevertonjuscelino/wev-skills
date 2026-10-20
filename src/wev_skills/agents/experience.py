@@ -148,14 +148,16 @@ def _demoted(lesson: Lesson, average: float | None) -> bool:
 def active_lessons(
     lessons: Iterable[Lesson], relevant: Collection[tuple[str, ...]] = ()
 ) -> list[Lesson]:
-    """Active lessons, most confirmed first, with two exceptions applied in this order.
+    """Active lessons a person accepted, most confirmed first, with two exceptions applied in
+    this order. A lesson stored as active but accepted only by the engine (before acceptance
+    existed) is not shown until a person accepts it.
 
     A lesson clearly worse than the agent's average goes after the others; nothing is
     promoted or hidden by its rate, and a demoted lesson moves back once its rate recovers.
     Then a lesson whose key is in ``relevant`` (the checks the task will run) goes before
     the others. Ties go to the older lesson, then to the id.
     """
-    found = [lesson for lesson in lessons if lesson.status == ACTIVE]
+    found = [item for item in lessons if item.status == ACTIVE and item.accepted_by != PROPOSER]
     average = pooled_rate(found)
     return sorted(
         found,

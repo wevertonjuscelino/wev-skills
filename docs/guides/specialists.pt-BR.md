@@ -28,7 +28,8 @@ bin/wev specialists export --lang pt-BR
 
 O aprendizado só propõe. Uma lição nova fica com status `proposed` e não aparece em lugar
 nenhum até a pessoa no terminal aceitá-la; uma lição que o motor aceitou antes desta etapa
-existir (`accepted_by` igual a `engine`) volta a ser proposta. O operador revisa as lições em
+existir (`accepted_by` igual a `engine`) volta a ser proposta e não aparece mesmo antes de o
+aprendizado rodar de novo. O operador revisa as lições em
 `wev specialists list` e decide cada uma:
 
 ```sh
@@ -37,10 +38,15 @@ bin/wev specialists retire project-engineer lesson-0123456789abcdef01234567
 ```
 
 Os dois são comandos do operador humano, como `approval grant`: exigem terminal em stdin e
-stdout, mostram a lição, seu texto e sua evidência, pedem uma palavra exibida na tela e
-registram o usuário do sistema operacional em `accepted_by` e no log de auditoria. Um agente
-nunca os executa; o hook de Bash do plugin responde `ask` para eles. Aceite e aposentadoria
-sobrevivem ao reaprendizado; os contadores continuam sendo recalculados.
+stdout, mostram a lição, seu texto completo, seus trechos de autoria e nota e sua evidência,
+pedem uma palavra exibida na tela e registram o usuário do sistema operacional em
+`accepted_by` e o usuário e o terminal no log de auditoria. O evento de auditoria é gravado
+antes do arquivo do especialista, então uma auditoria que falha não deixa decisão. Se a lição
+mudou depois de exibida, nada é decidido (saída 5) e o comando precisa ser rodado de novo. O
+nome de usuário `engine` é reservado e recusado. Um agente nunca os executa; o hook de Bash
+do plugin responde `ask` para eles. Aceite e aposentadoria sobrevivem ao reaprendizado, e
+quando há mais lições do que o limite permite, as propostas saem antes das lições decididas;
+os contadores continuam sendo recalculados.
 
 O aprendizado recalcula os contadores a partir das execuções armazenadas pelo motor;
 repetir o comando não acrescenta confirmações. Uma verificação bem-sucedida contribui

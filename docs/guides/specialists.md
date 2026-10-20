@@ -25,7 +25,8 @@ bin/wev specialists export --lang en
 
 Learning only proposes. A new lesson has status `proposed` and is not shown anywhere until
 the person at a terminal accepts it; a lesson the engine accepted before this step existed
-(`accepted_by` is `engine`) is proposed again. The operator reviews the lessons in
+(`accepted_by` is `engine`) is proposed again, and is not shown even before learning runs
+again. The operator reviews the lessons in
 `wev specialists list` and decides each one:
 
 ```sh
@@ -34,10 +35,14 @@ bin/wev specialists retire project-engineer lesson-0123456789abcdef01234567
 ```
 
 Both are human-operator commands, like `approval grant`: they need a terminal on stdin and
-stdout, show the lesson, its text and its evidence, ask for a word printed on screen, and
-record the operating-system user in `accepted_by` and in the audit log. An agent never runs
-them; the plugin's Bash hook answers `ask` for them. Acceptance and retirement survive
-relearning; counters keep being recalculated.
+stdout, show the lesson, its full text, its authored excerpts and note, and its evidence, ask
+for a word printed on screen, and record the operating-system user in `accepted_by` and the
+user and terminal in the audit log. The audit event is written before the specialist file,
+so a failed audit leaves no decision. If the lesson changed after it was shown, nothing is
+decided (exit 5) and the command must be run again. The user name `engine` is reserved and
+refused. An agent never runs them; the plugin's Bash hook answers `ask` for them. Acceptance
+and retirement survive relearning, and when more lessons are found than the cap allows,
+proposals are dropped before decided lessons; counters keep being recalculated.
 
 Learning recalculates counters from stored engine runs, so running it again does not add
 confirmations. A successful check contributes only for a verified task with an `all_met`

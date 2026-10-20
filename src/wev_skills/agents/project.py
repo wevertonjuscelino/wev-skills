@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -10,12 +11,12 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.adapters.claude_code.subagent import export_all
 from wev_skills.agents import learning
-from wev_skills.agents.experience import ACTIVE, PROPOSED, RETIRED, STALE, Lesson
+from wev_skills.agents.experience import ACTIVE, PROPOSED, PROPOSER, RETIRED, STALE, Lesson
 from wev_skills.agents.output import OutputScope, confine, confine_export_dir, confine_export_file
 from wev_skills.agents.registry import load_file
 from wev_skills.agents.spec import AgentSpec, LocalText
 from wev_skills.config import Config
-from wev_skills.core.errors import NotFound, PermissionDenied, ValidationError
+from wev_skills.core.errors import NotFound, PermissionDenied, StateConflict, ValidationError
 from wev_skills.core.fsutil import atomic_write_text, locked
 from wev_skills.core.wiring import build_agents, state_dir
 from wev_skills.state.store import StateStore, list_runs, run_dir
@@ -125,25 +126,44 @@ def find_lesson(root: Path, config: Config, agent_id: str, lesson_id: str) -> Le
     return _find(_load(root, config, agent_id), lesson_id)
 
 
+Record = Callable[[], object]
+"""Called under the lock after every check and before the file is written (the audit)."""
+
+
+def _check_decision(current: Lesson, allowed: tuple[str, ...], seen: Lesson | None) -> None:
+    if current.status not in allowed:
+        message = i18n.t(
+            "agents.specialists.wrong_status", lesson=current.id, status=current.status
+        )
+        raise ValidationError("lesson_status", message, {"lesson": current.id})
+    if seen is not None and current != seen:
+        message = i18n.t("agents.specialists.lesson_changed", lesson=current.id)
+        raise StateConflict("lesson_changed", message, {"lesson": current.id})
+
+
 def _decide(
     root: Path,
     config: Config,
     ids: tuple[str, str],
     allowed: tuple[str, ...],
     decided: tuple[str, str],
+    seen: Lesson | None = None,
+    record: Record | None = None,
 ) -> AgentSpec:
     """Set ``decided`` (status, operator) on one lesson, under the lock, when its current
-    status is in ``allowed``."""
+    status is in ``allowed`` and it still equals ``seen``, the lesson the operator was shown.
+    ``record`` runs before the write, so a failed audit leaves no decision behind."""
     agent_id, lesson_id = ids
+    status, operator = decided
+    if operator == PROPOSER:
+        message = i18n.t("agents.specialists.operator_reserved", operator=operator)
+        raise ValidationError("operator_reserved", message, {"operator": operator})
     with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
         spec = _load(root, config, agent_id)
         current = _find(spec, lesson_id)
-        if current.status not in allowed:
-            message = i18n.t(
-                "agents.specialists.wrong_status", lesson=lesson_id, status=current.status
-            )
-            raise ValidationError("lesson_status", message, {"lesson": lesson_id})
-        status, operator = decided
+        _check_decision(current, allowed, seen)
+        if record is not None:
+            record()
         changed = replace(current, status=status, accepted_by=operator)
         lessons = tuple(changed if item.id == lesson_id else item for item in spec.experience)
         updated = replace(spec, experience=lessons)
@@ -152,18 +172,28 @@ def _decide(
 
 
 def accept_lesson(
-    root: Path, config: Config, agent_id: str, lesson_id: str, operator: str
+    root: Path,
+    config: Config,
+    ids: tuple[str, str],
+    operator: str,
+    seen: Lesson | None = None,
+    record: Record | None = None,
 ) -> AgentSpec:
-    """A proposed lesson becomes active, recorded as accepted by ``operator``."""
-    return _decide(root, config, (agent_id, lesson_id), (PROPOSED,), (ACTIVE, operator))
+    """A proposed lesson (``ids``: specialist, lesson) becomes active, accepted by ``operator``."""
+    return _decide(root, config, ids, (PROPOSED,), (ACTIVE, operator), seen, record)
 
 
 def retire_lesson(
-    root: Path, config: Config, agent_id: str, lesson_id: str, operator: str
+    root: Path,
+    config: Config,
+    ids: tuple[str, str],
+    operator: str,
+    seen: Lesson | None = None,
+    record: Record | None = None,
 ) -> AgentSpec:
     """Any lesson not yet retired is retired, by ``operator``; relearning keeps it retired."""
     allowed = (ACTIVE, STALE, PROPOSED)
-    return _decide(root, config, (agent_id, lesson_id), allowed, (RETIRED, operator))
+    return _decide(root, config, ids, allowed, (RETIRED, operator), seen, record)
 
 
 def export(root: Path, config: Config, lang: str | None = None) -> list[Path]:
