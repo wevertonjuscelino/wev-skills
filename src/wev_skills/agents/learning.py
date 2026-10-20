@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
 from wev_skills import i18n
@@ -52,23 +52,32 @@ def _observations(state: RunState, agent_id: str) -> list[tuple[tuple[str, ...],
 _UNVERIFIED = frozenset({TaskStatus.FAILED, TaskStatus.BLOCKED, TaskStatus.PARTIAL})
 
 
-def _usage(states: Sequence[RunState], agent_id: str) -> dict[str, tuple[int, int]]:
+Shown = Mapping[str, Mapping[str, tuple[str, ...]]]
+"""Per run id, per task id: the lesson ids its starts showed (``shown_lessons.by_task``)."""
+
+
+def _usage(states: Sequence[RunState], agent_id: str, shown: Shown) -> dict[str, tuple[int, int]]:
     """Per lesson id: (ended verified, ended unverified) over the agent's tasks that ended."""
     found: dict[str, tuple[int, int]] = {}
     for state in states:
-        for record in state.tasks.values():
+        run_shown = shown.get(state.run_id, {})
+        for task_id, record in state.tasks.items():
             ended = record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
             if record.agent_id != agent_id or not ended:
                 continue
             good = int(record.status is TaskStatus.VERIFIED)
-            for lesson_id in record.lessons_shown:
+            ids = dict.fromkeys([*record.lessons_shown, *run_shown.get(task_id, ())])
+            for lesson_id in ids:
                 verified, unverified = found.get(lesson_id, (0, 0))
                 found[lesson_id] = (verified + good, unverified + 1 - good)
     return found
 
 
-def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> tuple[Lesson, ...]:
-    """Rebuild counters from distinct persisted runs; replaying learning never increments them."""
+def derive(
+    states: Sequence[RunState], agent_id: str, stale_after: int = 20, shown: Shown | None = None
+) -> tuple[Lesson, ...]:
+    """Rebuild counters from distinct persisted runs; replaying learning never increments them.
+    ``shown`` says which lessons each task was shown; without it nothing is counted as used."""
     ordered = sorted({state.run_id: state for state in states}.values(), key=lambda s: s.created_at)
     lessons: dict[tuple[str, ...], Lesson] = {}
     last_seen: dict[tuple[str, ...], int] = {}
@@ -102,7 +111,7 @@ def derive(states: Sequence[RunState], agent_id: str, stale_after: int = 20) -> 
                 evidence=evidence,
             )
             last_seen[key] = index
-    usage = _usage(ordered, agent_id)
+    usage = _usage(ordered, agent_id, shown or {})
     return tuple(
         replace(
             item,

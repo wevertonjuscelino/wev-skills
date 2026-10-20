@@ -66,8 +66,17 @@ apagá-lo também remove sua contribuição aos contadores. Os arquivos seguem o
 confiança do estado local do motor: o aprendizado não autentica estados fornecidos de
 fora ou modificados manualmente.
 
-`task start` registra na tarefa (`lessons_shown`, também no evento de auditoria
-`task.started`) os ids das lições que o contrato dela mostra. O aprendizado então conta,
+`task start` registra os ids das lições que o contrato dela mostra como um evento
+`lessons.shown` no `events.jsonl` do run (eles também aparecem como `lessons_shown` no
+evento de auditoria `task.started`). Eles ficam fora do `state.json`, para que um run continue
+podendo ser retomado pela versão 2.0.0, que recusa ali campos que não conhece; runs gravados
+pela 3.0.0 guardam os ids no campo `lessons_shown` da tarefa, que continua sendo lido e
+contado. Antes de
+gravar, o início lê de novo o arquivo do especialista sob o lock que `specialists accept` e
+`specialists retire` usam; se o arquivo sumiu ou as lições mudaram desde que o comando as
+carregou, o início é recusado (`lessons_changed`, saída 5) e precisa ser rodado de novo. O
+evento é gravado antes do estado, então um início gravado sempre tem seu registro. Uma decisão tomada depois
+do início vale a partir do próximo início. O aprendizado então conta,
 por lição, as tarefas do agente que a receberam e terminaram verificadas (`shown_verified`)
 ou com falha, bloqueio ou resultado parcial (`shown_unverified`); tarefas não terminadas não
 entram em nenhum dos dois.

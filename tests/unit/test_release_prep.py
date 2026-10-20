@@ -258,10 +258,11 @@ class EndToEndTests(unittest.TestCase):
 
     def test_a_missing_pattern_aborts_before_any_write(self) -> None:
         (self.root / "README.md").write_text("no marker here\n", encoding="utf-8")
+        before = self.read("pyproject.toml")
         result = self.run_prep("--version", "9.0.0")
         self.assertEqual(1, result.returncode)
         self.assertIn("README.md", result.stderr)
-        self.assertIn('version = "2.0.0"', self.read("pyproject.toml"))
+        self.assertEqual(before, self.read("pyproject.toml"))
 
     def test_rejects_bad_version_and_date(self) -> None:
         self.assertEqual(1, self.run_prep("--version", "v9.0").returncode)

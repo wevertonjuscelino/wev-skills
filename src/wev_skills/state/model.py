@@ -94,7 +94,15 @@ class TaskRecord(Serializable):
     """The tools chosen for this task; ``None`` when selection is off (and in older states)."""
     tool_misses: tuple[ToolMiss, ...] = ()
     lessons_shown: tuple[str, ...] = ()
-    """Ids of the agent's lessons its contract showed at any start of this task."""
+    """Lessons shown to the task, as release 3.0.0 recorded them; read so its runs still load
+    and count. Starts now record a ``lessons.shown`` event instead (``core.shown_lessons``)."""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Leave ``lessons_shown`` out when empty, so a new run stays readable by 2.0.0."""
+        data = super().to_dict()
+        if not self.lessons_shown:
+            del data["lessons_shown"]
+        return data
 
 
 @dataclass(frozen=True)

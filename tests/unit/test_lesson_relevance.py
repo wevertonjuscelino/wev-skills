@@ -80,13 +80,13 @@ class ContractRelevanceTests(OrchestratorCase):
             contract.context.index("about make test"), contract.context.index("general lesson")
         )
         self.orch().start_task("task-1")
-        self.assertEqual(self.state().tasks["task-1"].lessons_shown, ("about-make", "general"))
+        self.assertEqual(self.lessons_shown(), ("about-make", "general"))
 
     def test_under_a_cap_of_one_the_relevant_lesson_is_the_one_shown(self) -> None:
         self.overrides = {"specialists": {"max_lessons_rendered": 1}}
         self.start()
         self.run_task()
-        self.assertEqual(self.state().tasks["task-1"].lessons_shown, ("about-make",))
+        self.assertEqual(self.lessons_shown(), ("about-make",))
 
 
 if __name__ == "__main__":

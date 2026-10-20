@@ -171,6 +171,7 @@
   "orch.error.no_agent": "Nenhum agente pode assumir a tarefa {task}: nenhum tem permissões que cubram o modo {mode} com risco {risk}. Dê a um agente um max_risk maior ou o modo, ou adicione um.",
   "orch.error.check_criterion": "Tarefa {task}: uma verificação cita o critério {reference!r}, que não é um índice nem o texto exato de um dos critérios de aceitação da tarefa.",
   "orch.error.busy": "A execução continuou mudando durante este comando ({attempts} tentativas). Nada foi alterado; execute de novo.",
+  "orch.error.lessons_changed": "As lições de {agent} foram aceitas ou aposentadas enquanto esta tarefa começava. Nada foi alterado; execute o comando de novo para o contrato mostrar as lições atuais.",
   "orch.error.run_active": "A execução {run} ainda está ativa neste repositório. Encerre-a com 'wev run finish --run {run}' antes de iniciar outra.",
   "orch.error.config_pinned": "A execução {run} fixou sua configuração ao iniciar ({source}); a configuração informada agora é diferente e foi recusada. Remova --config ou inicie uma nova execução para usá-la.",
   "orch.decision.config": "Configuração fixada para a execução, vinda de {source}.",
