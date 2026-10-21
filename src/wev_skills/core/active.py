@@ -120,9 +120,12 @@ def _configured_state_dir(directory: Path) -> str | None:
         return None
 
 
-def _candidates(directory: Path, entries: Sequence[RegistryEntry]) -> tuple[Path, ...]:
-    """State directories ``directory`` may hold: the default, its config file's, registered."""
-    names = [Config().state_dir, _configured_state_dir(directory)]
+def _candidates(
+    directory: Path, entries: Sequence[RegistryEntry], registered_only: bool
+) -> tuple[Path, ...]:
+    """State directories ``directory`` may hold: the registered ones, and unless
+    ``registered_only`` also the default and the one its config file names."""
+    names = [] if registered_only else [Config().state_dir, _configured_state_dir(directory)]
     found = [directory / name for name in names if name]
     found += [Path(entry.state_dir) for entry in entries if Path(entry.root) == directory]
     unique = dict.fromkeys(_resolved(path) for path in found)
@@ -136,8 +139,10 @@ def _is_dir(path: Path) -> bool:
         return False
 
 
-def _in_directory(directory: Path, entries: Sequence[RegistryEntry]) -> ActiveRun | None:
-    for state_dir in _candidates(directory, entries):
+def _in_directory(
+    directory: Path, entries: Sequence[RegistryEntry], registered_only: bool
+) -> ActiveRun | None:
+    for state_dir in _candidates(directory, entries, registered_only):
         found = inspect_state_dir(directory, state_dir)
         if found is not None:
             return found
@@ -149,7 +154,11 @@ def _contains(root: Path, path: Path) -> bool:
 
 
 def find_active_run(
-    cwd: Path, paths: Sequence[Path] = (), targets: Sequence[Path] = ()
+    cwd: Path,
+    paths: Sequence[Path] = (),
+    targets: Sequence[Path] = (),
+    *,
+    registered_only: bool = False,
 ) -> ActiveRun | None:
     """The active run that governs ``cwd`` or any of ``paths``; ``None`` when there is none.
 
@@ -157,12 +166,16 @@ def find_active_run(
     a nested ``git init`` cannot hide the run of the repository around it. Failing that, the
     per-user registry is consulted for a run whose root contains ``cwd`` or one of ``paths``,
     or whose root lies inside one of ``targets`` (a command aimed at a parent directory).
+
+    With ``registered_only`` (the Claude Code hooks) a state directory counts only when the
+    registry lists it for that root: a ``.wev/`` shipped inside a repository, or one its
+    ``wev.config.json`` points at, is ignored, and that file is not read.
     """
     start = _resolved(Path(cwd))
     entries = run_registry.read_entries()
     outermost: ActiveRun | None = None
     for directory in (start, *start.parents):
-        outermost = _in_directory(directory, entries) or outermost
+        outermost = _in_directory(directory, entries, registered_only) or outermost
     if outermost is not None:
         return outermost
     inside = (start, *(_resolved(Path(path)) for path in paths))

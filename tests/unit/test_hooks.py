@@ -554,11 +554,17 @@ class FailureTests(HookCase):
         def explode(*_: object) -> str:
             raise RuntimeError("secret detail")
 
-        for name in hook_cmd.HOOKS:
+        for name in set(hook_cmd.HOOKS) - {"pre-tool-use"}:
             with self.subTest(name=name), mock.patch.dict(hook_cmd.HOOKS, {name: explode}):
                 note = self.note(name, payload)
                 self.assertIn("RuntimeError", note)
                 self.assertNotIn("secret detail", note)
+        with mock.patch.dict(hook_cmd.HOOKS, {"pre-tool-use": explode}):
+            code, out, err = self.hook("pre-tool-use", payload)
+        self.assertEqual(json.loads(out)["hookSpecificOutput"]["permissionDecision"], "ask")
+        self.assertIn("RuntimeError", out + err)
+        self.assertNotIn("secret detail", out + err)
+        self.assertEqual((code, err.count("\n")), (0, 1))
 
     def test_the_note_is_localized(self) -> None:
         self.assertIn("não conseguiu agir", self.hook("pre-tool-use", "{", "--lang", "pt-BR")[2])

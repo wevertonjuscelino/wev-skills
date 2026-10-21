@@ -9,6 +9,7 @@ expects, or nothing. The logic, its scope rule and its failure policy are in
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -46,6 +47,19 @@ def _unreadable(name: str, text: str) -> str:
     return hooks.unreadable_input(text) if name == PRE_TOOL_USE else ""
 
 
+def _note(name: str, error: Exception) -> None:
+    """The stderr line of a failed hook; if even that fails, nothing is printed."""
+    with contextlib.suppress(Exception):  # reporting must not replace the answer
+        print(hooks.failure_note(name, error), file=sys.stderr)
+
+
+def _failed(name: str, error: Exception) -> str:
+    """What a hook prints after an unexpected error: the Bash pre-check asks, the brief
+    hooks only add context and stay silent."""
+    _note(name, error)
+    return hooks.internal_error(error) if name == PRE_TOOL_USE else ""
+
+
 def run_hook(name: str) -> str:
     """What the hook prints. An error leaves one stderr line; see the module for when the
     Bash pre-check answers ``ask`` instead of nothing."""
@@ -59,8 +73,7 @@ def run_hook(name: str) -> str:
             return _unreadable(name, text)
         return HOOKS[name](payload)
     except Exception as exc:  # noqa: BLE001 - a broken engine must never crash the session
-        print(hooks.failure_note(name, exc), file=sys.stderr)
-        return ""
+        return _failed(name, exc)
 
 
 def _handler(name: str) -> Handler:

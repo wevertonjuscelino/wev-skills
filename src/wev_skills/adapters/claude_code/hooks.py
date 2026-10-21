@@ -17,11 +17,13 @@ Scope: the run is looked up with ``core.active.find_active_run`` from the hook's
 and from every path the command names, so a command started in ``/tmp`` or in a nested
 repository that touches a run's tree, or a parent directory of it, is judged by that run.
 A path built from a variable cannot be matched; with any run registered for the user such
-a command is an ``ask``. Looking is read-only.
+a command is an ``ask``. Only runs the per-user registry lists count (``registered_only``):
+a ``.wev/`` shipped inside a repository is ignored. Looking is read-only.
 
 Failure policy: anything that goes wrong while judging a command (an unreadable or forged
 state, an internal error, with or without a run) becomes ``ask`` with a reason naming the
-problem, never silence. Input that cannot be read is an ``ask`` with a run and silent
+problem, never silence; an error outside the judge step is an ``ask`` too
+(``internal_error``). Input that cannot be read is an ``ask`` with a run and silent
 without one: the command is unknown and there is nothing to judge it by. Approvals and loop
 detection stay run-scoped; the hook uses neither.
 
@@ -58,6 +60,7 @@ __all__ = [
     "NO_OPINION",
     "HookVerdict",
     "failure_note",
+    "internal_error",
     "parse_payload",
     "pre_tool_use",
     "prompt_reminder",
@@ -72,6 +75,9 @@ MAX_INPUT_BYTES = 1_048_576
 SESSION_BRIEF_MAX_CHARS = 2000
 NO_RUN_MODE = Mode.EXECUTE
 NO_RUN_RISK = RiskLevel.MEDIUM
+FALLBACK_ASK = json.dumps(
+    {"hookSpecificOutput": {"hookEventName": HOOK_EVENT, "permissionDecision": ASK}}
+)
 _CWD_FIELD = re.compile(r'"cwd"\s*:\s*("(?:[^"\\]|\\.){0,4096}")')
 
 
@@ -111,7 +117,7 @@ def _orchestrator(active: ActiveRun) -> Orchestrator:
 
 
 def _readable_run(payload: Mapping[str, Any]) -> ActiveRun | None:
-    active = find_active_run(_working_directory(payload.get("cwd")))
+    active = find_active_run(_working_directory(payload.get("cwd")), registered_only=True)
     return active if active is not None and active.state_error is None else None
 
 
@@ -225,7 +231,7 @@ def pre_tool_use(payload: Mapping[str, Any]) -> str:
     parts = bash_guard.split_bounded(command)
     paths = bash_guard.command_paths(parts, str(cwd)) if parts is not None else ()
     targets = bash_guard.target_paths(parts, str(cwd)) if parts is not None else ()
-    active = find_active_run(cwd, paths, targets)
+    active = find_active_run(cwd, paths, targets, registered_only=True)
     if active is None:
         return _unknown_target(parts) or _without_run(command, cwd)
     return _answer(active, _judge(active, command, cwd))
@@ -247,11 +253,21 @@ def unreadable_input(text: str) -> str:
     The command is unknown, so nothing can be judged: with a run for the directory the
     answer is ``ask``; without one the hook stays silent.
     """
-    active = find_active_run(_claimed_directory(text))
+    active = find_active_run(_claimed_directory(text), registered_only=True)
     if active is None:
         return ""
     with i18n.use_config_language(active.language):
         return _answer(active, HookVerdict(ASK, i18n.t("hooks.reason.unreadable_input")))
+
+
+def internal_error(error: Exception) -> str:
+    """PreToolUse ``ask`` for an error the judge did not catch; only the error's code is named.
+    When even that answer cannot be built, a fixed ``ask`` without a reason is printed."""
+    try:
+        verdict = _failed(error)
+        return _output(verdict.decision, verdict.reason)
+    except Exception:  # noqa: BLE001 - the last fallback must not fail
+        return FALLBACK_ASK
 
 
 def failure_note(name: str, error: BaseException) -> str:
