@@ -21,6 +21,10 @@
     {
       "en": "Cite the file and line, or the command output, behind every claim.",
       "pt-BR": "Citar o arquivo e a linha, ou a saída do comando, por trás de cada afirmação."
+    },
+    {
+      "en": "Non-negotiable rule: follow YAGNI and prefer the solution with less code.",
+      "pt-BR": "Regra inegociável: siga os princípios YAGNI e prefira a solução com menos código."
     }
   ],
   "model_policy": {

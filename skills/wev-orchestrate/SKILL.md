@@ -20,6 +20,8 @@ Where things live:
 - Configuration: `--config FILE` if given, else `<repository root>/wev.config.json` if it exists, else the defaults. The effective configuration is pinned in the run state by `run start`. A later command with a different `--config` is refused (exit 2, `config_pinned`); drop the option, or finish the run and start another to use a different file. `config show` prints the configuration these rules give for the working directory (the run's pinned one while a run is active), with `config_source`, and `config validate FILE` checks a file; both print `warnings`, for example when `decision.provider` is `jev` and the program is not found on `permissions.exec_path`. The `language` key of a config file sets the message language below `--lang` and `WEV_LANG` and above `LANG`.
 - One run may be active per repository. Commands without `--run` act on it. A second `run start` while one is active is refused (`run_active`) and names `run finish`. A run's mode never changes after `run start`; to change it, finish the run and start another.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
 ## First step: check JEV
 
 Before anything else in a session, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" jev status` and read `orchestration` in its answer.
