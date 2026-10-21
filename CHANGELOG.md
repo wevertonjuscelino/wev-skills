@@ -13,6 +13,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - `decision.jev.command` default changed from `jev` to `builtin`; set `"command": "jev"` to keep the external program.
 - Behavior change (spec decision 14): a default install (provider `local`) now reports orchestration `harness`, so the `wev-orchestrate` skill uses the harness's own flow unless JEV is configured (`decision.provider` set to `jev` and a key available). The Bash guard stays active: without a run, the PreToolUse hook now judges each command under the built-in default policy (execute mode, medium risk) instead of staying silent, and it does not read the repository's configuration. Approvals and loop detection need a run, so they are not in use in harness mode. Implemented and tested.
+- The Claude Code hooks trust only a run the per-user registry lists for its root and state directory; a `.wev/` shipped inside a repository, or one its `wev.config.json` names, is ignored and the Bash command gets the built-in default policy. Implemented and tested.
+- An unexpected error anywhere in the PreToolUse hook now answers `ask` instead of printing nothing (the stderr note stays); the plan-brief hooks still fail silent. Implemented and tested.
 
 ## [5.0.0] - 2026-10-20
 
