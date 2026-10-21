@@ -6,6 +6,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
+- Optional intake field `outcome` (`wev intake set ID --field outcome`): what should happen after the goal is reached. It is kept in the brief, in the `run.intake_attached` event and in the plan reminder, where it has the lowest priority so it never pushes out the task lines. A record without an outcome is unchanged; a record that has one cannot be read by earlier versions. Implemented and tested.
+- `wev-orchestrate` skill: a deeper-plan step before `plan set`, an optional wider review with at most two agents in `planned` and `gated` flows, primary sources named in the plan task's `objective` so they reach the contract, and asking the user for verification access before falling back to manual evidence. Instructions to the model only (documented only); their effect has not been measured, and the evaluation guide describes how to compare real runs.
 - Built-in JEV client (`decision.jev.command` `builtin`): an HTTP client that looks the key up in `TYPESAFE_API_KEY`, the user's wev-skills env file (mode 600) and the macOS keychain, retries only 429 and 529 inside `decision.jev.timeout_seconds`, reads at most 1 MiB of a response, and falls back to the local policy on any failure. Setting `command` keeps the external-program path. Implemented and tested against a local fake server; the live TypeSafe service was not run in this change.
 - `wev jev status|ask|batch`; `status` reports `orchestration` (`wev` or `harness`), which the `wev-orchestrate` skill reads first. The Bash hook answers `ask` for `jev ask` and `jev batch`, which send data to the JEV service; `jev status` is not asked. Implemented and tested.
 

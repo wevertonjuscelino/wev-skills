@@ -129,6 +129,10 @@ Write fixtures that exercise one mechanism, say in `description` what it exercis
 - The shipped tasks are examples, not a benchmark. Their pass rates must not be quoted as one.
 - The mechanisms that the research paper motivates (staged compaction, conditional planning, tool profiles, plan reminders and others) are implemented as configurable defaults whose effect on a real model has not been measured. See `docs/research/hypotheses.md` and `docs/research/experiments.md`.
 
+## Comparing real runs before and after an instruction change
+
+Instruction changes in the skills (for example the deeper-plan step of `wev-orchestrate`) cannot be measured by the scripted harness, because it calls no model. Until a real-model harness exists, compare real runs by hand: run the same objectives in the same repositories before and after the change, with the same model, and read each `wev run report --format json`. Count per run: acceptance criteria per task, criteria tied to a check, tasks `verified` with `tested` evidence, review verdicts `reject`, and attempts until a task was verified. Record the model, the dates and the reports. No such comparison has been made, so no improvement is claimed: label any statement about these practices documented only until one is.
+
 ## Evaluating with a real model
 
 Future work; not implemented. It needs a model provider, which this repository does not call (unit tests and CI run without a paid provider), an agent that implements the harness agent interface by calling a model, tasks backed by real repositories and real checks, repeated runs per task and configuration, and a record of model identifiers, dates and raw outputs. Until such a run is made and recorded, the hypotheses stay untested.

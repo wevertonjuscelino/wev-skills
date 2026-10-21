@@ -20,6 +20,7 @@ def filled(record: IntakeRecord, *names: str, source: str = "request") -> Intake
         "scope": ("reports page only; billing is out",),
         "kind": ("feature",),
         "constraints": ("no new dependency",),
+        "outcome": ("support stops exporting reports by hand",),
     }
     current = record
     for name in names:
@@ -156,6 +157,24 @@ class FinishTests(IntakeCase):
         self.assertEqual([item.field for item in brief.assumptions], ["scope"])
         self.assertEqual(brief.intake_rounds, 1)
         self.assertEqual(brief.constraints, "")
+        self.assertEqual(brief.outcome, "")
+
+    def test_the_outcome_is_optional_and_carried_into_the_brief(self) -> None:
+        record = filled(self.record, "goal", "done", "scope", "kind")
+        self.assertEqual(model.missing(record), ())
+        _, brief = model.finish(filled(record, "outcome"))
+        self.assertEqual(brief.outcome, "support stops exporting reports by hand")
+
+    def test_a_record_without_an_outcome_stays_readable_by_older_versions(self) -> None:
+        record = filled(self.record, "goal", "done", "scope", "kind", "constraints")
+        stored = [item["field"] for item in record.to_dict()["fields"]]
+        self.assertNotIn("outcome", stored)
+        with_outcome = filled(record, "outcome").to_dict()["fields"]
+        self.assertIn("outcome", [item["field"] for item in with_outcome])
+
+    def test_an_assumed_outcome_gets_a_conservative_default(self) -> None:
+        record = model.set_field(self.record, "outcome", (), "assumption")
+        self.assertEqual(model.value_of(record, "outcome"), ("Deliver the stated goal only",))
 
     def test_a_finished_intake_cannot_be_changed(self) -> None:
         done, _ = model.finish(filled(self.record, "goal", "done", "scope", "kind"))

@@ -9,6 +9,7 @@ import os
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -137,12 +138,23 @@ class CommandTests(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertEqual(error["error"]["code"], "intake_incomplete")
 
+    def test_the_outcome_never_crowds_out_the_task_lines_near_the_limit(self) -> None:
+        recorded = {"scope": "reports", "outcome": "fewer tickets " * 20, "done": ["confirmed"]}
+        initial = RunState("20261013T000000Z-abc123", "confirmed", Mode.AUTO, "at", "at")
+        state = replace(initial, discovery={"intake": {"id": "x", "brief": recorded}})
+        reminder = build_brief(state, "next", 600, "en")
+        self.assertIn("Tasks: no plan yet", reminder)
+        self.assertIn("Done when: confirmed", reminder)
+        self.assertNotIn("Outcome beyond the goal", reminder)
+        self.assertIn("Outcome beyond the goal", build_brief(state, "next", 2000, "en"))
+
     def test_run_uses_intake_and_keeps_the_brief_in_the_audit_event(self) -> None:
         _, result = self.call("intake", "start", "--request", "Export reports")
         intake_id = str(result["id"])
         for field in ("goal", "done", "scope", "kind"):
             value = "operations" if field == "kind" else "confirmed"
             self.call("intake", "set", intake_id, "--field", field, "--value", value)
+        self.call("intake", "set", intake_id, "--field", "outcome", "--value", "fewer tickets")
         self.call("intake", "finish", intake_id)
         with patch("wev_skills.commands.run.new_orchestrator") as factory:
             engine = factory.return_value[0]
@@ -161,3 +173,4 @@ class CommandTests(unittest.TestCase):
         reminder = build_brief(restored, "next", 4000, "en")
         self.assertIn("Scope: confirmed", reminder)
         self.assertIn("Done when: confirmed", reminder)
+        self.assertIn("Outcome beyond the goal: fewer tickets", reminder)
