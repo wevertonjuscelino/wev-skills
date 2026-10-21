@@ -148,6 +148,56 @@ class ServerTest(Isolated):
             self.asker(server.url)(QUESTIONS, "s")
         self.assertEqual(caught.exception.code, "invalid_json")
 
+    def test_deeply_nested_json_is_invalid_json(self) -> None:
+        depth = 200_000
+        body = b"[" * depth + b"]" * depth
+        with self.assertRaises(RecursionError):
+            json.loads(body)
+        with fake_jev([(200, body, 0)]) as server, self.assertRaises(JevUnavailable) as caught:
+            self.asker(server.url)(QUESTIONS, "s")
+        self.assertEqual(caught.exception.code, "invalid_json")
+
+    def padded(self, size: int) -> bytes:
+        head = json.dumps({"answers": ANSWER, "pad": ""}).encode()
+        body = head[:-2] + b"x" * (size - len(head)) + head[-2:]
+        self.assertEqual(len(body), size)
+        return body
+
+    def test_a_response_at_the_limit_is_read(self) -> None:
+        with fake_jev([(200, self.padded(jev_http.MAX_RESPONSE_BYTES), 0)]) as server:
+            text = self.asker(server.url)(QUESTIONS, "s")
+        self.assertEqual(json.loads(text)["risk"]["choice"], "low")
+
+    def test_an_oversized_response_is_response_too_large(self) -> None:
+        for status in (200, 503):
+            body = self.padded(jev_http.MAX_RESPONSE_BYTES + 1)
+            with self.subTest(status=status), fake_jev([(status, body, 0)]) as server:
+                with self.assertRaises(JevUnavailable) as caught:
+                    self.asker(server.url)(QUESTIONS, "s")
+                self.assertEqual(caught.exception.code, "response_too_large")
+                self.assertIn("1 MiB", caught.exception.message)
+
+    def test_the_read_is_capped(self) -> None:
+        reads: list[int] = []
+
+        class Response:
+            status = 200
+
+            def __enter__(self) -> Response:
+                return self
+
+            def __exit__(self, *_: object) -> None:
+                return None
+
+            def read(self, amount: int = -1) -> bytes:
+                reads.append(amount)
+                return OK
+
+        opener = mock.Mock(open=mock.Mock(return_value=Response()))
+        with mock.patch.object(urllib.request, "build_opener", return_value=opener):
+            jev_http._urlopen(urllib.request.Request("https://example.com"), 1.0)
+        self.assertEqual(reads, [jev_http.MAX_RESPONSE_BYTES + 1])
+
 
 class DeadlineTest(Isolated):
     def test_deadline_bounds_retry_storm(self) -> None:

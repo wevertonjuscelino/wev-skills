@@ -39,6 +39,8 @@ MAX_SCORE_LEVELS = 10
 HTTP_OK_FIRST = 200
 HTTP_OK_LAST = 299
 HTTP_UNAUTHORIZED = 401
+MAX_RESPONSE_BYTES = 1_048_576
+"""At most this much of a response body is read; a longer one is ``response_too_large``."""
 SPACE = 0x20
 DELETE = 0x7F
 
@@ -117,10 +119,10 @@ def _urlopen(request: urllib.request.Request, timeout: float) -> tuple[int, byte
     opener = urllib.request.build_opener(_NoRedirect)
     try:
         with opener.open(request, timeout=timeout) as response:
-            return response.status, response.read()
+            return response.status, response.read(MAX_RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as exc:
         with exc:
-            return exc.code, exc.read()
+            return exc.code, exc.read(MAX_RESPONSE_BYTES + 1)
 
 
 def _network_failure(exc: OSError) -> JevUnavailable:
@@ -133,7 +135,7 @@ def _network_failure(exc: OSError) -> JevUnavailable:
 def _answers(body: bytes) -> str:
     try:
         data = json.loads(body)
-    except ValueError as exc:
+    except (ValueError, RecursionError) as exc:
         raise _why("invalid_json", "invalid_json") from exc
     answers = data.get("answers") if isinstance(data, Mapping) else None
     if not isinstance(answers, Mapping):
@@ -186,6 +188,8 @@ class HttpAsker:
             if remaining <= 0:
                 raise _why("timed_out", "timed_out")
             status, body = self._send(request, remaining)
+            if len(body) > MAX_RESPONSE_BYTES:
+                raise _why("response_too_large", "response_too_large")
             if HTTP_OK_FIRST <= status <= HTTP_OK_LAST:
                 return _answers(body)
             if status == HTTP_UNAUTHORIZED:

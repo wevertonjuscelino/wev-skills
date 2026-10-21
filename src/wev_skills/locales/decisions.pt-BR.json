@@ -78,6 +78,7 @@
   "decide.error.no_objective": "Informe --objective ou um arquivo de sinais que contenha um objetivo.",
   "decide.error.tier_pair": "Informe --min-tier e --max-tier juntos, ou nenhum.",
   "decisions.jev.distrusted": "A resposta do JEV para {question} não foi considerada confiável (confiança baixa ou incerta); foi usado o valor local {value}.",
+  "decisions.jev.why.response_too_large": "a resposta passa de 1 MiB",
   "decisions.jev.why.invalid_json": "saída JSON inválida",
   "decisions.jev.why.not_object": "saída ilegível: não é um objeto",
   "decisions.jev.why.unparseable_answer": "resposta ilegível: {question}",

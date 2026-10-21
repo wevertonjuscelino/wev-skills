@@ -78,6 +78,7 @@
   "decide.error.no_objective": "Provide --objective or a signals file that contains one.",
   "decide.error.tier_pair": "Give --min-tier and --max-tier together, or neither.",
   "decisions.jev.distrusted": "JEV answer for {question} was not trusted (low confidence or uncertain); the local value {value} was used.",
+  "decisions.jev.why.response_too_large": "the response is larger than 1 MiB",
   "decisions.jev.why.invalid_json": "invalid JSON output",
   "decisions.jev.why.not_object": "unparseable output: not an object",
   "decisions.jev.why.unparseable_answer": "unparseable answer: {question}",
