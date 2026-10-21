@@ -8,8 +8,10 @@ A protected location (an entry with a separator) is matched by path, whether it 
 not. A protected name (``.git``) is found by walking an existing directory, with the limits
 of ``security.recursive``. Known programs only: ``mv`` (its sources), ``rm``, ``rmdir``,
 ``unlink``, ``find`` with ``-delete`` (its start directories) and ``rsync`` with
-``--remove-source-files`` (its sources). A symlink operand is not followed: only the link
-is moved or removed.
+``--remove-source-files`` (its sources). A symlink operand is not walked, since only the
+link is moved or removed, but it is still matched by path, as written and as resolved: a
+symlinked ``~/.local`` holds the registry by path. Paths are compared casefolded where the
+platform ignores case (``paths.fold``).
 """
 
 from __future__ import annotations
@@ -18,10 +20,12 @@ import os
 from collections.abc import Callable, Sequence
 
 from wev_skills.security import recursive
+from wev_skills.security.paths import expand_home, fold
 
 Operands = Callable[[Sequence[str]], list[str]]
 END_OF_OPTIONS = "--"
 MV_TARGET_LONG = "--target-directory"
+MIN_LONG_PREFIX = len("--t")
 FIND_LEADING = frozenset({"-H", "-L", "-P"})
 FIND_EXPRESSION_START = frozenset({"(", "!"})
 
@@ -38,9 +42,17 @@ def _operands(args: Sequence[str]) -> list[str]:
     return found
 
 
+def _long_target(arg: str) -> bool:
+    """``--target-directory`` or a prefix of it (``--t``, ``--targ=x``), as getopt accepts."""
+    name = arg.split("=", 1)[0]
+    if len(name) < MIN_LONG_PREFIX or not name.startswith("--"):
+        return False
+    return MV_TARGET_LONG.startswith(name) or name.startswith(MV_TARGET_LONG)
+
+
 def _names_target(args: Sequence[str]) -> bool:
     short = (a for a in args if a.startswith("-") and not a.startswith("--"))
-    return any(a.startswith(MV_TARGET_LONG) for a in args) or any("t" in a[1:] for a in short)
+    return any(_long_target(a) for a in args) or any("t" in a[1:] for a in short)
 
 
 def _mv_sources(args: Sequence[str]) -> list[str]:
@@ -87,21 +99,20 @@ def _spellings(path: str) -> list[str]:
 
 def _located_below(target: str, root: str, protected: Sequence[str]) -> str | None:
     """A protected location that ``target`` is, or contains, matched by path."""
-    targets = _spellings(target)
+    targets = [fold(form) for form in _spellings(target)]
     for entry in protected:
         if not entry or (os.sep not in entry and "/" not in entry):
             continue
-        for anchor in _spellings(os.path.join(root, os.path.expanduser(entry))):
-            if any(anchor == t or anchor.startswith(t.rstrip(os.sep) + os.sep) for t in targets):
+        for anchor in _spellings(os.path.join(root, expand_home(entry, root))):
+            folded = fold(anchor)
+            if any(folded == t or folded.startswith(t.rstrip(os.sep) + os.sep) for t in targets):
                 return anchor
     return None
 
 
 def _holds(target: str, root: str, protected: Sequence[str]) -> str | None:
-    if os.path.islink(target):
-        return None
     found = _located_below(target, root, protected)
-    if found is None and os.path.isdir(target):
+    if found is None and not os.path.islink(target) and os.path.isdir(target):
         found = recursive.contains_protected(target, root, protected)
     return found
 
@@ -114,7 +125,7 @@ def uprooted(argv: Sequence[str], cwd: str, protected: Sequence[str]) -> tuple[s
     if rule is None:
         return None
     for operand in rule(list(argv[1:])):
-        target = os.path.join(cwd, os.path.expanduser(operand))
+        target = os.path.join(cwd, expand_home(operand, cwd))
         found = _holds(target, cwd, protected)
         if found is not None:
             return operand, found

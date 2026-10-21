@@ -9,6 +9,7 @@ here, it looks at directories that exist when the command is judged, and it walk
 ``MAX_ENTRIES`` entries (a larger tree is treated as holding a protected path). ``rg`` skips
 hidden files unless told otherwise, so for it a hidden protected name does not count
 without ``--hidden``, ``-.`` or ``-uu``. Exclusion options (``--exclude-dir``) are not read.
+Located entries are compared casefolded where the platform ignores case (``paths.fold``).
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import os
 from collections.abc import Callable, Sequence
 from fnmatch import fnmatchcase
 
+from wev_skills.security.paths import fold
 from wev_skills.security.risk import has_flag, has_long
 
 MAX_ENTRIES = 20_000
@@ -92,10 +94,10 @@ def _walk(directory: str, names: Sequence[str], hidden: bool) -> str | None:
 
 def _located(directory: str, root: str, entries: Sequence[str], hidden: bool) -> str | None:
     """A protected location (an entry with a separator) that lies inside ``directory``."""
-    prefix = directory.rstrip(os.sep) + os.sep
+    prefix = fold(directory.rstrip(os.sep) + os.sep)
     for entry in entries:
         anchor = os.path.realpath(os.path.join(root, entry))
-        if not anchor.startswith(prefix) or not os.path.lexists(anchor):
+        if not fold(anchor).startswith(prefix) or not os.path.lexists(anchor):
             continue
         below = anchor[len(prefix) :].split(os.sep)
         if hidden or not any(part.startswith(HIDDEN_PREFIX) for part in below):

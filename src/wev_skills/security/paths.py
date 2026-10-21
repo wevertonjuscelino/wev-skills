@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Iterable
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -11,6 +12,11 @@ from wev_skills import i18n
 from wev_skills.core.errors import PermissionDenied
 
 PathLike = str | os.PathLike[str]
+
+CASE_INSENSITIVE = sys.platform == "darwin" or sys.platform.startswith("win")
+"""The default file systems of macOS (APFS, HFS+) and Windows ignore case, so ``.GIT``
+reaches ``.git``. Located entries are then compared casefolded; on Linux, exactly."""
+HOME_TILDE, CWD_TILDE, OLDPWD_TILDE = "~", "~+", "~-"
 
 
 def _escape(path: PathLike, root: PathLike) -> PermissionDenied:
@@ -35,15 +41,36 @@ def resolve_within(root: PathLike, path: PathLike) -> Path:
     return resolved
 
 
-def _home(path: PathLike) -> str:
-    """``path`` with a leading ``~`` or ``~/`` expanded, as the shell would."""
+def fold(text: str) -> str:
+    """``text`` as the file system compares it: casefolded where case is ignored."""
+    return text.casefold() if CASE_INSENSITIVE else text
+
+
+def _tilde_base(prefix: str, cwd: PathLike) -> str | None:
+    if prefix == HOME_TILDE:
+        return os.path.expanduser(HOME_TILDE)
+    if prefix == CWD_TILDE:
+        return os.fspath(cwd)
+    if prefix == OLDPWD_TILDE:
+        return os.environ.get("OLDPWD") or None
+    return None
+
+
+def expand_home(path: PathLike, cwd: PathLike) -> str:
+    """``path`` with a leading ``~``, ``~+`` (``cwd``) or ``~-`` (``$OLDPWD``) expanded, as
+    the shell would. ``~user`` and ``~-`` without ``$OLDPWD`` stay literal: the shell check
+    asks for those words."""
     text = os.fspath(path)
-    return os.path.expanduser(text) if text == "~" or text.startswith("~/") else text
+    prefix, sep, rest = text.partition("/")
+    base = _tilde_base(prefix, cwd) if prefix.startswith(HOME_TILDE) else None
+    if base is None:
+        return text
+    return os.path.join(base, rest) if sep else base
 
 
 def _forms(base: Path, path: PathLike) -> list[str]:
     """Lexical and symlink-resolved absolute spellings of ``path`` under ``base``."""
-    joined = base / Path(_home(path))
+    joined = base / Path(expand_home(path, base))
     forms = [os.path.normpath(os.path.abspath(joined))]
     try:
         forms.append(str(joined.resolve()))
@@ -66,7 +93,8 @@ def is_protected(path: PathLike, root: PathLike, protected_paths: Iterable[str])
     case-insensitively and with ``fnmatch`` wildcards. An entry with a separator is a
     location relative to ``root`` (or absolute). Both the literal and the
     symlink-resolved path are checked, so a symlink to a protected file is protected. A
-    leading ``~/`` is expanded. The match is by path: the file need not exist.
+    leading ``~``, ``~+`` or ``~-`` is expanded. On a case-insensitive platform located
+    entries are compared casefolded. The match is by path: the file need not exist.
     """
     try:
         base = Path(root)
@@ -82,10 +110,14 @@ def is_protected(path: PathLike, root: PathLike, protected_paths: Iterable[str])
             if any(fnmatchcase(name, entry.casefold()) for name in names):
                 return True
             continue
-        anchors = _forms(base, entry)
-        if any(t == a or t.startswith(a.rstrip(os.sep) + os.sep) for t in targets for a in anchors):
+        anchors = [fold(form) for form in _forms(base, entry)]
+        if any(_within(fold(t), a) for t in targets for a in anchors):
             return True
     return False
+
+
+def _within(path: str, anchor: str) -> bool:
+    return path == anchor or path.startswith(anchor.rstrip(os.sep) + os.sep)
 
 
 GLOB_CHARS = frozenset("*?[")
@@ -119,6 +151,6 @@ def glob_may_match_protected(pattern: PathLike, root: PathLike, protected: Itera
         target = os.path.normpath(os.path.join(base, text))
         wanted, given = Path(located).parts, Path(target).parts
         pairs = list(zip(wanted, given, strict=False))
-        if len(given) >= len(wanted) and all(fnmatchcase(w, g) for w, g in pairs):
+        if len(given) >= len(wanted) and all(fnmatchcase(fold(w), fold(g)) for w, g in pairs):
             return True
     return False
