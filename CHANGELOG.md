@@ -6,9 +6,13 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
-- Built-in JEV client: `decision.jev.command` now defaults to `builtin`, an HTTP client that looks the key up in `TYPESAFE_API_KEY`, the user's wev-skills env file (mode 600) and the macOS keychain, retries only 429 and 529 inside `decision.jev.timeout_seconds`, and falls back to the local policy on any failure. Setting `command` keeps the external-program path. Implemented and tested against a local fake server; the live TypeSafe service was not run in this change.
-- Behavior change (spec decision 14): a default install (provider `local`) now reports orchestration `harness`, so the `wev-orchestrate` skill uses the harness's own flow unless JEV is configured (`decision.provider` set to `jev` and a key available). The guard hooks, approvals and loop detection stay active.
-- `wev jev status|ask|batch`; `status` reports `orchestration` (`wev` or `harness`), which the `wev-orchestrate` skill reads first. Without JEV only the orchestration flow is off; guard hooks, approvals and loop detection stay active. Implemented and tested.
+- Built-in JEV client (`decision.jev.command` `builtin`): an HTTP client that looks the key up in `TYPESAFE_API_KEY`, the user's wev-skills env file (mode 600) and the macOS keychain, retries only 429 and 529 inside `decision.jev.timeout_seconds`, reads at most 1 MiB of a response, and falls back to the local policy on any failure. Setting `command` keeps the external-program path. Implemented and tested against a local fake server; the live TypeSafe service was not run in this change.
+- `wev jev status|ask|batch`; `status` reports `orchestration` (`wev` or `harness`), which the `wev-orchestrate` skill reads first. The Bash hook answers `ask` for `jev ask` and `jev batch`, which send data to the JEV service; `jev status` is not asked. Implemented and tested.
+
+### Changed
+
+- `decision.jev.command` default changed from `jev` to `builtin`; set `"command": "jev"` to keep the external program.
+- Behavior change (spec decision 14): a default install (provider `local`) now reports orchestration `harness`, so the `wev-orchestrate` skill uses the harness's own flow unless JEV is configured (`decision.provider` set to `jev` and a key available). The Bash guard stays active: without a run, the PreToolUse hook now judges each command under the built-in default policy (execute mode, medium risk) instead of staying silent, and it does not read the repository's configuration. Approvals and loop detection need a run, so they are not in use in harness mode. Implemented and tested.
 
 ## [5.0.0] - 2026-10-20
 
