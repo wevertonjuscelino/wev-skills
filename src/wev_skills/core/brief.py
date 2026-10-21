@@ -135,6 +135,7 @@ def brief_lines(state: RunState, next_step: str, lang: str) -> list[Line]:
         (PRIORITY_FRAME, header),
         *data_lines(state, lang),
         *_approval_lines(state, lang),
+        (PRIORITY_CRITERIA, i18n.t("orch.brief.rule", lang)),
         (PRIORITY_FRAME, i18n.t("orch.brief.next", lang, step=step)),
     ]
 

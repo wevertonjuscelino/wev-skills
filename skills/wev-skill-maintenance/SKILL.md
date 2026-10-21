@@ -13,6 +13,9 @@ structure, or reconciling conventions across repositories; no explicit slash com
 required. Select it only when relevant. Loading guidance does not grant permission to
 change installations, publish changes, or bypass repository rules.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to
+everything you write or change through this skill.
+
 Read [the maintenance policy](references/policy.md) and [the pinned source](references/upstream.json).
 For Portuguese, read [a política de manutenção](references/policy.pt-BR.md).
 Respond in the user's language; when running the local CLI for Portuguese output, use

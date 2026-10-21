@@ -170,6 +170,7 @@ class JevProvider:
         *,
         redactor: Callable[[str], str],
         program_resolver: Callable[[str], str] | None = None,
+        asker: Callable[[Mapping[str, Any], str], str] | None = None,
     ) -> None:
         self._runner = runner
         self._local = local
@@ -177,10 +178,14 @@ class JevProvider:
         self._timeout = timeout_seconds
         self._redactor = redactor
         self._resolve = program_resolver
+        self._asker = asker
 
     def ask(self, questions: Mapping[str, Any], state: str) -> str:
         """One ``jev ask`` call; returns its stdout. ``state`` is redacted before it is
-        written, so nothing leaves the machine that the redactor would have removed."""
+        written, so nothing leaves the machine that the redactor would have removed.
+        With an ``asker`` (the built-in HTTPS client) no program runs."""
+        if self._asker is not None:
+            return self._asker(questions, self._redactor(state))
         command = self._program_command()
         with tempfile.TemporaryDirectory(prefix="wev-jev-") as private:
             questions_file = os.path.join(private, "questions.json")

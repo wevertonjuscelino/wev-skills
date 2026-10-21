@@ -29,7 +29,7 @@ class NextTaskTests(OrchestratorCase):
         self.assertEqual(contract.permissions, ("Read", "Edit", "Bash"))
         self.assertEqual((contract.model, contract.risk.value), ("claude-sonnet-5-5", "low"))
         self.assertIn(".wev", contract.exclusions)
-        self.assertEqual(len(contract.constraints), 3)
+        self.assertEqual(len(contract.constraints), 4)
         self.assertTrue(contract.response_format)
         self.assertEqual(out["next_step"], f"wev task start task-1 --run {RUN_ID}")
         self.assertEqual(self.status_of("task-1"), TaskStatus.READY)

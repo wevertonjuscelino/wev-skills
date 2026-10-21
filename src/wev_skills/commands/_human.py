@@ -1,9 +1,9 @@
 """The friction shared by the human-operator commands.
 
 ``approval grant``, ``approval deny``, ``approval request --reopen-denied``, ``guard
-acknowledge`` and ``task reopen`` need a terminal on stdin and stdout, show the full action
-and make the operator type a word printed on screen. There is no flag and no environment
-variable that replaces this.
+acknowledge``, ``task reopen`` and ``run adopt`` need a terminal on stdin and stdout, show
+the full action and make the operator type a word printed on screen. There is no flag and
+no environment variable that replaces this.
 
 It is friction and a record, not authentication. Inside one user account the CLI cannot tell
 who is typing, and a determined process can allocate a pseudo-terminal and answer the

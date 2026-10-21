@@ -162,20 +162,20 @@ def _approval_deny(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _approval_list(args: argparse.Namespace) -> dict[str, Any]:
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     status = ApprovalStatus(args.status) if args.status else None
     records = [record.to_dict() for record in _store(scope).list(status)]
     return {"approvals": records, "config_source": scope.source}
 
 
 def _approval_show(args: argparse.Namespace) -> dict[str, Any]:
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     return {**_store(scope).get(args.id).to_dict(), "config_source": scope.source}
 
 
 def _approval_verify(args: argparse.Namespace) -> CommandResult:
     """Exit 0 when the approvals file and the audit log agree, 1 when they do not."""
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     found = [item.to_dict() for item in _store(scope).verify()]
     payload = {
         "ok": not found,

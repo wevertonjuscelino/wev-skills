@@ -9,6 +9,7 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.commands import Subparsers
 from wev_skills.commands._orchestration import Location, locate, resolve_run_id
+from wev_skills.core import active
 from wev_skills.core.engine import excluded_paths
 from wev_skills.core.errors import WevError
 from wev_skills.core.ports import SubprocessRunner
@@ -23,7 +24,10 @@ def _store(args: argparse.Namespace, location: Location | None = None) -> StateS
 
 
 def _show(args: argparse.Namespace) -> dict[str, Any]:
-    return _store(args).load().to_dict()
+    location = locate(args)
+    state = _store(args, location).load()
+    registered = active.is_registered(location.state_dir, state.run_id)
+    return {**state.to_dict(), "registered": registered}
 
 
 def _summary(state_dir: Path, run_id: str) -> dict[str, Any]:
@@ -50,9 +54,11 @@ def _active(state_dir: Path) -> str | None:
 
 def _list(args: argparse.Namespace) -> dict[str, Any]:
     state_dir = locate(args).state_dir
+    current = _active(state_dir)
     return {
         "state_dir": str(state_dir),
-        "active": _active(state_dir),
+        "active": current,
+        "active_registered": current is not None and active.is_registered(state_dir, current),
         "latest": latest_run(state_dir),
         "runs": [_summary(state_dir, run_id) for run_id in list_runs(state_dir)],
     }

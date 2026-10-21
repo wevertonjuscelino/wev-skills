@@ -34,6 +34,7 @@
   "security.decision.denied_by_list": "Denied: the command matches the deny pattern {pattern!r}.",
   "security.decision.plan_mode": "Denied: plan mode only allows read-only commands.",
   "security.decision.protected_path": "Denied: the command touches the protected path {path!r}.",
+  "security.decision.protected_ancestor": "Approval needed: {program} moves or removes {directory!r}, a directory that holds a protected path ({path!r}); that takes the protected path away without naming it. Ask the human operator.",
   "security.decision.risky": "Approval needed: the command {reasons}.",
   "security.decision.not_allowlisted": "Approval needed: the command is not in the allowed commands list.",
   "security.decision.high_risk": "Approval needed: the task is high risk and the command is not read-only.",

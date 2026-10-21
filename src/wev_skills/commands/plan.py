@@ -20,7 +20,7 @@ def _set(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _show(args: argparse.Namespace) -> dict[str, Any]:
-    return orchestrator_for(args).show_plan()
+    return orchestrator_for(args, reads=True).show_plan()
 
 
 def register(subparsers: Subparsers) -> None:

@@ -67,7 +67,7 @@ def _task_scope(args: argparse.Namespace, scope: Scope | None = None) -> Scope:
 
 
 def _hosts(args: argparse.Namespace) -> dict[str, Any]:
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     inventory = Inventory.from_config(scope.config.remote)
     return _with_source(scope, {"hosts": [host.to_dict() for host in inventory.hosts()]})
 

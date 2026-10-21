@@ -7,9 +7,10 @@ directory shadows the package).
 
 The engine gates its own commands, so most are left to it. The ones listed here change what
 the run allows (a decision of the operator, an approval request, a new or finished run,
-another configuration, a file written by ``agent``, a remote start or stop). The hook answers
-``ask`` for them so that Claude Code's permission prompt, which a person answers, stands in
-front of them.
+another configuration, a file written by ``agent``, a remote start or stop), and the two
+``jev`` commands that send a file's content to the JEV service (``jev batch`` also writes its
+``--out`` file). The hook answers ``ask`` for them so that Claude Code's permission prompt,
+which a person answers, stands in front of them.
 
 Those sensitive commands are also recognized by their words, however they are reached
 (``mentioned_reason``): behind a wrapper, inside an inline ``sh -c`` script, or as arguments
@@ -37,12 +38,14 @@ VALUE_OPTIONS = ("--lang", CONFIG_OPTION)
 MIN_ABBREVIATION = 3
 OPERATOR_COMMANDS = frozenset(
     {("approval", "grant"), ("approval", "deny"), ("guard", "acknowledge"), ("task", "reopen"),
-     ("specialists", "accept"), ("specialists", "retire")}
+     ("specialists", "accept"), ("specialists", "retire"), ("run", "adopt")}
 )  # fmt: skip
 RUN_COMMANDS = frozenset(
     {("run", "start"), ("run", "finish"), ("agent", "create"), ("agent", "export"),
      ("remote", "start"), ("remote", "stop")}
 )  # fmt: skip
+JEV_COMMANDS = frozenset({("jev", "ask"), ("jev", "batch")})
+"""``jev status`` sends nothing and writes nothing, so it is left to the engine."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"
 REOPEN_MIN = len("--reo")
@@ -51,6 +54,7 @@ REASON_OPERATOR = "engine_operator"
 REASON_RUN = "engine_run"
 REASON_REQUEST = "engine_request"
 REASON_CONFIG = "engine_config"
+REASON_JEV = "engine_jev"
 
 
 def _real_program(program: str, cwd: str) -> str | None:
@@ -108,6 +112,8 @@ def _command_reason(args: Sequence[str]) -> str | None:
     if words == REOPEN_COMMAND:
         reopens = any(_abbreviates(arg, REOPEN_OPTION, REOPEN_MIN) for arg in args)
         return REASON_OPERATOR if reopens else REASON_REQUEST
+    if words in JEV_COMMANDS:
+        return REASON_JEV
     return REASON_RUN if words in RUN_COMMANDS else None
 
 

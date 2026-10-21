@@ -20,7 +20,7 @@ def _version(args: argparse.Namespace) -> dict[str, Any]:
 
 def _config_show(args: argparse.Namespace) -> dict[str, Any]:
     """The configuration every other command would use here, and where it came from."""
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     shown: dict[str, Any] = {**scope.config.to_dict(), "config_source": scope.source}
     if scope.active is not None:
         shown["pinned_by_run"] = scope.source.removeprefix(RUN_SOURCE_PREFIX)

@@ -28,6 +28,7 @@ WEV = ROOT / "bin" / "wev"
 HOOKS_FILE = ROOT / "hooks" / "hooks.json"
 RUN = "r1"
 SECRET_FILE = "." + "env"
+NO_RUN = "wev (no run, built-in default policy, execute mode)"
 
 
 class FakeStdin(io.StringIO):
@@ -108,26 +109,39 @@ class HookCase(unittest.TestCase):
         found = self.bash(command, cwd)
         return found["decision"] if found else None
 
+    def without_run(self, command: str, cwd: Path | None = None) -> str | None:
+        """The decision when no run governs the command: the built-in defaults judge it."""
+        found = self.bash(command, cwd)
+        if found is None:
+            return None
+        self.assertTrue(found["reason"].startswith(NO_RUN), found["reason"])
+        return found["decision"]
+
 
 class ScopeTests(HookCase):
     def payload(self, cwd: object) -> dict[str, Any]:
         return {"cwd": cwd, "tool_name": "Bash", "tool_input": {"command": "rm -rf build"}}
 
-    def test_without_a_state_directory_every_hook_is_silent_and_creates_nothing(self) -> None:
-        before = tree(self.work)
-        for name in hook_cmd.HOOKS:
+    def assert_no_run_answers(self) -> None:
+        """The brief hooks are silent; the Bash pre-check judges under the defaults."""
+        for name in ("session-context", "prompt-reminder"):
             with self.subTest(name=name):
                 self.assertEqual(self.hook(name, self.payload(str(self.work))), (0, "", ""))
+        self.assertEqual(self.without_run("rm -rf build"), "ask")
+
+    def test_without_a_state_directory_only_the_bash_check_answers_and_nothing_is_created(
+        self,
+    ) -> None:
+        before = tree(self.work)
+        self.assert_no_run_answers()
         self.assertEqual(tree(self.work), before)
 
-    def test_without_an_active_run_every_hook_is_silent(self) -> None:
+    def test_without_an_active_run_only_the_bash_check_answers(self) -> None:
         self.start()
         self.assertEqual(self.decision("rm -rf build"), "ask")
         self.wev("run", "finish")
         before = tree(self.work)
-        for name in hook_cmd.HOOKS:
-            with self.subTest(name=name):
-                self.assertEqual(self.hook(name, self.payload(str(self.work))), (0, "", ""))
+        self.assert_no_run_answers()
         self.assertEqual(tree(self.work), before)
 
     def test_a_subdirectory_of_the_repository_is_in_scope(self) -> None:
@@ -165,8 +179,10 @@ class ScopeTests(HookCase):
                 code, out, err = self.hook("pre-tool-use", self.payload(cwd))
                 self.assertEqual((code, err), (0, ""))
                 if isinstance(cwd, str) and cwd.startswith("/") and cwd.endswith("/.."):
-                    # Normalizes to a real directory far above the repository: no run there.
-                    self.assertEqual(out, "")
+                    # Normalizes to a real directory far above the repository: no run
+                    # there, so the built-in defaults judge it.
+                    reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+                    self.assertTrue(reason.startswith(NO_RUN), reason)
                     continue
                 decision = json.loads(out)["hookSpecificOutput"]["permissionDecision"]
                 self.assertEqual(decision, "ask")
@@ -474,7 +490,7 @@ class DecideCommandTests(unittest.TestCase):
 
 
 class FailureTests(HookCase):
-    """Silent only while no run is known; with a run, the Bash pre-check asks."""
+    """Unreadable input is silent without a run; with a run, the Bash pre-check asks."""
 
     BASH = {"tool_name": "Bash", "tool_input": {"command": "rm -rf build"}}
 
@@ -538,11 +554,17 @@ class FailureTests(HookCase):
         def explode(*_: object) -> str:
             raise RuntimeError("secret detail")
 
-        for name in hook_cmd.HOOKS:
+        for name in set(hook_cmd.HOOKS) - {"pre-tool-use"}:
             with self.subTest(name=name), mock.patch.dict(hook_cmd.HOOKS, {name: explode}):
                 note = self.note(name, payload)
                 self.assertIn("RuntimeError", note)
                 self.assertNotIn("secret detail", note)
+        with mock.patch.dict(hook_cmd.HOOKS, {"pre-tool-use": explode}):
+            code, out, err = self.hook("pre-tool-use", payload)
+        self.assertEqual(json.loads(out)["hookSpecificOutput"]["permissionDecision"], "ask")
+        self.assertIn("RuntimeError", out + err)
+        self.assertNotIn("secret detail", out + err)
+        self.assertEqual((code, err.count("\n")), (0, 1))
 
     def test_the_note_is_localized(self) -> None:
         self.assertIn("não conseguiu agir", self.hook("pre-tool-use", "{", "--lang", "pt-BR")[2])
@@ -631,9 +653,12 @@ class EndToEndTests(unittest.TestCase):
         return self.wev("hook", "pre-tool-use", stdin=json.dumps(payload), cwd=self.elsewhere)
 
     def test_deny_ask_silence_and_fail_safe_from_a_real_process(self) -> None:
-        silent = self.hook("rm -rf build", self.repo)
-        self.assertEqual((silent.returncode, silent.stdout, silent.stderr), (0, "", ""))
+        no_run = self.hook("rm -rf build", self.repo)
+        self.assertEqual((no_run.returncode, no_run.stderr), (0, ""))
+        reason = json.loads(no_run.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertTrue(reason.startswith(NO_RUN), reason)
         self.assertFalse((self.repo / ".wev").exists())
+        self.assertEqual(self.hook("git status", self.repo).stdout, "")
         started = self.wev("run", "start", "--objective", "Tidy up", "--files", "1",
                            "--mode", "execute", "--run-id", "e2e")  # fmt: skip
         self.assertEqual(started.returncode, 0, started.stderr)
@@ -655,7 +680,9 @@ class EndToEndTests(unittest.TestCase):
         )
 
         outside = self.hook("rm -rf build", self.elsewhere)
-        self.assertEqual((outside.returncode, outside.stdout, outside.stderr), (0, "", ""))
+        self.assertEqual((outside.returncode, outside.stderr), (0, ""))
+        reason = json.loads(outside.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertTrue(reason.startswith(NO_RUN), reason)
 
         (self.repo / ".wev" / "runs" / "e2e" / STATE_FILE).write_text("{", encoding="utf-8")
         for command in ("rm -rf build", "ls"):

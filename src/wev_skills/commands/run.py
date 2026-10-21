@@ -1,8 +1,9 @@
-"""``wev run start|status|resume|brief|finish|report``: the life of one orchestration run."""
+"""``wev run start|status|resume|brief|finish|report|adopt``: the life of one orchestration run."""
 
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import replace
 from typing import Any
 
@@ -10,6 +11,7 @@ from wev_skills import i18n
 from wev_skills.cli import CommandResult
 from wev_skills.commands import Subparsers
 from wev_skills.commands._fence import fence_discovery
+from wev_skills.commands._human import confirm_human, summary_lines
 from wev_skills.commands._orchestration import (
     add_run_argument,
     locate,
@@ -17,12 +19,14 @@ from wev_skills.commands._orchestration import (
     orchestrator_for,
 )
 from wev_skills.commands.decide import add_signal_args, signals_from
+from wev_skills.core import active, run_start
 from wev_skills.core.contracts import Mode
-from wev_skills.core.errors import ValidationError
-from wev_skills.core.orchestrator import START_MODES
+from wev_skills.core.errors import StateConflict, ValidationError
+from wev_skills.core.orchestrator import START_MODES, Orchestrator
 from wev_skills.core.report_markdown import render_markdown
 from wev_skills.intake.store import load_brief
-from wev_skills.state.model import with_discovery
+from wev_skills.security import untrusted
+from wev_skills.state.model import Phase, with_discovery
 
 FORMATS = ("json", "md")
 
@@ -58,7 +62,13 @@ def _start(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _status(args: argparse.Namespace) -> dict[str, Any]:
-    return fence_discovery(orchestrator_for(args).status())
+    orchestrator = orchestrator_for(args, reads=True)
+    registered = active.is_registered(orchestrator.services.state_dir, _run_id(orchestrator))
+    return {**fence_discovery(orchestrator.status()), "registered": registered}
+
+
+def _run_id(orchestrator: Orchestrator) -> str:
+    return orchestrator.store.run_dir.name
 
 
 def _resume(args: argparse.Namespace) -> dict[str, Any]:
@@ -67,16 +77,53 @@ def _resume(args: argparse.Namespace) -> dict[str, Any]:
 
 def _brief(args: argparse.Namespace) -> CommandResult:
     lang = i18n.resolve_language(args.brief_lang)
-    return CommandResult(orchestrator_for(args).brief(args.max_chars, lang), raw=True)
+    return CommandResult(orchestrator_for(args, reads=True).brief(args.max_chars, lang), raw=True)
 
 
 def _finish(args: argparse.Namespace) -> dict[str, Any]:
-    return orchestrator_for(args).finish()
+    return orchestrator_for(args, finished_ok=True).finish()
+
+
+def _adopt(args: argparse.Namespace) -> dict[str, Any]:
+    """Human-operator command: register a run found in the tree, after the person has read
+    its pinned configuration, so the engine applies it as policy."""
+    orchestrator = orchestrator_for(args, reads=True)
+    services, run_id = orchestrator.services, _run_id(orchestrator)
+    state = orchestrator.store.load()
+    if state.phase is Phase.DONE:
+        message = i18n.t("orch.error.adopt_finished", run=run_id)
+        raise StateConflict("run_finished", message, {"run_id": run_id})
+    if not active.is_registered(services.state_dir, run_id):
+        fields = {
+            "run": run_id,
+            "root": services.root,
+            "state_dir": services.state_dir,
+            "mode": state.mode.value,
+            "objective": state.objective,
+            "config": json.dumps(dict(state.config), sort_keys=True),
+        }
+        shown = {name: _one_line(value) for name, value in fields.items()}
+        confirmed = confirm_human(
+            services.audit,
+            "run.adopt_refused",
+            {"run_id": run_id},
+            i18n.t("orch.error.adopt_human", run=run_id),
+            summary_lines(i18n.t("orch.confirm.adopt"), shown),
+        )
+        run_start.register(orchestrator, run_id)
+        services.audit.append("run.adopted", {"run_id": run_id, "operator": confirmed.label()})
+    return {"run_id": run_id, "registered": True, "state_dir": str(services.state_dir)}
+
+
+def _one_line(value: object) -> str:
+    """A value read from the run's files, as shown to the operator: no terminal control
+    and no line break, so it cannot redraw the screen or pose as another field."""
+    return untrusted.sanitize(str(value)).replace("\n", " ")
 
 
 def _report(args: argparse.Namespace) -> CommandResult:
     lang = i18n.resolve_language(args.report_lang)
-    report = orchestrator_for(args).report(lang)
+    report = orchestrator_for(args, finished_ok=True).report(lang)
     if args.format == "md":
         return CommandResult(render_markdown(report, lang), raw=True)
     return CommandResult(report)
@@ -110,6 +157,10 @@ def register(subparsers: Subparsers) -> None:
         "--lang", dest="brief_lang", default=None, help=i18n.t("orch.arg.brief_lang")
     )
     brief.set_defaults(handler=_brief)
+
+    adopt = actions.add_parser("adopt", help=i18n.t("orch.run.adopt.help"))
+    adopt.add_argument("--run", default=None, help=i18n.t("orch.arg.active_run"))
+    adopt.set_defaults(handler=_adopt)
 
     finish = actions.add_parser("finish", help=i18n.t("orch.run.finish.help"))
     finish.add_argument("--run", default=None, help=i18n.t("orch.arg.active_run"))

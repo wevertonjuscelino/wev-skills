@@ -20,6 +20,19 @@ Where things live:
 - Configuration: `--config FILE` if given, else `<repository root>/wev.config.json` if it exists, else the defaults. The effective configuration is pinned in the run state by `run start`. A later command with a different `--config` is refused (exit 2, `config_pinned`); drop the option, or finish the run and start another to use a different file. `config show` prints the configuration these rules give for the working directory (the run's pinned one while a run is active), with `config_source`, and `config validate FILE` checks a file; both print `warnings`, for example when `decision.provider` is `jev` and the program is not found on `permissions.exec_path`. The `language` key of a config file sets the message language below `--lang` and `WEV_LANG` and above `LANG`.
 - One run may be active per repository. Commands without `--run` act on it. A second `run start` while one is active is refused (`run_active`) and names `run finish`. A run's mode never changes after `run start`; to change it, finish the run and start another.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
+## First step: check JEV
+
+Before anything else in a session, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" jev status` and read `orchestration` in its answer.
+
+- `"wev"`: follow the flow below as written.
+- `"harness"`: do not run `run start` or the task commands. Plan and track the work with the harness's own tools.
+  - When `key_error` is set, tell the user what it says.
+  - When `key_error` is null, JEV is simply not configured. Tell the user once how to turn it on: set `decision.provider` to `jev` in the config (`wev.config.json` or the run's `--config`), and provide a key through `TYPESAFE_API_KEY`, the file `~/.config/wev-skills/.env` (mode 600) or the keychain item `typesafe-api-key`.
+
+The Bash guard hook stays active in both modes: without a run it judges each command under the built-in default policy. Approvals and loop detection need a run, so they are not in use in `harness` mode.
+
 ## Choose a mode
 
 The first word of the request may be a mode. Without one, use `auto`.
@@ -174,7 +187,7 @@ The plugin registers three Claude Code hooks (`hooks/hooks.json`). They look for
 
 - SessionStart (after context compaction or resume) and UserPromptSubmit add the brief of the active run to the context: objective, phase, one line per task, the current task's acceptance criteria, pending approvals and the next step, sanitized and fenced. The per-prompt brief is capped at `harness.plan_reminder_max_chars` (default 600) and can be turned off with `harness.plan_reminder` false. Print it yourself with `run brief`. It is recorded state, not verified against the repository; run `run resume` before relying on it.
 - PreToolUse on Bash judges the command under the run's pinned configuration, mode and risk and answers `deny` or `ask`; it never approves anything by itself (it never answers `allow`) and does not read the approval store. The person's answer in Claude Code's permission prompt is the human gate. It sends the engine's own sensitive commands to the human when it can read the command line (the operator commands, `approval request` with or without `--reopen-denied`, `run start`, `run finish`, any command with `--config`, `agent create`, `agent export`, `remote start`, `remote stop`), recognized by words directly, behind a known wrapper (`nohup`, `nice`, `timeout`, `env` and the like), in an inline `sh -c`, `bash -c` or `zsh -c`, or as arguments handed to another program. It also asks for abbreviated `rm` options, `git rm -r`/`-f`, `git clean` that is not a dry run, `rsync --delete*` and a recursive reader given a directory that holds a protected path (a heuristic over a fixed list, capped at 20,000 entries). It cannot see inside a script file or a program: a script that types into a pseudo-terminal (for example `python3 pty_type.py`) names nothing on the command line it reads, so it is not asked about. Environment-assignment prefixes, unresolved shell expansions and wrappers it cannot analyze give `ask`, or `deny` in plan mode. A command the policy denies is denied with the reason; do not work around a denial.
-- The hooks do not fail open once a run is known: a problem (unreadable state, internal error) becomes `ask`, not silence. They stay silent only when no run exists. The work it does is capped. `bin/wev` exits quietly for hook subcommands on Python older than 3.10, and then nothing is checked; the stock macOS `/usr/bin/python3` is 3.9, so the `python3` on `PATH` must be 3.10 or newer (`python3 --version`).
+- The hooks do not fail open once a run is known: a problem (unreadable state, internal error) becomes `ask`, not silence. Without a run, the brief hooks stay silent and the Bash hook judges commands under the built-in default policy. The work it does is capped. `bin/wev` exits quietly for hook subcommands on Python older than 3.10, and then nothing is checked; the stock macOS `/usr/bin/python3` is 3.9, so the `python3` on `PATH` must be 3.10 or newer (`python3 --version`).
 
 Limits: the hook sees only the Bash tool, not Edit or Write. The engine is a guardrail for a fallible agent and a recorder of decisions, not a security boundary against an adversarial agent in the same user account. Without the plugin's hooks, approvals are records only. The hooks have not been exercised in a real Claude Code session.
 

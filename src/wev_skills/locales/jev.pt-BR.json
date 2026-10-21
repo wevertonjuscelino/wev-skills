@@ -1,0 +1,20 @@
+{
+  "jev.group.help": "Verificar e usar o cliente JEV embutido.",
+  "jev.status.help": "Mostra o provedor JEV, o cliente, a origem da chave e o endpoint (sem chamada de rede, sem imprimir a chave).",
+  "jev.ask.help": "Faz ao JEV perguntas tipadas sobre um estado e imprime as respostas.",
+  "jev.batch.help": "Faz ao JEV as mesmas perguntas sobre muitos itens (JSONL) e grava uma linha de resposta por item.",
+  "jev.arg.questions": "Arquivo JSON com o objeto de perguntas.",
+  "jev.arg.state": "O texto do estado sobre o qual perguntar.",
+  "jev.arg.state_file": "Arquivo com o texto do estado sobre o qual perguntar.",
+  "jev.arg.items": "Arquivo JSONL com um objeto {\"id\", \"state\"} por linha.",
+  "jev.arg.out": "Arquivo JSONL a gravar, uma linha por item, na ordem da entrada.",
+  "jev.error.state_unreadable": "não foi possível ler o arquivo de estado {path}",
+  "jev.error.items_unreadable": "não foi possível ler o arquivo de itens {path}",
+  "jev.error.item_line": "{path}, linha {line}: {why}",
+  "jev.error.item_not_json": "não é JSON válido",
+  "jev.error.item_shape": "cada linha deve ser um objeto com \"id\" e \"state\", ambos texto",
+  "jev.error.item_duplicate_id": "o id {id} já foi usado em uma linha anterior",
+  "jev.error.no_items": "o arquivo de itens {path} não tem itens",
+  "jev.error.out_unwritable": "não foi possível gravar o arquivo de saída {path}",
+  "jev.error.item_failed": "o JEV não respondeu: {why}"
+}

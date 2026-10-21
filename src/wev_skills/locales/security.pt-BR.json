@@ -34,6 +34,7 @@
   "security.decision.denied_by_list": "Negado: o comando corresponde ao padrão de bloqueio {pattern!r}.",
   "security.decision.plan_mode": "Negado: o modo plan só permite comandos de leitura.",
   "security.decision.protected_path": "Negado: o comando toca o caminho protegido {path!r}.",
+  "security.decision.protected_ancestor": "Aprovação necessária: {program} move ou remove {directory!r}, um diretório que contém um caminho protegido ({path!r}); isso tira o caminho protegido do lugar sem nomeá-lo. Peça ao operador humano.",
   "security.decision.risky": "Precisa de aprovação: o comando {reasons}.",
   "security.decision.not_allowlisted": "Precisa de aprovação: o comando não está na lista de comandos permitidos.",
   "security.decision.high_risk": "Precisa de aprovação: a tarefa é de alto risco e o comando não é só de leitura.",

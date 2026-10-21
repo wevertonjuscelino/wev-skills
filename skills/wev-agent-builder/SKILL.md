@@ -12,6 +12,8 @@ Agents in wev-skills are data, not code. Each agent is a versioned, schema-valid
 
 Answer the user in the language they write; when they write Portuguese, pass `--lang pt-BR` before the command group. Commands use `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`. Outside a plugin the same commands work as `wev` when it is on PATH, or as `python3 -m wev_skills` with the package importable.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
 ## Workflow
 
 1. Look at what exists: `agent list` shows ids, `extends` and model; `agent show <id> --resolved` shows a spec with its inheritance applied.

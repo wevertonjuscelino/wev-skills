@@ -12,6 +12,8 @@ The evaluation harness replays fixed, scripted trajectories against the real eng
 
 Answer the user in the language they write; when they write Portuguese, pass `--lang pt-BR` before the command group. Commands use `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`. Outside a plugin the same commands work as `wev` when it is on PATH, or as `python3 -m wev_skills` with the package importable.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
 ## What the results mean, and what they do not
 
 State this whenever you present numbers.

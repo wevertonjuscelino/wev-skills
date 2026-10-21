@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from tests.unit.test_hooks import HookCase
+import json
+import time
+from unittest import mock
+
+from tests.unit.test_hooks import NO_RUN, WEV, HookCase
+from wev_skills.adapters.claude_code import bash_guard
 
 DOT_ENV = "." + "env"
 ASK, DENY = "ask", "deny"
@@ -27,14 +32,14 @@ class ParentPathTests(LookupCase):
         self.assertEqual(self.decision("rm -rf ..", self.elsewhere), ASK)
 
     def test_the_working_directory_alone_is_not_a_target(self) -> None:
-        self.assertIsNone(self.decision("rm -rf build", self.work.parent))
+        self.assertEqual(self.without_run("rm -rf build", self.work.parent), ASK)
         self.assertIsNone(self.decision("ls", self.work.parent))
 
     def test_a_harmless_command_on_a_parent_stays_unasked(self) -> None:
         self.assertIsNone(self.decision(f"ls {self.work.parent}", self.elsewhere))
 
     def test_an_unrelated_path_finds_no_run(self) -> None:
-        self.assertIsNone(self.decision(f"rm -rf {self.elsewhere}/build", self.elsewhere))
+        self.assertEqual(self.without_run(f"rm -rf {self.elsewhere}/build", self.elsewhere), ASK)
 
 
 class UnknownTargetTests(LookupCase):
@@ -52,14 +57,18 @@ class UnknownTargetTests(LookupCase):
                 self.assertEqual(found["decision"], ASK)
                 self.assertIn("cannot be known", found["reason"])
 
-    def test_a_command_without_variables_elsewhere_stays_silent(self) -> None:
-        for line in ("rm -rf build", "ls *.py", "cat notes.txt"):
+    def test_a_command_without_variables_elsewhere_gets_the_default_policy(self) -> None:
+        for line in ("rm -rf build", "ls *.py"):
             with self.subTest(line=line):
-                self.assertIsNone(self.decision(line, self.elsewhere))
+                self.assertEqual(self.without_run(line, self.elsewhere), ASK)
+        self.assertIsNone(self.decision("cat notes.txt", self.elsewhere))
 
-    def test_no_registered_run_means_silence(self) -> None:
+    def test_no_registered_run_means_the_default_policy(self) -> None:
         self.wev("run", "finish")
-        self.assertIsNone(self.decision("rm -rf $TARGET", self.elsewhere))
+        found = self.bash("rm -rf $TARGET", self.elsewhere)
+        assert found is not None
+        self.assertEqual(self.without_run("rm -rf $TARGET", self.elsewhere), ASK)
+        self.assertNotIn("cannot be known", found["reason"])
 
 
 class DestructiveFormTests(LookupCase):
@@ -141,3 +150,77 @@ class RecursiveReaderTests(LookupCase):
                 self.assertIn(self.decision(line), (ASK, DENY))
         self.assertIsNone(self.decision("rg K src"))
         self.assertIn(self.decision("rg --hidden K src"), (ASK, DENY))
+
+
+class NoRunTests(HookCase):
+    """No run anywhere: the Bash guard judges under the built-in defaults (execute, medium)."""
+
+    LOOSE = {"permissions": {"protected_paths": [], "allowed_commands": ["rm", "git", "cat"]}}
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.work / DOT_ENV).write_text("K=v\n", encoding="utf-8")
+
+    def test_destructive_commands_ask_without_a_run(self) -> None:
+        for line in ("rm -rf / --no-preserve-root", "git push --force origin main",
+                     "rm -rf / --no-preserve-root; git push --force origin main"):  # fmt: skip
+            with self.subTest(line=line):
+                found = self.bash(line)
+                assert found is not None
+                self.assertEqual(found["decision"], ASK)
+                self.assertIn(NO_RUN, found["reason"])
+
+    def test_a_read_only_command_stays_silent(self) -> None:
+        for line in ("git status", "ls -la"):
+            with self.subTest(line=line):
+                self.assertIsNone(self.bash(line))
+
+    def test_protected_paths_are_denied_as_in_a_run(self) -> None:
+        for line in ("cat .git/config", f"cat {DOT_ENV}", "echo x > .wev/approvals.json"):
+            with self.subTest(line=line):
+                self.assertEqual(self.decision(line), DENY)
+        self.assertEqual(self.decision("cat ../.git/config", self.work / "src"), DENY)
+
+    def test_engine_commands_keep_their_classification(self) -> None:
+        for args in ("run start --objective x --mode execute", "approval grant apr-1",
+                     "--config /tmp/a.json run status", "jev ask --questions q.json --state x",
+                     "jev batch --questions q.json --items i.jsonl --out r.jsonl"):  # fmt: skip
+            with self.subTest(args=args):
+                self.assertEqual(self.decision(f"{WEV} {args}"), ASK)
+        self.assertIsNone(self.decision(f"{WEV} jev status"))
+
+    def test_the_jev_reason_names_the_service(self) -> None:
+        found = self.bash(f"{WEV} jev ask --questions q.json --state-file notes.txt")
+        assert found is not None
+        self.assertIn("JEV service", found["reason"])
+
+    def test_a_repository_configuration_cannot_loosen_the_guard(self) -> None:
+        lines = ("cat .git/config", f"cat {DOT_ENV}", "rm -rf build", "git push -f origin main")
+        before = {line: self.bash(line) for line in lines}
+        (self.work / "wev.config.json").write_text(json.dumps(self.LOOSE), encoding="utf-8")
+        for line in lines:
+            with self.subTest(line=line):
+                self.assertEqual(self.bash(line), before[line])
+        self.start()  # a run pins the file, and then it does apply
+        self.assertIsNone(self.decision("cat .git/config"))
+
+    def test_an_internal_error_without_a_run_asks(self) -> None:
+        with mock.patch.object(bash_guard, "decide_command", side_effect=RuntimeError("x")):
+            found = self.bash("ls")
+        assert found is not None
+        self.assertEqual(found["decision"], ASK)
+        self.assertIn("RuntimeError", found["reason"])
+        self.assertIn(NO_RUN, found["reason"])
+
+    def test_the_answer_follows_the_language_without_a_run(self) -> None:
+        payload = {"cwd": str(self.work), "tool_name": "Bash",
+                   "tool_input": {"command": "rm -rf build"}}  # fmt: skip
+        out = self.hook("pre-tool-use", payload, "--lang", "pt-BR")[1]
+        reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("sem execução", reason)
+
+    def test_a_long_line_without_a_run_is_judged_quickly(self) -> None:
+        words = " ".join(f"d/{index}" for index in range(1900))
+        started = time.monotonic()
+        self.assertIsNone(self.bash(f"nohup ls {words}"))
+        self.assertLess(time.monotonic() - started, 5.0)

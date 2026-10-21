@@ -17,6 +17,8 @@ Do not assume, do not hide confusion, and show the tradeoffs.
 
 Write the least code that solves the problem, and build nothing speculative.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.**
+
 - Add no feature that was not requested.
 - Do not create an abstraction for code that is used once.
 - Add no configurability or flexibility that nobody asked for.

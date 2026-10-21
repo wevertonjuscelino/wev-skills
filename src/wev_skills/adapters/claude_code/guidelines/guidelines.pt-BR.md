@@ -17,6 +17,8 @@ Não presuma, não esconda a dúvida e mostre as alternativas.
 
 Escreva o mínimo de código que resolve o problema e não construa nada especulativo.
 
+**Regra inegociável: siga os princípios YAGNI e prefira a solução com menos código.**
+
 - Não adicione funcionalidade que não foi pedida.
 - Não crie abstração para código usado uma única vez.
 - Não adicione configurabilidade ou flexibilidade que ninguém pediu.

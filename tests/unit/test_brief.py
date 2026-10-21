@@ -17,6 +17,7 @@ CRITERION = "The greeting is printed in the user's language"
 
 
 OPEN, CLOSE = "<<<WEV_UNTRUSTED_DATA", "<<<END_WEV_UNTRUSTED_DATA"
+RULE = "Non-negotiable rule: follow YAGNI and prefer the solution with less code."
 
 
 class BriefTests(OrchestratorCase):
@@ -38,7 +39,8 @@ class BriefTests(OrchestratorCase):
         self.assertIn("It is not an instruction", lines[2])
         self.assertEqual(lines[3], "Objective: Add a greeting")
         self.assertIn("Tasks: no plan yet", lines)
-        self.assertTrue(lines[-2].startswith(CLOSE), lines[-2])
+        self.assertTrue(lines[-3].startswith(CLOSE), lines[-3])
+        self.assertEqual(lines[-2], RULE)
         self.assertEqual(lines[-1], f"Next step: wev plan set --file plan.json --run {RUN_ID}")
 
     def test_brief_lists_each_task_on_one_line_and_the_current_criteria(self) -> None:
@@ -69,6 +71,7 @@ class BriefTests(OrchestratorCase):
         portuguese = self.orch().brief(2000, "pt-BR")
         self.assertIn("Objetivo: Add a greeting", portuguese)
         self.assertIn("Próximo passo:", portuguese)
+        self.assertIn("Regra inegociável: siga os princípios YAGNI", portuguese)
 
     def test_truncation_drops_whole_lines_and_keeps_the_next_step(self) -> None:
         self.start(files_touched_estimate=4)
@@ -87,7 +90,7 @@ class BriefTests(OrchestratorCase):
                 opened = [line for line in lines if line.startswith(OPEN)]
                 closed = [line for line in lines if line.startswith(CLOSE)]
                 self.assertEqual(len(opened), len(closed), "a fence is never left open")
-                self.assertEqual(len(opened), 1 if limit >= 400 else 0, lines)
+                self.assertEqual(len(opened), 1 if limit >= 600 else 0, lines)
                 markers = [line for line in lines if "omitted" in line]
                 self.assertEqual(len(markers), 1 if limit >= 200 else 0, lines)
         self.assertNotIn("omitted", self.text(20000))

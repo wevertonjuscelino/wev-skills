@@ -84,6 +84,7 @@ Nos comandos abaixo, `PYTHONPATH=src` está definido e o diretório de trabalho 
 ### 5. O roteamento tem interface documentada e implementação funcional: Atendido
 
 - Comando: `python3 -m unittest tests.unit.test_models_router tests.unit.test_decisions_local tests.unit.test_decisions_jev tests.unit.test_decisions_factory tests.unit.test_routing_catalog`. Resultado: `OK`. Interface: arquitetura 4.2 e 4.4.
+- O cliente HTTP embutido do JEV (padrão, `decision.jev.command` é `builtin`) e `wev jev status|ask|batch`: implementados e testados contra um servidor falso local. O serviço real da TypeSafe não foi executado nesta mudança.
 - Falta: o adaptador do JEV é testado com um cliente falso e com o formato de resposta registrado; o JEV foi chamado de verdade três vezes com entradas sintéticas (uma classificação, duas seleções de ferramentas, 2026-10-13), e as respostas da seleção de ferramentas não foram salvas como fixtures. O roteamento e a seleção de ferramentas são heurísticas cuja utilidade não foi medida.
 
 ### 6. A criação e a validação de agentes têm testes: Atendido
