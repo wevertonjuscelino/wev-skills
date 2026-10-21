@@ -22,6 +22,7 @@ from wev_skills import i18n
 from wev_skills.adapters.claude_code import engine_cli
 from wev_skills.core.contracts import Mode, PermissionDecision, PermissionOutcome, RiskLevel
 from wev_skills.security import commands, git_rules, untrusted
+from wev_skills.security.paths import fold
 from wev_skills.security.permissions import PermissionPolicy
 from wev_skills.security.redact import redact
 from wev_skills.security.shell import SimpleCommand, split_commands
@@ -116,7 +117,7 @@ def git_directory(argv: Sequence[str], cwd: str) -> str:
 
 
 def _inside(root: str, path: str) -> bool:
-    real_root, real = os.path.realpath(root), os.path.realpath(path)
+    real_root, real = fold(os.path.realpath(root)), fold(os.path.realpath(path))
     return real == real_root or real.startswith(real_root.rstrip(os.sep) + os.sep)
 
 

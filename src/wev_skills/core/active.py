@@ -8,6 +8,7 @@ acting as if there were no run.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ from wev_skills.core import run_registry
 from wev_skills.core.contracts import Mode, RiskLevel, TaskStatus, higher_risk
 from wev_skills.core.errors import WevError
 from wev_skills.core.run_registry import RegistryEntry
+from wev_skills.security.paths import fold
 from wev_skills.state.model import Phase, RunState
 from wev_skills.state.store import StateStore, active_run, run_dir, runs_by_recency, runs_dir
 
@@ -126,7 +128,7 @@ def _configured_state_dir(directory: Path) -> str | None:
 def _candidates(directory: Path, entries: Sequence[RegistryEntry]) -> tuple[Path, ...]:
     """State directories ``directory`` may hold: the default, its config file's, registered."""
     found = [directory / name for name in _tree_names(directory)]
-    found += [Path(entry.state_dir) for entry in entries if Path(entry.root) == directory]
+    found += [Path(entry.state_dir) for entry in entries if _same(Path(entry.root), directory)]
     unique = dict.fromkeys(_resolved(path) for path in found)
     return tuple(path for path in unique if _is_dir(runs_dir(path)))
 
@@ -152,8 +154,14 @@ def _in_directory(directory: Path, entries: Sequence[RegistryEntry]) -> ActiveRu
     return None
 
 
+def _same(left: Path, right: Path) -> bool:
+    """Whether two paths name the same place, casefolded where the file system ignores case."""
+    return fold(str(left)) == fold(str(right))
+
+
 def _contains(root: Path, path: Path) -> bool:
-    return path == root or root in path.parents
+    folded_root, folded = fold(str(root)), fold(str(path))
+    return folded == folded_root or folded.startswith(folded_root.rstrip(os.sep) + os.sep)
 
 
 def _through_registry(
@@ -222,15 +230,16 @@ def _has_open_run(state_dir: Path) -> bool:
 def _trusted_in(directory: Path, entries: Sequence[RegistryEntry]) -> ActiveRun | None:
     """The registered run of ``directory``, else ``UNREGISTERED`` when its tree holds an
     open run the registry does not list, else ``None``."""
-    mine = [entry for entry in entries if Path(entry.root) == directory]
+    mine = [entry for entry in entries if _same(Path(entry.root), directory)]
     for entry in mine:
         found = _registered(entry)
         if found is not None:
             return found
-    claimed = {_resolved(Path(entry.state_dir)) for entry in mine}
+    claimed = {fold(str(_resolved(Path(entry.state_dir)))) for entry in mine}
     for name in _tree_names(directory):
         state_dir = _resolved(directory / name)
-        if state_dir not in claimed and _is_dir(runs_dir(state_dir)) and _has_open_run(state_dir):
+        unclaimed = fold(str(state_dir)) not in claimed
+        if unclaimed and _is_dir(runs_dir(state_dir)) and _has_open_run(state_dir):
             return _restricted(directory, state_dir, "", UNREGISTERED)
     return None
 
@@ -245,7 +254,8 @@ def find_hook_run(
     repository, a lost registry) gives a restricted run with ``state_error`` set to
     ``UNREGISTERED``; its state is read only for its phase. A registry that exists but
     cannot be read gives ``REGISTRY_UNREADABLE``. The tree's ``wev.config.json`` is read
-    only to find state directories to report, never for a policy.
+    only to find state directories to report, never for a policy. Paths are compared with
+    the registry's roots casefolded where the file system ignores case (``paths.fold``).
     """
     start = _resolved(Path(cwd))
     entries = run_registry.read_registry()

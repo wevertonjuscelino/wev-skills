@@ -9,6 +9,9 @@ here, it looks at directories that exist when the command is judged, and it walk
 ``MAX_ENTRIES`` entries (a larger tree is treated as holding a protected path). ``rg`` skips
 hidden files unless told otherwise, so for it a hidden protected name does not count
 without ``--hidden``, ``-.`` or ``-uu``. Exclusion options (``--exclude-dir``) are not read.
+Operands count as written and with a leading ``~``, ``~+`` or ``~-`` expanded. A reader that
+defaults to the working directory walks it whenever it was given no more operands than its
+pattern, even when that pattern names an existing file.
 Located entries are compared casefolded where the platform ignores case (``paths.fold``).
 """
 
@@ -18,7 +21,7 @@ import os
 from collections.abc import Callable, Sequence
 from fnmatch import fnmatchcase
 
-from wev_skills.security.paths import fold
+from wev_skills.security.paths import fold, home_spellings
 from wev_skills.security.risk import has_flag, has_long
 
 MAX_ENTRIES = 20_000
@@ -118,15 +121,20 @@ def contains_protected(
 
 
 def _directories(name: str, args: Sequence[str], cwd: str) -> list[str]:
-    """Existing directories among the operands; the working directory when a reader that
-    defaults to it was given nothing but its pattern."""
+    """Existing directories among the operands, as written and with a tilde expanded; plus
+    the working directory when a reader that defaults to it was given no more operands than
+    its pattern. That count alone decides: a pattern that happens to name a file here is
+    still a pattern."""
     operands = [arg for arg in args if arg and not arg.startswith("-")]
-    spellings = dict.fromkeys(s for arg in operands for s in (arg, os.path.expanduser(arg)))
+    spellings = dict.fromkeys(
+        spelling
+        for arg in operands
+        for spelling in (*home_spellings(arg, cwd), os.path.expanduser(arg))
+    )
     paths = [os.path.join(cwd, spelling) for spelling in spellings]
-    existing = [path for path in paths if os.path.lexists(path)]
-    found = [path for path in existing if os.path.isdir(path)]
-    implicit = name in IMPLICIT_CWD and not existing and len(operands) <= IMPLICIT_CWD[name]
-    return found or ([cwd] if implicit else [])
+    found = [path for path in paths if os.path.isdir(path)]
+    implicit = name in IMPLICIT_CWD and len(operands) <= IMPLICIT_CWD[name]
+    return list(dict.fromkeys([*found, *([cwd] if implicit else [])]))
 
 
 def protected_inside(
