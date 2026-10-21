@@ -201,9 +201,10 @@ def _guarded(
 
 
 def _protected(config: Config, root: Path) -> Config:
-    """``config`` with its state directory and the per-user run registry protected."""
+    """``config`` with its state directory and the per-user run registry's directory
+    protected, so the registry cannot be replaced, moved or recreated through Bash."""
     guarded = protect_state_dir(config, root)
-    registry = run_registry.registry_path()
+    registry = run_registry.registry_path().parent
     current = guarded.permissions.protected_paths
     names = dict.fromkeys((str(registry), str(_real(registry))))
     extra = tuple(name for name in names if name not in current)

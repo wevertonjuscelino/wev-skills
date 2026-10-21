@@ -15,7 +15,7 @@ from wev_skills import i18n
 from wev_skills.config import PermissionsConfig
 from wev_skills.core.contracts import Mode, PermissionDecision, PermissionOutcome, RiskLevel
 from wev_skills.core.errors import ApprovalRequired, NotFound, PermissionDenied
-from wev_skills.security import commands, patterns, recursive
+from wev_skills.security import commands, patterns, recursive, uproot
 from wev_skills.security.paths import glob_may_match_protected, is_protected
 from wev_skills.security.readonly import (
     READ_ONLY_COMMANDS,
@@ -153,6 +153,24 @@ class PermissionPolicy:
                 )
         return None
 
+    def _uprooted(
+        self, expanded: Sequence[Sequence[str]], cwd: str | None
+    ) -> PermissionDecision | None:
+        """A move or removal of a directory that holds a protected path: ask, because it
+        takes the protected path away without naming it (see ``security.uproot``)."""
+        root = cwd or os.getcwd()
+        for argv in expanded:
+            hit = uproot.uprooted(argv, root, self._config.protected_paths)
+            if hit is not None:
+                return _decision(
+                    PermissionOutcome.NEEDS_APPROVAL,
+                    "protected_ancestor",
+                    program=commands.program_name(argv),
+                    directory=redact(hit[0]),
+                    path=redact(hit[1]),
+                )
+        return None
+
     def _local_script(self, argv: Sequence[str]) -> commands.CommandRisk:
         """A program named by a relative path is a file the agent can write: never analyzed."""
         program = argv[0]
@@ -217,8 +235,10 @@ class PermissionPolicy:
         protected = self._protected_argument(expansion.commands, cwd)
         if protected is not None:
             return _decision(deny, "protected_path", path=redact(protected))
-        pending = self._swept(expansion.commands, cwd) or self._approval_reason(
-            checked, found, read_only, risk
+        pending = (
+            self._uprooted(expansion.commands, cwd)
+            or self._swept(expansion.commands, cwd)
+            or self._approval_reason(checked, found, read_only, risk)
         )
         if pending is None:
             return _decision(PermissionOutcome.ALLOW, "allowed")

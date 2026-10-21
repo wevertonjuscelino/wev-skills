@@ -35,9 +35,15 @@ def resolve_within(root: PathLike, path: PathLike) -> Path:
     return resolved
 
 
+def _home(path: PathLike) -> str:
+    """``path`` with a leading ``~`` or ``~/`` expanded, as the shell would."""
+    text = os.fspath(path)
+    return os.path.expanduser(text) if text == "~" or text.startswith("~/") else text
+
+
 def _forms(base: Path, path: PathLike) -> list[str]:
     """Lexical and symlink-resolved absolute spellings of ``path`` under ``base``."""
-    joined = base / Path(path)
+    joined = base / Path(_home(path))
     forms = [os.path.normpath(os.path.abspath(joined))]
     try:
         forms.append(str(joined.resolve()))
@@ -59,7 +65,8 @@ def is_protected(path: PathLike, root: PathLike, protected_paths: Iterable[str])
     An entry without a separator (``.git``) matches that name as any path component,
     case-insensitively and with ``fnmatch`` wildcards. An entry with a separator is a
     location relative to ``root`` (or absolute). Both the literal and the
-    symlink-resolved path are checked, so a symlink to a protected file is protected.
+    symlink-resolved path are checked, so a symlink to a protected file is protected. A
+    leading ``~/`` is expanded. The match is by path: the file need not exist.
     """
     try:
         base = Path(root)
