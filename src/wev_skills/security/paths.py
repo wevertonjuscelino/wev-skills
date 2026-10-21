@@ -68,14 +68,24 @@ def expand_home(path: PathLike, cwd: PathLike) -> str:
     return os.path.join(base, rest) if sep else base
 
 
+def home_spellings(path: PathLike, cwd: PathLike) -> list[str]:
+    """``path`` as written and with its tilde expanded. Without a shell (``wev exec``)
+    ``~+/x`` is the relative path ``./~+/x``, so a check keeps both spellings."""
+    text = os.fspath(path)
+    return list(dict.fromkeys((text, expand_home(text, cwd))))
+
+
 def _forms(base: Path, path: PathLike) -> list[str]:
-    """Lexical and symlink-resolved absolute spellings of ``path`` under ``base``."""
-    joined = base / Path(expand_home(path, base))
-    forms = [os.path.normpath(os.path.abspath(joined))]
-    try:
-        forms.append(str(joined.resolve()))
-    except OSError, ValueError, RuntimeError:
-        return forms
+    """Lexical and symlink-resolved absolute spellings of ``path`` under ``base``, as
+    written and with its tilde expanded."""
+    forms: list[str] = []
+    for spelling in home_spellings(path, base):
+        joined = base / Path(spelling)
+        forms.append(os.path.normpath(os.path.abspath(joined)))
+        try:
+            forms.append(str(joined.resolve()))
+        except OSError, ValueError, RuntimeError:
+            continue
     return forms
 
 

@@ -10,7 +10,10 @@ from unittest import mock
 
 from tests.unit.test_hook_trust import ASK, DENY
 from tests.unit.test_hook_uproot import PLAN, SituationTests, UprootCase
-from wev_skills.security import paths, uproot
+from wev_skills.config import Config
+from wev_skills.core import wiring
+from wev_skills.core.contracts import Mode, PermissionOutcome, RiskLevel
+from wev_skills.security import paths, recursive, uproot
 from wev_skills.security.paths import glob_may_match_protected, is_protected
 
 DOT_ENV = "." + "env"
@@ -145,3 +148,51 @@ class TildeFormTests(UprootCase):
         with mock.patch.dict(os.environ, {"OLDPWD": str(self.home)}):
             hit = uproot.uprooted(["rm", "~-/.local"], str(self.work), protected)
         self.assertIsNotNone(hit)
+
+
+class FoldedSliceTests(UprootCase):
+    """``casefold`` can lengthen a path (``ß`` becomes ``ss``): the part below the folded
+    prefix must be cut from the folded anchor, or a visible entry looks hidden."""
+
+    def test_a_located_entry_below_a_lengthening_name_is_found(self) -> None:
+        directory = self.work.parent / "straße"
+        key = directory / "a.b" / "x" / "key"
+        key.parent.mkdir(parents=True)
+        key.write_text("k\n", encoding="utf-8")
+        argv = ["rg", "x", str(directory)]
+        with mock.patch(FOLD, True):
+            hit = recursive.protected_inside(argv, str(self.work), (str(key),))
+        self.assertIsNotNone(hit)
+
+
+class LiteralTildeTests(UprootCase):
+    """Without a shell ``~+/x`` is the relative path ``./~+/x``: both spellings count."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.work / ".git" / "config").write_text("x\n", encoding="utf-8")
+        (self.work / "~+").symlink_to(self.work / ".git", target_is_directory=True)
+
+    def test_exec_policy_denies_a_literal_tilde_directory(self) -> None:
+        policy = wiring.build_grantless_policy(Config(), self.work)
+        decision = policy.check_command(
+            ["cat", "~+/config"], str(self.work), Mode.EXECUTE, RiskLevel.LOW, consume=False
+        )
+        self.assertEqual(decision.outcome, PermissionOutcome.DENY)
+
+    def test_the_hook_still_denies_the_expanded_spelling(self) -> None:
+        self.assertEqual(self.decision("cat ~+/.git/config"), DENY)
+
+    def test_is_protected_keeps_the_literal_spelling(self) -> None:
+        literal = str(self.work / "~+" / "x")
+        self.assertTrue(is_protected("~+/x", self.work, (literal,)))
+
+    def test_uproot_keeps_the_literal_spelling(self) -> None:
+        literal = str(self.work / "~+" / "sub" / "x")
+        self.assertIsNotNone(uproot.uprooted(["rm", "~+/sub"], str(self.work), (literal,)))
+
+    def test_recursive_readers_keep_the_literal_spelling(self) -> None:
+        (self.work / "~").mkdir()
+        (self.work / "~" / ".git").mkdir()
+        argv = ["grep", "-r", "k", "~/"]
+        self.assertIsNotNone(recursive.protected_inside(argv, str(self.work), (".git",)))

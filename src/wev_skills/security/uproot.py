@@ -20,7 +20,7 @@ import os
 from collections.abc import Callable, Sequence
 
 from wev_skills.security import recursive
-from wev_skills.security.paths import expand_home, fold
+from wev_skills.security.paths import fold, home_spellings
 
 Operands = Callable[[Sequence[str]], list[str]]
 END_OF_OPTIONS = "--"
@@ -103,7 +103,9 @@ def _located_below(target: str, root: str, protected: Sequence[str]) -> str | No
     for entry in protected:
         if not entry or (os.sep not in entry and "/" not in entry):
             continue
-        for anchor in _spellings(os.path.join(root, expand_home(entry, root))):
+        joined = (os.path.join(root, spelling) for spelling in home_spellings(entry, root))
+        anchors = (anchor for path in joined for anchor in _spellings(path))
+        for anchor in anchors:
             folded = fold(anchor)
             if any(folded == t or folded.startswith(t.rstrip(os.sep) + os.sep) for t in targets):
                 return anchor
@@ -125,8 +127,8 @@ def uprooted(argv: Sequence[str], cwd: str, protected: Sequence[str]) -> tuple[s
     if rule is None:
         return None
     for operand in rule(list(argv[1:])):
-        target = os.path.join(cwd, expand_home(operand, cwd))
-        found = _holds(target, cwd, protected)
-        if found is not None:
-            return operand, found
+        for spelling in home_spellings(operand, cwd):
+            found = _holds(os.path.join(cwd, spelling), cwd, protected)
+            if found is not None:
+                return operand, found
     return None

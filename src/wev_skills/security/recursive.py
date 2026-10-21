@@ -99,7 +99,7 @@ def _located(directory: str, root: str, entries: Sequence[str], hidden: bool) ->
         anchor = os.path.realpath(os.path.join(root, entry))
         if not fold(anchor).startswith(prefix) or not os.path.lexists(anchor):
             continue
-        below = anchor[len(prefix) :].split(os.sep)
+        below = fold(anchor)[len(prefix) :].split(os.sep)
         if hidden or not any(part.startswith(HIDDEN_PREFIX) for part in below):
             return anchor
     return None
@@ -121,7 +121,8 @@ def _directories(name: str, args: Sequence[str], cwd: str) -> list[str]:
     """Existing directories among the operands; the working directory when a reader that
     defaults to it was given nothing but its pattern."""
     operands = [arg for arg in args if arg and not arg.startswith("-")]
-    paths = [os.path.join(cwd, os.path.expanduser(arg)) for arg in operands]
+    spellings = dict.fromkeys(s for arg in operands for s in (arg, os.path.expanduser(arg)))
+    paths = [os.path.join(cwd, spelling) for spelling in spellings]
     existing = [path for path in paths if os.path.lexists(path)]
     found = [path for path in existing if os.path.isdir(path)]
     implicit = name in IMPLICIT_CWD and not existing and len(operands) <= IMPLICIT_CWD[name]
