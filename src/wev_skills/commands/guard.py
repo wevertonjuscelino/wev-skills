@@ -53,7 +53,7 @@ def _evaluate(args: argparse.Namespace) -> CommandResult:
 
 
 def _check(args: argparse.Namespace) -> CommandResult:
-    orchestrator = orchestrator_for(args)
+    orchestrator = orchestrator_for(args, finished_ok=True)
     verdict = orchestrator.guard_check(args.task)
     return verdict_result(verdict, {"run_id": orchestrator.store.run_dir.name})
 

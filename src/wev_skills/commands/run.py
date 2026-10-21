@@ -25,6 +25,7 @@ from wev_skills.core.errors import StateConflict, ValidationError
 from wev_skills.core.orchestrator import START_MODES, Orchestrator
 from wev_skills.core.report_markdown import render_markdown
 from wev_skills.intake.store import load_brief
+from wev_skills.security import untrusted
 from wev_skills.state.model import Phase, with_discovery
 
 FORMATS = ("json", "md")
@@ -80,7 +81,7 @@ def _brief(args: argparse.Namespace) -> CommandResult:
 
 
 def _finish(args: argparse.Namespace) -> dict[str, Any]:
-    return orchestrator_for(args).finish()
+    return orchestrator_for(args, finished_ok=True).finish()
 
 
 def _adopt(args: argparse.Namespace) -> dict[str, Any]:
@@ -93,7 +94,7 @@ def _adopt(args: argparse.Namespace) -> dict[str, Any]:
         message = i18n.t("orch.error.adopt_finished", run=run_id)
         raise StateConflict("run_finished", message, {"run_id": run_id})
     if not active.is_registered(services.state_dir, run_id):
-        shown = {
+        fields = {
             "run": run_id,
             "root": services.root,
             "state_dir": services.state_dir,
@@ -101,6 +102,7 @@ def _adopt(args: argparse.Namespace) -> dict[str, Any]:
             "objective": state.objective,
             "config": json.dumps(dict(state.config), sort_keys=True),
         }
+        shown = {name: _one_line(value) for name, value in fields.items()}
         confirmed = confirm_human(
             services.audit,
             "run.adopt_refused",
@@ -113,9 +115,15 @@ def _adopt(args: argparse.Namespace) -> dict[str, Any]:
     return {"run_id": run_id, "registered": True, "state_dir": str(services.state_dir)}
 
 
+def _one_line(value: object) -> str:
+    """A value read from the run's files, as shown to the operator: no terminal control
+    and no line break, so it cannot redraw the screen or pose as another field."""
+    return untrusted.sanitize(str(value)).replace("\n", " ")
+
+
 def _report(args: argparse.Namespace) -> CommandResult:
     lang = i18n.resolve_language(args.report_lang)
-    report = orchestrator_for(args).report(lang)
+    report = orchestrator_for(args, finished_ok=True).report(lang)
     if args.format == "md":
         return CommandResult(render_markdown(report, lang), raw=True)
     return CommandResult(report)

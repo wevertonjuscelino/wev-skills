@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import io
 import json
 from typing import Any
@@ -13,6 +14,8 @@ from tests.unit.test_hooks import RUN
 from wev_skills import cli
 from wev_skills.core import active, run_registry
 from wev_skills.governance.audit import AuditLog
+from wev_skills.state.model import Phase
+from wev_skills.state.store import StateStore, run_dir
 
 UNREGISTERED_EXIT = 5
 HUMAN_EXIT = 3
@@ -171,3 +174,49 @@ class RegisteredRunTests(EngineRegistryCase):
         self.wev("run", "finish")
         code, _, err = self.call("run", "report", "--run", RUN)
         self.assertEqual(code, 0, err)
+
+
+class FinishedForgedRunTests(EngineRegistryCase):
+    """The phase comes from the run's own file, so a forged run marked done is refused
+    before anything else happens."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        state_dir = self.forge()
+        store = StateStore(run_dir(state_dir, FORGED))
+        store.update(lambda state: dataclasses.replace(state, phase=Phase.DONE))
+
+    def test_commands_that_change_or_run_refuse_it_first(self) -> None:
+        for argv in (
+            ("exec", "--run", FORGED, "--", "ls"),
+            ("task", "start", "t1", "--run", FORGED),
+            ("task", "check", "t1", "--run", FORGED),
+            ("task", "reopen", "t1", "--reason", "x", "--run", FORGED),
+            ("plan", "set", "--file", "plan.json", "--run", FORGED),
+            ("guard", "acknowledge", "--reason", "x", "--run", FORGED),
+            ("run", "resume", "--run", FORGED),
+        ):
+            with self.subTest(argv=argv), at_terminal():
+                code, _, err = self.call(*argv)
+                self.assertEqual(err["code"], "run_finished", err)
+                self.assertNotEqual(code, 0)
+
+    def test_a_finished_run_can_still_be_read(self) -> None:
+        for argv in (("run", "report", "--run", FORGED), ("run", "status", "--run", FORGED)):
+            with self.subTest(argv=argv):
+                self.assertEqual(self.call(*argv)[0], 0)
+
+
+class AdoptPromptTests(EngineRegistryCase):
+    def test_the_prompt_shows_no_terminal_control_or_extra_lines(self) -> None:
+        state_dir = self.forge()
+        store = StateStore(run_dir(state_dir, FORGED))
+        evil = "ok\x1b]0;title\x07\x1b[2J\r\n  run       other\x9b"
+        store.update(lambda state: dataclasses.replace(state, objective=evil))
+        prompt = ScriptedPrompt(answer="no")
+        with at_terminal(prompt):
+            self.call("run", "adopt")
+        shown = prompt.shown[0]
+        for char in ("\x1b", "\x07", "\r", "\x9b"):
+            self.assertNotIn(char, shown)
+        self.assertEqual(sum(line.strip().startswith("run ") for line in shown.splitlines()), 1)
