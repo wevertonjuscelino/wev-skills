@@ -18,8 +18,10 @@ from wev_skills.config import BUILTIN, read_json_object
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.fsutil import atomic_write_text
 from wev_skills.decisions.jev_http import (
+    Endpoint,
     HttpAsker,
     build_http_asker,
+    check_key_for_endpoint,
     resolve_endpoint,
     validate_questions,
 )
@@ -42,12 +44,17 @@ def _reason(exc: JevUnavailable) -> str:
     return exc.message or exc.code
 
 
-def _key_or_error() -> tuple[ApiKey | None, str | None]:
-    """The key, or the reason it could not be read; never the key's value in a message."""
+def _key_or_error(endpoint: Endpoint) -> tuple[ApiKey | None, str | None]:
+    """The key, and the reason it cannot be used for ``endpoint``; never the key's value."""
     try:
-        return resolve_api_key(os.environ, env_file_path(), macos_keychain), None
+        key = resolve_api_key(os.environ, env_file_path(), macos_keychain)
     except JevUnavailable as exc:
         return None, _reason(exc)
+    try:
+        check_key_for_endpoint(endpoint, key)
+    except JevUnavailable as exc:
+        return key, _reason(exc)
+    return key, None
 
 
 def _builtin_status(with_key: bool) -> dict[str, Any]:
@@ -62,14 +69,14 @@ def _builtin_status(with_key: bool) -> dict[str, Any]:
         return {"key_source": None, "key_error": error, "endpoint": "", "usable": False}
     if not with_key:
         return {"key_source": None, "key_error": None, "endpoint": endpoint.url, "usable": False}
-    key, error = _key_or_error()
+    key, error = _key_or_error(endpoint)
     if key is None and error is None:
         error = i18n.t("decisions.jev.why.key_missing")
     return {
         "key_source": key.source if key is not None else None,
-        "key_error": error if key is None else None,
+        "key_error": error,
         "endpoint": endpoint.url,
-        "usable": endpoint.local or key is not None,
+        "usable": endpoint.local or error is None,
     }
 
 

@@ -122,6 +122,18 @@ class StatusTests(JevCliCase):
         self.assertIn("https", data["key_error"])
         self.assertNotIn(SECRET, output)
 
+    def test_status_stored_key_for_another_host_is_harness(self) -> None:
+        self.use_jev()
+        os.environ["JEV_API_URL"] = "https://other.example/x"
+        with mock.patch("wev_skills.commands.jev.macos_keychain", lambda: SECRET):
+            code, data, output = run_main("jev", "status")
+        self.assertEqual(code, 0)
+        self.assertEqual(data["orchestration"], "harness")
+        self.assertEqual(data["key_source"], "keychain")
+        self.assertIn("TYPESAFE_API_KEY", data["key_error"])
+        self.assertIn("other.example", data["key_error"])
+        self.assertNotIn(SECRET, output)
+
     def test_status_local_provider_never_looks_up_the_key(self) -> None:
         os.environ["TYPESAFE_API_KEY"] = SECRET
 

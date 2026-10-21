@@ -316,6 +316,65 @@ class EndpointTest(Isolated):
         self.assertIsInstance(asker, HttpAsker)
 
 
+OTHER = "https://other.example/x"
+
+
+class KeyForEndpointTest(Isolated):
+    """A stored key goes only to the default endpoint; TYPESAFE_API_KEY goes where it is sent."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.sent: list[urllib.request.Request] = []
+
+    def opener(self, request: urllib.request.Request, _timeout: float) -> tuple[int, bytes]:
+        self.sent.append(request)
+        return 200, OK
+
+    def store_in_env_file(self) -> None:
+        path = jev_http.env_file_path()
+        path.parent.mkdir(parents=True)
+        path.write_text(f"TYPESAFE_API_KEY={SECRET}\n", encoding="utf-8")
+        path.chmod(0o600)
+
+    def assert_refused(self, env: dict[str, str]) -> None:
+        with self.assertRaises(JevUnavailable) as caught:
+            build_http_asker(5.0, env, opener=self.opener)
+        self.assertEqual(caught.exception.code, "key_not_for_endpoint")
+        self.assertIn("TYPESAFE_API_KEY", str(caught.exception))
+        self.assertNotIn(SECRET, repr(caught.exception))
+        self.assertEqual(self.sent, [])
+
+    def test_env_file_key_is_not_sent_to_another_host(self) -> None:
+        self.store_in_env_file()
+        self.assert_refused({"JEV_API_URL": OTHER})
+
+    def test_keychain_key_is_not_sent_to_another_host(self) -> None:
+        with mock.patch.object(jev_http, "macos_keychain", lambda: SECRET):
+            self.assert_refused({"JEV_API_URL": OTHER})
+
+    def test_a_different_port_is_another_endpoint(self) -> None:
+        self.store_in_env_file()
+        self.assert_refused({"JEV_API_URL": "https://api.typesafe.ai:8443/v1/systemone"})
+
+    def test_environment_key_goes_to_the_named_host(self) -> None:
+        env = {"JEV_API_URL": OTHER, "TYPESAFE_API_KEY": SECRET}
+        build_http_asker(5.0, env, opener=self.opener)(QUESTIONS, "s")
+        self.assertEqual(self.sent[0].full_url, OTHER)
+        self.assertEqual(self.sent[0].get_header("Authorization"), f"Bearer {SECRET}")
+
+    def test_stored_key_goes_to_the_default_endpoint(self) -> None:
+        self.store_in_env_file()
+        build_http_asker(5.0, {}, opener=self.opener)(QUESTIONS, "s")
+        self.assertEqual(self.sent[0].full_url, DEFAULT_ENDPOINT)
+        self.assertEqual(self.sent[0].get_header("Authorization"), f"Bearer {SECRET}")
+
+    def test_loopback_still_sends_no_stored_key(self) -> None:
+        self.store_in_env_file()
+        asker = build_http_asker(5.0, {"JEV_API_URL": "http://127.0.0.1:1/x"}, opener=self.opener)
+        asker(QUESTIONS, "s")
+        self.assertIsNone(self.sent[0].get_header("Authorization"))
+
+
 class ValidateQuestionsTest(unittest.TestCase):
     def test_valid_questions_pass(self) -> None:
         validate_questions(QUESTIONS)

@@ -32,6 +32,9 @@ RETRYABLE = (429, 529)
 MAX_ATTEMPTS = 4
 BASE_BACKOFF_SECONDS = 0.5
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+HTTPS_PORT = 443
+ENV_KEY_SOURCE = "env"
+"""Only a key from ``TYPESAFE_API_KEY`` may go to an endpoint other than the default one."""
 QUESTION_TYPES = ("noul", "choice", "score")
 MIN_OPTIONS = 2
 MAX_CHOICE_OPTIONS = 255
@@ -228,12 +231,33 @@ class LazyAsker:
         return self._asker(questions, state)
 
 
-def build_http_asker(timeout_seconds: float, env: Mapping[str, str] | None = None) -> HttpAsker:
+def _origin(url: str) -> tuple[str, str, int]:
+    parts = urlsplit(url)
+    return parts.scheme, parts.hostname or "", parts.port or HTTPS_PORT
+
+
+def check_key_for_endpoint(endpoint: Endpoint, key: ApiKey | None) -> None:
+    """Refuse a remote endpoint without a key, or a stored key bound for another host.
+
+    A key from the env file or the keychain was stored for TypeSafe, so it goes only to the
+    scheme, host and port of ``DEFAULT_ENDPOINT``. A loopback endpoint gets no key at all.
+    """
+    if endpoint.local:
+        return
+    if key is None:
+        raise _why("key_missing", "key_missing")
+    if key.source != ENV_KEY_SOURCE and _origin(endpoint.url) != _origin(DEFAULT_ENDPOINT):
+        host = urlsplit(endpoint.url).hostname or ""
+        raise _why("key_not_for_endpoint", "key_not_for_endpoint", host=host)
+
+
+def build_http_asker(
+    timeout_seconds: float, env: Mapping[str, str] | None = None, *, opener: Opener = _urlopen
+) -> HttpAsker:
     source = os.environ if env is None else env
     endpoint = resolve_endpoint(source)
     key = resolve_api_key(source, env_file_path(), macos_keychain)
-    if key is None and not endpoint.local:
-        raise _why("key_missing", "key_missing")
+    check_key_for_endpoint(endpoint, key)
     if key is not None and not endpoint.local and not _usable_header_value(key.value):
         raise _why("key_invalid", "key_invalid")
-    return HttpAsker(endpoint, key, timeout_seconds)
+    return HttpAsker(endpoint, key, timeout_seconds, opener=opener)

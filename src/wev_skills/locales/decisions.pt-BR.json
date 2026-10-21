@@ -159,6 +159,7 @@
   "decisions.jev.why.http_status": "HTTP {status}",
   "decisions.jev.why.retries_exhausted": "o serviço continuou respondendo que estava ocupado",
   "decisions.jev.why.key_invalid": "a chave contém caracteres que não podem ser enviados em um cabeçalho HTTP",
+  "decisions.jev.why.key_not_for_endpoint": "uma chave guardada no arquivo env ou no keychain só é enviada ao endpoint padrão (https://api.typesafe.ai); para usar {host}, exporte TYPESAFE_API_KEY com uma chave para esse host",
   "decisions.jev.why.endpoint_invalid": "JEV_API_URL não é uma URL válida",
   "decisions.jev.why.network": "erro de rede",
   "decisions.jev.why.endpoint_insecure": "JEV_API_URL deve usar https, a menos que aponte para a própria máquina",

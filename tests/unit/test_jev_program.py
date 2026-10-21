@@ -207,6 +207,19 @@ class ProviderFallbackTests(unittest.TestCase):
         self.assertIn("https", warnings[0])
         self.assertNotIn("k-value", warnings[0])
 
+    def test_builtin_warns_when_a_stored_key_would_leave_for_another_host(self) -> None:
+        other = {"JEV_API_URL": "https://other.example/x"}
+        with (
+            isolated_keys(None),
+            mock.patch.dict(os.environ, other),
+            mock.patch.object(jev_program, "macos_keychain", lambda: "k-stored"),
+        ):
+            warnings = jev_warnings(self.jev_config(BUILTIN), os.getcwd())
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("TYPESAFE_API_KEY", warnings[0])
+        self.assertIn("other.example", warnings[0])
+        self.assertNotIn("k-stored", warnings[0])
+
 
 if __name__ == "__main__":
     unittest.main()

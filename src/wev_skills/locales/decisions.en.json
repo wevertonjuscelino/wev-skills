@@ -159,6 +159,7 @@
   "decisions.jev.why.http_status": "HTTP {status}",
   "decisions.jev.why.retries_exhausted": "the service kept answering that it was busy",
   "decisions.jev.why.key_invalid": "the key contains characters that cannot be sent in an HTTP header",
+  "decisions.jev.why.key_not_for_endpoint": "a key stored in the env file or the keychain is sent only to the default endpoint (https://api.typesafe.ai); to use {host}, export TYPESAFE_API_KEY with a key for that host",
   "decisions.jev.why.endpoint_invalid": "JEV_API_URL is not a valid URL",
   "decisions.jev.why.network": "network error",
   "decisions.jev.why.endpoint_insecure": "JEV_API_URL must use https unless it points at the local machine",
