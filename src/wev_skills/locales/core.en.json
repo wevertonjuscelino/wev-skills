@@ -34,6 +34,8 @@
   "hooks.reason.engine_jev": "This wev command sends data to the JEV service (the content of a file it reads goes off this machine) and jev batch overwrites its --out file; a person decides.",
   "hooks.reason.state_error": "The recorded state of this run cannot be read ({error}); nothing can be checked, so a person decides. Inspect the state directory before continuing.",
   "hooks.reason.internal_error": "The engine failed while checking this command ({error}); it was not checked, so a person decides.",
+  "hooks.reason.registry_unreadable": "wev: your run registry exists but cannot be read, so no run can be trusted; a person decides.",
+  "hooks.reason.unregistered_run": "wev: a run was found in this tree but is not in your run registry; a person decides.",
   "hooks.reason.unreadable_input": "The hook input could not be read (too large or not valid JSON), so the command was not checked and a person decides.",
   "hooks.reason.unknown_target": "This command names a path through a variable, so its target cannot be known here, and a wev run is active in {root}. It may touch that run's tree, so a person decides.",
   "orch.budget.warning": "Run has used at least 80% of its engine budget; review the remaining scope.",

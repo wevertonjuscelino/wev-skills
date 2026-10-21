@@ -3,8 +3,9 @@
 A hook may be asked about a file outside the directory it runs in. The registry lets it find
 the run that owns that file. It is a small JSON file under the user's state home, written
 atomically at ``run start`` and ``run finish``. Reading never creates anything and never
-raises: an unreadable registry is an empty one. Entries are hints, not facts; a reader
-checks the run state itself, and stale entries are dropped on the next write.
+raises: for most readers an unreadable registry is an empty one, while the hooks tell the
+two apart (``read_registry``). Entries are hints, not facts; a reader checks the run state
+itself, and stale entries are dropped on the next write.
 """
 
 from __future__ import annotations
@@ -44,14 +45,22 @@ def registry_path(environ: Mapping[str, str] | None = None) -> Path:
 
 def read_entries(path: Path | None = None) -> tuple[RegistryEntry, ...]:
     """Every well-formed entry; an absent, unreadable or malformed registry is empty."""
+    return read_registry(path) or ()
+
+
+def read_registry(path: Path | None = None) -> tuple[RegistryEntry, ...] | None:
+    """Every well-formed entry: ``()`` when the file is absent, ``None`` when it exists but
+    cannot be read or does not have the registry's shape. Malformed entries are skipped."""
     target = path if path is not None else registry_path()
     try:
         data = json.loads(target.read_text(encoding="utf-8"))
-    except OSError, ValueError:
+    except FileNotFoundError:
         return ()
+    except OSError, ValueError:
+        return None
     items = data.get("runs") if isinstance(data, dict) else None
     if not isinstance(items, list):
-        return ()
+        return None
     found: list[RegistryEntry] = []
     for item in items[:MAX_ENTRIES]:
         try:

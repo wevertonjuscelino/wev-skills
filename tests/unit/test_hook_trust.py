@@ -17,6 +17,7 @@ from wev_skills.state.store import StateStore, run_dir
 FORGED = "20990101T000000Z-forged"
 LOOSE = {"permissions": {"protected_paths": [], "allowed_commands": ["rm", "git", "cat"]}}
 ASK, DENY = "ask", "deny"
+UNREGISTERED = "not in your run registry"
 
 
 class TrustCase(HookCase):
@@ -38,13 +39,19 @@ class TrustCase(HookCase):
 
 
 class ForgedRunTests(TrustCase):
-    def test_a_run_shipped_in_the_tree_is_ignored(self) -> None:
+    def test_a_run_shipped_in_the_tree_is_not_trusted(self) -> None:
         self.forge()
         self.assertEqual(run_registry.read_entries(), ())
         found = self.bash("cat .git/config")
         assert found is not None
         self.assertEqual(found["decision"], DENY)
         self.assertTrue(found["reason"].startswith(NO_RUN), found["reason"])
+        for line in ("ls", "rm -rf build"):
+            with self.subTest(line=line):
+                asked = self.bash(line)
+                assert asked is not None
+                self.assertEqual(asked["decision"], ASK)
+                self.assertIn(UNREGISTERED, asked["reason"])
 
     def test_the_same_run_once_registered_is_trusted(self) -> None:
         state_dir = self.forge()
@@ -79,10 +86,12 @@ class ForgedRunTests(TrustCase):
             with self.subTest(name=name):
                 self.assertEqual(self.hook(name, payload), (0, "", ""))
 
-    def test_unreadable_input_is_silent_with_only_a_forged_run(self) -> None:
+    def test_unreadable_input_asks_with_only_a_forged_run(self) -> None:
         self.forge()
         code, out, _ = self.hook("pre-tool-use", '{"cwd": "' + str(self.work) + '", "tool')
-        self.assertEqual((code, out), (0, ""))
+        specific = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual((code, specific["permissionDecision"]), (0, ASK))
+        self.assertIn(UNREGISTERED, specific["permissionDecisionReason"])
 
     def test_engine_commands_keep_their_tree_lookup(self) -> None:
         state_dir = self.forge()
@@ -109,7 +118,7 @@ class HookErrorTests(TrustCase):
 
     def test_an_error_in_the_run_lookup_asks(self) -> None:
         boom = RuntimeError("secret-detail")
-        with mock.patch.object(hooks, "find_active_run", side_effect=boom):
+        with mock.patch.object(hooks, "find_hook_run", side_effect=boom):
             self.assert_internal_error_ask()
 
     def test_an_error_while_splitting_the_command_asks(self) -> None:
@@ -120,7 +129,7 @@ class HookErrorTests(TrustCase):
     def test_an_error_while_building_the_answer_falls_back_to_a_fixed_ask(self) -> None:
         boom = RuntimeError("secret-detail")
         with (
-            mock.patch.object(hooks, "find_active_run", side_effect=boom),
+            mock.patch.object(hooks, "find_hook_run", side_effect=boom),
             mock.patch.object(hooks, "_output", side_effect=boom),
         ):
             specific, err = self.answer()
@@ -131,7 +140,7 @@ class HookErrorTests(TrustCase):
     def test_a_note_that_cannot_be_written_still_leaves_the_ask(self) -> None:
         boom = RuntimeError("secret-detail")
         with (
-            mock.patch.object(hooks, "find_active_run", side_effect=boom),
+            mock.patch.object(hooks, "find_hook_run", side_effect=boom),
             mock.patch.object(hooks, "failure_note", side_effect=boom),
         ):
             specific, err = self.answer()
@@ -140,7 +149,7 @@ class HookErrorTests(TrustCase):
     def test_the_brief_hooks_stay_silent_on_an_error(self) -> None:
         boom = RuntimeError("secret-detail")
         payload = {"cwd": str(self.work), "source": "compact"}
-        with mock.patch.object(hooks, "find_active_run", side_effect=boom):
+        with mock.patch.object(hooks, "find_hook_run", side_effect=boom):
             for name in ("session-context", "prompt-reminder"):
                 with self.subTest(name=name):
                     code, out, err = self.hook(name, payload)

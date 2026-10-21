@@ -17,6 +17,7 @@ from wev_skills.state.model import (
     Phase,
     RepoSnapshot,
     RunState,
+    validate_run_id,
     with_classification,
     with_decision,
     with_discovery,
@@ -72,16 +73,20 @@ def refuse_second_run(engine: Engine) -> None:
 
 
 def _create(engine: Engine, opening: _Opening, run_id: str | None) -> None:
-    """Create the state with the configuration pinned; refused while another run is active."""
+    """Register the run, then create its state with the configuration pinned; refused
+    while another run is active. The registry is written first, so a run the hooks
+    cannot see is never created."""
     services = engine.services
     fsutil.ensure_ignored_dir(services.state_dir)
     pinned = services.pinned
+    chosen = validate_run_id(run_id if run_id is not None else engine.store.run_dir.name)
     with fsutil.locked(services.state_dir / RUNS_LOCK, services.config.limits.lock_timeout_seconds):
         refuse_second_run(engine)
+        _register(engine, chosen)
         engine.store.create(
             opening.objective,
             opening.mode,
-            run_id,
+            chosen,
             pinned_snapshot(pinned),
             pinned.digest,
             pinned.source,
@@ -131,15 +136,17 @@ def _decisions(engine: Engine, opening: _Opening) -> Change:
     return change
 
 
-def _register(engine: Engine, run_id: str) -> str:
-    """Add the run to the per-user registry; a registry that cannot be written is reported."""
+def _register(engine: Engine, run_id: str) -> None:
+    """Add the run to the per-user registry; a registry that cannot be written stops the
+    start (``registry_unwritable``), since the hooks would not trust the run."""
     services = engine.services
     try:
         active.register_run(services.root, services.state_dir, run_id)
     except (OSError, StateConflict) as exc:
-        services.audit.append("registry.unavailable", {"run_id": run_id, "why": type(exc).__name__})
-        return i18n.t("orch.registry.unavailable")
-    return ""
+        why = exc.code if isinstance(exc, StateConflict) else type(exc).__name__
+        services.audit.append("registry.unavailable", {"run_id": run_id, "why": why})
+        message = i18n.t("orch.error.registry_unwritable", error=why)
+        raise StateConflict("registry_unwritable", message, {"run_id": run_id}) from exc
 
 
 def start(
@@ -150,7 +157,6 @@ def start(
     _create(engine, opening, run_id)
     data = {"mode": mode.value, "objective": opening.objective}
     state = engine.commit(_decisions(engine, opening), "run.started", data)
-    warning = _register(engine, state.run_id)
     payload = {
         "run_id": state.run_id,
         "mode": state.mode.value,
@@ -162,6 +168,4 @@ def start(
     }
     if steps.needs_checks(state):
         payload["hint"] = i18n.t("orch.hint.supply_checks")
-    if warning:
-        payload["warning"] = warning
     return payload
