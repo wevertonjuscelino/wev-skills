@@ -19,7 +19,7 @@ from wev_skills.adapters.claude_code.subagent import FRONTMATTER_FENCE, render_s
 from wev_skills.adapters.opencode_plugin import render_plugin
 from wev_skills.agents.factory import AgentFactory
 from wev_skills.agents.registry import AgentRegistry
-from wev_skills.core.errors import ValidationError
+from wev_skills.core.errors import StateConflict, ValidationError
 from wev_skills.core.fsutil import atomic_write_text
 from wev_skills.core.wiring import CATALOG_SUBDIRS, REPO_ROOT, catalog_directories
 
@@ -39,7 +39,7 @@ def render_skill_text(text: str, wev_path: Path) -> str:
     """``text`` with the Claude Code plugin root replaced by this clone's absolute paths."""
     quoted = shlex.quote(str(wev_path))
     text = _QUOTED_WEV.sub(lambda _: quoted, text)
-    return text.replace(_PLACEHOLDER, str(wev_path.parent.parent))
+    return text.replace(_PLACEHOLDER, shlex.quote(str(wev_path.parent.parent)))
 
 
 def _version() -> str:
@@ -142,6 +142,12 @@ def build_package(target: str, out: Path, wev_path: Path) -> list[Path]:
     if target not in TARGETS:
         message = i18n.t("harness.error.unknown_target", target=target, targets=", ".join(TARGETS))
         raise ValidationError("unknown_harness_target", message)
+    if out.exists() and any(out.iterdir()):
+        raise StateConflict(
+            "export_dir_not_empty",
+            i18n.t("harness.error.not_empty", path=str(out)),
+            {"path": str(out)},
+        )
     written: list[Path] = []
     _write_skills(out, wev_path, written)
     if target == "codex":
@@ -161,7 +167,7 @@ def skipped_notes(target: str) -> list[str]:
     """What the notes leave unknown for ``target`` and the package therefore omits."""
     keys = {
         "codex": ["codex_agents", "codex_trust"],
-        "gemini": ["agent_tools", "gemini_context"],
-        "opencode": ["agent_tools"],
+        "gemini": ["agent_tools", "gemini_context", "gemini_hooks_shape"],
+        "opencode": ["agent_tools", "opencode_guard"],
     }.get(target, [])
     return [i18n.t(f"harness.skipped.{key}", target=target) for key in keys]

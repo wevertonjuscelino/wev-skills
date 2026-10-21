@@ -9,5 +9,8 @@
   "harness.skipped.codex_agents": "subagents not exported for codex: format unknown (the note does not say which directory Codex scans for [agents.<role>] files)",
   "harness.skipped.codex_trust": "codex hooks: not marked trusted; Codex runs an unreviewed hook only after one trust review (how to write the trusted hash is unknown)",
   "harness.skipped.agent_tools": "agent frontmatter tools and model omitted for {target}: the spec uses Claude Code tool names and tiers, and their {target} equivalents are not documented in the note",
-  "harness.skipped.gemini_context": "gemini contextFileName: no context file is shipped, so it is left out"
+  "harness.skipped.gemini_context": "gemini contextFileName: no context file is shipped, so it is left out",
+  "harness.error.not_empty": "The export directory {path} is not empty; use an empty or new directory.",
+  "harness.skipped.gemini_hooks_shape": "gemini hooks/hooks.json: the top-level {\"hooks\": ...} wrapper is inferred from the settings.json form (the only form the note documents), and whether extension hooks need folder trust is unknown; no support is claimed until the end-to-end run",
+  "harness.skipped.opencode_guard": "opencode guard: plugins/wev-guard.js is a // wev-placeholder with no guard; do not install until a later task ships it"
 }

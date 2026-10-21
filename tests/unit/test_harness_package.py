@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 
 from wev_skills import cli
-from wev_skills.adapters.harness_package import build_package, render_skill_text
-from wev_skills.core.errors import ValidationError
+from wev_skills.adapters.harness_package import build_package, render_skill_text, skipped_notes
+from wev_skills.core.errors import StateConflict, ValidationError
 from wev_skills.core.wiring import REPO_ROOT
 
 WEV = REPO_ROOT / "bin" / "wev"
@@ -46,6 +46,8 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(shlex.split(out), ["run", str(SPACED), "eval", "list"])
         out = render_skill_text("run ${CLAUDE_PLUGIN_ROOT}/bin/wev eval", SPACED)
         self.assertEqual(shlex.split(out), ["run", str(SPACED), "eval"])
+        out = render_skill_text("see ${CLAUDE_PLUGIN_ROOT}/examples/plan.json", SPACED)
+        self.assertEqual(shlex.split(out), ["see", f"{SPACED.parent.parent}/examples/plan.json"])
 
 
 class LayoutTests(unittest.TestCase):
@@ -108,6 +110,17 @@ class LayoutTests(unittest.TestCase):
             first, _ = self._build(target)
             second, _ = self._build(target)
             self.assertEqual(_tree(first), _tree(second))
+
+    def test_skipped_notes_state_the_limits(self) -> None:
+        self.assertTrue(any("wev-placeholder" in n for n in skipped_notes("opencode")))
+        self.assertTrue(any("inferred" in n for n in skipped_notes("gemini")))
+
+    def test_non_empty_out_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "keep.txt").write_text("x")
+            with self.assertRaises(StateConflict):
+                build_package("codex", Path(tmp), WEV)
+            self.assertEqual(_files(Path(tmp)), {"keep.txt"})
 
     def test_unknown_target_is_refused(self) -> None:
         with self.assertRaises(ValidationError):

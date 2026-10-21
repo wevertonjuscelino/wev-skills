@@ -14,7 +14,6 @@ PLUGIN_TEMPLATE = (
     + """
 // wev guard path: __WEV_PATH__
 export const WevGuard = async () => {
-  console.log("wev guard plugin not installed yet");
   return {};
 };
 """
