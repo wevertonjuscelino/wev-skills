@@ -82,7 +82,7 @@ def _create(engine: Engine, opening: _Opening, run_id: str | None) -> None:
     chosen = validate_run_id(run_id if run_id is not None else engine.store.run_dir.name)
     with fsutil.locked(services.state_dir / RUNS_LOCK, services.config.limits.lock_timeout_seconds):
         refuse_second_run(engine)
-        _register(engine, chosen)
+        register(engine, chosen)
         engine.store.create(
             opening.objective,
             opening.mode,
@@ -136,7 +136,7 @@ def _decisions(engine: Engine, opening: _Opening) -> Change:
     return change
 
 
-def _register(engine: Engine, run_id: str) -> None:
+def register(engine: Engine, run_id: str) -> None:
     """Add the run to the per-user registry; a registry that cannot be written stops the
     start (``registry_unwritable``), since the hooks would not trust the run."""
     services = engine.services

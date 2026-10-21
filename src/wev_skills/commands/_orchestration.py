@@ -21,7 +21,7 @@ from wev_skills.core import active, wiring
 from wev_skills.core.engine import NEW_RUN_STEP
 from wev_skills.core.errors import NotFound, StateConflict, ValidationError
 from wev_skills.core.orchestrator import Orchestrator
-from wev_skills.state.model import RunState
+from wev_skills.state.model import Phase, RunState
 from wev_skills.state.store import StateStore, active_run, new_run_id, run_dir
 
 
@@ -75,11 +75,17 @@ def _pinned(args: argparse.Namespace, location: Location, state: RunState) -> tu
     return active.pinned_config(state), state.config_source
 
 
-def orchestrator_for(args: argparse.Namespace) -> Orchestrator:
-    """The orchestrator of ``--run`` or of the active run, wired from its pinned configuration."""
+def orchestrator_for(args: argparse.Namespace, reads: bool = False) -> Orchestrator:
+    """The orchestrator of ``--run`` or of the active run, wired from its pinned configuration.
+
+    Unless the command only ``reads``, a run that is not finished must be in the per-user
+    registry (``active.require_registered``): its pinned configuration is the policy.
+    """
     location = locate(args)
     run_id = resolve_run_id(args, location)
     state = StateStore(run_dir(location.state_dir, run_id)).load()
+    if not reads and state.phase is not Phase.DONE:
+        active.require_registered(location.state_dir, run_id)
     config, source = _pinned(args, location, state)
     services = wiring.build_services(config, location.root, source=source)
     timeout = config.limits.lock_timeout_seconds

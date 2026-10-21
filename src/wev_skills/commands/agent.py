@@ -69,7 +69,7 @@ def _warnings(registry: AgentRegistry) -> list[str]:
 
 
 def _list(args: argparse.Namespace) -> dict[str, Any]:
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     lang = i18n.resolve_language()
     registry = _factory(args, scope).registry
     return {
@@ -80,7 +80,7 @@ def _list(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _show(args: argparse.Namespace) -> dict[str, Any]:
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     factory = _factory(args, scope)
     spec = factory.registry.get(args.id)
     shown = factory.resolve(spec) if args.resolved else spec
@@ -96,7 +96,7 @@ def _validate(args: argparse.Namespace) -> dict[str, Any]:
             i18n.t("agents.error.invalid_file", file=args.path, errors="; ".join(errors)),
             {"file": args.path, "errors": errors},
         )
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     _factory(args, scope).resolve(AgentSpec.from_dict(data))
     return {"valid": True, "path": args.path, "id": data["id"], "config_source": scope.source}
 

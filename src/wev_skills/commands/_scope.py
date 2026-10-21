@@ -24,7 +24,7 @@ from wev_skills.config import (
     resolve_config,
 )
 from wev_skills.core import wiring
-from wev_skills.core.active import ActiveRun, find_active_run
+from wev_skills.core.active import ActiveRun, find_active_run, require_registered
 from wev_skills.core.errors import ValidationError
 
 RUN_SOURCE_PREFIX = "run:"
@@ -54,11 +54,17 @@ def _refuse_other_config(config_path: str, active: ActiveRun) -> None:
 
 
 def resolve_scope(
-    config_path: str | None, cwd: Path | None = None, paths: Sequence[Path] = ()
+    config_path: str | None,
+    cwd: Path | None = None,
+    paths: Sequence[Path] = (),
+    reads: bool = False,
 ) -> Scope:
-    """The scope of a command run from ``cwd`` (default: the working directory)."""
+    """The scope of a command run from ``cwd`` (default: the working directory). Unless the
+    command only ``reads``, an active run the per-user registry does not list is refused."""
     here = cwd if cwd is not None else Path.cwd()
     active = find_active_run(here, paths)
+    if active is not None and active.state_error is None and not reads:
+        require_registered(active.state_dir, active.run_id)
     if active is None:
         root = find_repo_root(here)
         resolved = resolve_config(config_path, root)

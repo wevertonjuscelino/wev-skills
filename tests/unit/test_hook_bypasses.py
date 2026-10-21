@@ -140,6 +140,7 @@ class EngineCommandTests(HookCase):
             "task reopen t1 --reason x",
             "specialists accept project-test lesson-0123",
             "specialists retire project-test lesson-0123",
+            "run adopt --run r1",
             "run start --objective x --mode execute",
             "run finish",
             "agent create --template base --id z1 --out a.json",

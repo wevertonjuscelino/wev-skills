@@ -234,5 +234,10 @@
   "orch.plan.warn.approval": "Task {task}: the check '{command}' will need a human approval when it runs ({reason}), so 'wev task check' will wait for a person. A script file or a named test instead of inline code avoids the wait.",
   "orch.plan.warn.denied": "Task {task}: the check '{command}' will be refused when it runs ({reason}), so its criteria cannot be met by it.",
   "orch.plan.warn.ignored": "Task {task} refers to paths that git ignores: {paths}. Ignored files are outside the tree fingerprint, so a change to them is not seen as work and does not invalidate a verification.",
-  "orch.error.evidence_no_files": "the task lists none"
+  "orch.error.evidence_no_files": "the task lists none",
+  "orch.run.adopt.help": "Human-operator command: register a run found in this tree so the engine applies its pinned configuration. Shows that configuration and asks for a typed word at a terminal.",
+  "orch.error.unregistered_run": "Run {run} under {state_dir} is not in your per-user run registry, so its pinned configuration is not used as policy. If you started it, ask the human operator to run 'wev run adopt --run {run}' in their own terminal; otherwise remove it.",
+  "orch.error.adopt_human": "Adopting a run is a human-operator action. Stop and ask the human operator to run it in their own terminal (run {run}).",
+  "orch.error.adopt_finished": "Run {run} is finished; there is nothing to adopt.",
+  "orch.confirm.adopt": "You are about to ADOPT a run found in this tree: its pinned configuration below becomes the policy for engine commands here."
 }

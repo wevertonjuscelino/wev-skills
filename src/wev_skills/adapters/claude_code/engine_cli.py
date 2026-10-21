@@ -38,7 +38,7 @@ VALUE_OPTIONS = ("--lang", CONFIG_OPTION)
 MIN_ABBREVIATION = 3
 OPERATOR_COMMANDS = frozenset(
     {("approval", "grant"), ("approval", "deny"), ("guard", "acknowledge"), ("task", "reopen"),
-     ("specialists", "accept"), ("specialists", "retire")}
+     ("specialists", "accept"), ("specialists", "retire"), ("run", "adopt")}
 )  # fmt: skip
 RUN_COMMANDS = frozenset(
     {("run", "start"), ("run", "finish"), ("agent", "create"), ("agent", "export"),

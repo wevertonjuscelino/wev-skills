@@ -234,5 +234,10 @@
   "orch.plan.warn.approval": "Tarefa {task}: a verificação '{command}' vai precisar de aprovação humana quando rodar ({reason}), então 'wev task check' vai esperar por uma pessoa. Um arquivo de script ou um teste nomeado no lugar de código inline evita a espera.",
   "orch.plan.warn.denied": "Tarefa {task}: a verificação '{command}' será recusada quando rodar ({reason}), então os critérios dela não podem ser atendidos por essa verificação.",
   "orch.plan.warn.ignored": "A tarefa {task} se refere a caminhos que o git ignora: {paths}. Arquivos ignorados ficam fora da impressão digital da árvore, então uma mudança neles não é vista como trabalho e não invalida uma verificação.",
-  "orch.error.evidence_no_files": "a tarefa não lista nenhum"
+  "orch.error.evidence_no_files": "a tarefa não lista nenhum",
+  "orch.run.adopt.help": "Comando de operador humano: registra uma execução encontrada nesta árvore para que o motor aplique a configuração fixada nela. Mostra essa configuração e pede uma palavra digitada num terminal.",
+  "orch.error.unregistered_run": "A execução {run} em {state_dir} não está no seu registro de execuções, então a configuração fixada nela não é usada como política. Se foi você quem a iniciou, peça ao operador humano para rodar 'wev run adopt --run {run}' no próprio terminal; se não, remova-a.",
+  "orch.error.adopt_human": "Adotar uma execução é uma ação de operador humano. Pare e peça ao operador humano para rodá-la no próprio terminal (execução {run}).",
+  "orch.error.adopt_finished": "A execução {run} está encerrada; não há o que adotar.",
+  "orch.confirm.adopt": "Você está prestes a ADOTAR uma execução encontrada nesta árvore: a configuração fixada abaixo passa a ser a política dos comandos do motor aqui."
 }

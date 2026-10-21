@@ -89,7 +89,7 @@ def _program_status(scope: Scope) -> dict[str, Any]:
 
 
 def _run_status(args: argparse.Namespace) -> dict[str, Any]:
-    scope = resolve_scope(args.config)
+    scope = resolve_scope(args.config, reads=True)
     decision = scope.config.decision
     program = decision.jev.command != BUILTIN
     jev = decision.provider == "jev"
