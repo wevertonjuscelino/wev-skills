@@ -1,0 +1,13 @@
+{
+  "harness.help": "Monta pacotes das skills e dos agentes para outros harnesses (Codex, Gemini CLI, OpenCode).",
+  "harness.export.help": "Escreve os arquivos do pacote de um harness em um diretório (nada é instalado).",
+  "harness.export.target": "Harness para o qual montar o pacote.",
+  "harness.export.out": "Diretório onde escrever o pacote.",
+  "harness.export.wev": "Caminho absoluto do launcher wev que os hooks e as skills chamam (padrão: o bin/wev deste clone).",
+  "harness.error.unknown_target": "Harness {target} desconhecido; use um destes: {targets}.",
+  "harness.error.wev_missing": "O launcher wev {path} não existe.",
+  "harness.skipped.codex_agents": "subagentes não exportados para o codex: formato desconhecido (a nota não diz qual diretório o Codex varre em busca de arquivos [agents.<role>])",
+  "harness.skipped.codex_trust": "hooks do codex: não marcados como confiáveis; o Codex só roda um hook não revisado depois de uma revisão de confiança (como gravar o hash confiável é desconhecido)",
+  "harness.skipped.agent_tools": "tools e model do frontmatter dos agentes omitidos para {target}: a spec usa nomes de ferramenta e tiers do Claude Code, e os equivalentes de {target} não estão documentados na nota",
+  "harness.skipped.gemini_context": "gemini contextFileName: nenhum arquivo de contexto é enviado, então o campo fica de fora"
+}
