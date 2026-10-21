@@ -56,7 +56,7 @@ Labels: VERIFIED (read in source or observed locally), DOC-ONLY (stated in a rep
 ## 3. Hooks
 
 - Feature flag: `hooks` is `stable`, default `true` (VERIFIED, `codex features list`).
-- Events (VERIFIED, `config/src/hook_config.rs`): `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`. So yes, there is a session-start hook and a before-tool hook. "Before shell command" is `PreToolUse` with a matcher on the shell tool name. The exact shell tool name (`Bash`, `shell`, ...) was not verified.
+- Events (VERIFIED, `config/src/hook_config.rs`): `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`. So yes, there is a session-start hook and a before-tool hook. "Before shell command" is `PreToolUse` with a matcher on the shell tool name. The shell tool name in the PreToolUse `tool_name` is `Bash` (VERIFIED, `core/src/tools/hook_names.rs`, `HookToolName::bash()`, and `hooks/src/events/pre_tool_use.rs` tests, at `rust-v0.160.0`). For shell tools `tool_input` holds only `command` (and `description`); the call's `workdir` is not passed to the hook (`core/src/tools/handlers/unified_exec/exec_command.rs`, `sandboxing.rs`).
 - Config file locations (VERIFIED, `engine/discovery.rs`): `hooks.json` in the config folder (`load_hooks_json`: `config_folder.join("hooks.json")`, so `~/.codex/hooks.json` and a project `.codex/hooks.json`). Hooks can also be declared inline in `config.toml`. The discovery code says "hooks from config TOML and hooks.json converge on the same trust identity."
 - Format (VERIFIED, `hook_config.rs`): `{"hooks": {"<Event>": [{"matcher": "<regex>", "hooks": [{"type": "command", "command": "...", "commandWindows": "...", "timeout": 10, "async": false, "statusMessage": "...", "additionalContextLimit": 2500}]}]}}`. Other handler types exist in the schema: `mcp_tool`, `prompt`, `agent`. Their runtime support: UNKNOWN.
 - Timeouts (VERIFIED, `normalize_command_hook`): default 600 s for every event except `SessionEnd` and `Interrupt`, which default to 1 s and are clamped to 1..3 s. Timeout on a command hook kills it and reports `hook timed out after Ns` (VERIFIED, `command_runner.rs`).
@@ -137,7 +137,6 @@ nickname_candidates = ["..."]
 - Official docs site (developers.openai.com/codex/*) not fetched. All behavior above comes from source at `rust-v0.160.0` and local `--help`/`debug` output, not the published docs.
 - Global AGENTS.md file name and precedence: not read.
 - Default MCP startup timeout: not found in source.
-- Exact shell tool name for matchers (`Bash` or other): not verified.
 - Hook trust hash computation and how to write `trusted_hash`: not traced.
 - Hooks under `codex exec`, and an end-to-end run of a real skill, hook, or MCP call: not run (needs model and auth).
 - Project-level MCP and hooks: depend on project trust; trust mechanics not traced.

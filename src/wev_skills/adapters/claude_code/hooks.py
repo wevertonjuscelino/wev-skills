@@ -74,6 +74,7 @@ __all__ = [
     "internal_error",
     "parse_payload",
     "pre_tool_use",
+    "pre_tool_use_verdict",
     "prompt_reminder",
     "session_context",
     "unreadable_input",
@@ -169,21 +170,28 @@ def _output(decision: str, reason: str) -> str:
     return json.dumps({"hookSpecificOutput": output}, ensure_ascii=False)
 
 
-def _answer(active: ActiveRun, verdict: HookVerdict) -> str:
+def render(verdict: HookVerdict) -> str:
+    """Claude's PreToolUse JSON for a verdict, or ``""`` for no opinion."""
     if verdict.decision == NO_OPINION:
         return ""
+    return _output(verdict.decision, verdict.reason)
+
+
+def _answer(active: ActiveRun, verdict: HookVerdict) -> HookVerdict:
+    if verdict.decision == NO_OPINION:
+        return verdict
     with i18n.use_config_language(active.language):
         reason = i18n.t(
             "hooks.reason.context", run=active.run_id, mode=active.mode.value, reason=verdict.reason
         )
-    return _output(verdict.decision, reason)
+    return replace(verdict, reason=reason)
 
 
 def _judge(active: ActiveRun, command: str, cwd: Path) -> HookVerdict:
     """The verdict under the run's own configuration; any failure here is an ``ask``."""
     if active.state_error is not None:
         reason = i18n.t("hooks.reason.state_error", error=active.state_error)
-        return HookVerdict(ASK, reason)
+        return HookVerdict(ASK, reason, fail_safe=True)
     with i18n.use_config_language(active.language):
         return _guarded(active.config, active.root, active.mode, active.risk, command, cwd)
 
@@ -221,7 +229,7 @@ def _real(path: Path) -> Path:
 
 def _failed(exc: Exception) -> HookVerdict:
     code = exc.code if isinstance(exc, WevError) else type(exc).__name__
-    return HookVerdict(ASK, i18n.t("hooks.reason.internal_error", error=code))
+    return HookVerdict(ASK, i18n.t("hooks.reason.internal_error", error=code), fail_safe=True)
 
 
 def _default_verdict(command: str, cwd: Path) -> HookVerdict:
@@ -234,14 +242,14 @@ def _default_verdict(command: str, cwd: Path) -> HookVerdict:
     return _guarded(Config(), root, NO_RUN_MODE, NO_RUN_RISK, command, cwd)
 
 
-def _default_answer(verdict: HookVerdict) -> str:
+def _default_answer(verdict: HookVerdict) -> HookVerdict:
     if verdict.decision == NO_OPINION:
-        return ""
+        return verdict
     reason = i18n.t("hooks.reason.no_run_context", mode=NO_RUN_MODE.value, reason=verdict.reason)
-    return _output(verdict.decision, reason)
+    return replace(verdict, reason=reason)
 
 
-def _without_run(command: str, cwd: Path) -> str:
+def _without_run(command: str, cwd: Path) -> HookVerdict:
     """No run governs the command: the built-in defaults judge it."""
     return _default_answer(_default_verdict(command, cwd))
 
@@ -252,40 +260,46 @@ def _untrusted_reason(active: ActiveRun) -> str:
     return i18n.t("hooks.reason.unregistered_run")
 
 
-def _untrusted(active: ActiveRun, command: str, cwd: Path) -> str:
+def _untrusted(active: ActiveRun, command: str, cwd: Path) -> HookVerdict:
     """A run the registry does not vouch for, or a registry that cannot be read: a person
     decides every command, except what the built-in defaults deny, which stays denied."""
     verdict = _default_verdict(command, cwd)
     if verdict.decision == DENY:
         return _default_answer(verdict)
-    return _output(ASK, _untrusted_reason(active))
+    return HookVerdict(ASK, _untrusted_reason(active), fail_safe=True)
 
 
-def _unknown_target(parts: Sequence[SimpleCommand] | None) -> str:
+def _unknown_target(parts: Sequence[SimpleCommand] | None) -> HookVerdict:
     """No run was found for the command, but a word comes from a variable: with any run
     registered for the user the target may be that run's tree, so a person decides."""
     if parts is None or not bash_guard.target_unknown(parts):
-        return ""
+        return HookVerdict()
     other = registered_run()
     if other is None:
-        return ""
+        return HookVerdict()
     with i18n.use_config_language(other.language):
         reason = i18n.t("hooks.reason.unknown_target", root=str(other.root))
-    return _answer(other, HookVerdict(ASK, reason))
+    return _answer(other, HookVerdict(ASK, reason, fail_safe=True))
 
 
 def pre_tool_use(payload: Mapping[str, Any]) -> str:
     """PreToolUse for Bash: a ``deny`` or ``ask`` decision as JSON, or ``""`` (no opinion)."""
+    return render(pre_tool_use_verdict(payload))
+
+
+def pre_tool_use_verdict(payload: Mapping[str, Any]) -> HookVerdict:
+    """The verdict behind ``pre_tool_use``; ``fail_safe`` marks an ask that is not policy."""
     command = _bash_command(payload)
     if not command:
-        return ""
+        return HookVerdict()
     cwd = _working_directory(payload.get("cwd"))
     parts = bash_guard.split_bounded(command)
     paths = bash_guard.command_paths(parts, str(cwd)) if parts is not None else ()
     targets = bash_guard.target_paths(parts, str(cwd)) if parts is not None else ()
     active = find_hook_run(cwd, paths, targets)
     if active is None:
-        return _unknown_target(parts) or _without_run(command, cwd)
+        unknown = _unknown_target(parts)
+        return unknown if unknown.decision != NO_OPINION else _without_run(command, cwd)
     if active.state_error in UNTRUSTED:
         return _untrusted(active, command, cwd)
     return _answer(active, _judge(active, command, cwd))
@@ -307,23 +321,35 @@ def unreadable_input(text: str) -> str:
     The command is unknown, so nothing can be judged: with a run for the directory the
     answer is ``ask``; without one the hook stays silent.
     """
+    return render(unreadable_verdict(text))
+
+
+def unreadable_verdict(text: str) -> HookVerdict:
     active = find_hook_run(_claimed_directory(text))
     if active is None:
-        return ""
+        return HookVerdict()
     if active.state_error in UNTRUSTED:
-        return _output(ASK, _untrusted_reason(active))
+        return HookVerdict(ASK, _untrusted_reason(active), fail_safe=True)
     with i18n.use_config_language(active.language):
-        return _answer(active, HookVerdict(ASK, i18n.t("hooks.reason.unreadable_input")))
+        reason = i18n.t("hooks.reason.unreadable_input")
+        return _answer(active, HookVerdict(ASK, reason, fail_safe=True))
 
 
 def internal_error(error: Exception) -> str:
     """PreToolUse ``ask`` for an error the judge did not catch; only the error's code is named.
     When even that answer cannot be built, a fixed ``ask`` without a reason is printed."""
     try:
-        verdict = _failed(error)
-        return _output(verdict.decision, verdict.reason)
+        return render(_failed(error))
     except Exception:  # noqa: BLE001 - the last fallback must not fail
         return FALLBACK_ASK
+
+
+def internal_verdict(error: Exception) -> HookVerdict:
+    """``internal_error`` as a verdict; the last fallback is a fail-safe ask without a reason."""
+    try:
+        return _failed(error)
+    except Exception:  # noqa: BLE001 - the last fallback must not fail
+        return HookVerdict(ASK, "", fail_safe=True)
 
 
 def failure_note(name: str, error: BaseException) -> str:

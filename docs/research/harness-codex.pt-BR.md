@@ -56,7 +56,7 @@ Rótulos: VERIFIED (lido no código-fonte ou observado localmente), DOC-ONLY (af
 ## 3. Hooks
 
 - Flag de recurso: `hooks` é `stable`, padrão `true` (VERIFIED, `codex features list`).
-- Eventos (VERIFIED, `config/src/hook_config.rs`): `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`. Ou seja, existem um hook de início de sessão e um hook antes da ferramenta. "Antes do comando de shell" é `PreToolUse` com um matcher sobre o nome da ferramenta de shell. O nome exato da ferramenta de shell (`Bash`, `shell`, ...) não foi verificado.
+- Eventos (VERIFIED, `config/src/hook_config.rs`): `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`. Ou seja, existem um hook de início de sessão e um hook antes da ferramenta. "Antes do comando de shell" é `PreToolUse` com um matcher sobre o nome da ferramenta de shell. O nome da ferramenta de shell no `tool_name` do PreToolUse é `Bash` (VERIFIED, `core/src/tools/hook_names.rs`, `HookToolName::bash()`, e os testes de `hooks/src/events/pre_tool_use.rs`, em `rust-v0.160.0`). Nas ferramentas de shell o `tool_input` traz só `command` (e `description`); o `workdir` da chamada não é passado ao hook (`core/src/tools/handlers/unified_exec/exec_command.rs`, `sandboxing.rs`).
 - Locais do arquivo de configuração (VERIFIED, `engine/discovery.rs`): `hooks.json` na pasta de configuração (`load_hooks_json`: `config_folder.join("hooks.json")`, portanto `~/.codex/hooks.json` e um `.codex/hooks.json` de projeto). Os hooks também podem ser declarados inline no `config.toml`. O código de descoberta diz "hooks from config TOML and hooks.json converge on the same trust identity."
 - Formato (VERIFIED, `hook_config.rs`): `{"hooks": {"<Event>": [{"matcher": "<regex>", "hooks": [{"type": "command", "command": "...", "commandWindows": "...", "timeout": 10, "async": false, "statusMessage": "...", "additionalContextLimit": 2500}]}]}}`. Existem outros tipos de handler no schema: `mcp_tool`, `prompt`, `agent`. Seu suporte em tempo de execução: UNKNOWN.
 - Timeouts (VERIFIED, `normalize_command_hook`): padrão de 600 s para todo evento exceto `SessionEnd` e `Interrupt`, que têm padrão de 1 s e são limitados ao intervalo de 1 a 3 s. O timeout de um hook de comando o encerra e reporta `hook timed out after Ns` (VERIFIED, `command_runner.rs`).
@@ -137,7 +137,6 @@ nickname_candidates = ["..."]
 - O site oficial de documentação (developers.openai.com/codex/*) não foi buscado. Todo o comportamento acima vem do código-fonte em `rust-v0.160.0` e da saída local de `--help`/`debug`, não da documentação publicada.
 - Nome e precedência do AGENTS.md global: não lidos.
 - Timeout padrão de inicialização do MCP: não encontrado no código-fonte.
-- Nome exato da ferramenta de shell para os matchers (`Bash` ou outro): não verificado.
 - Cálculo do hash de confiança dos hooks e como gravar `trusted_hash`: não rastreados.
 - Hooks sob `codex exec`, e uma execução ponta a ponta de uma skill, hook ou chamada MCP real: não executadas (exigem modelo e autenticação).
 - MCP e hooks em nível de projeto: dependem da confiança no projeto; a mecânica de confiança não foi rastreada.

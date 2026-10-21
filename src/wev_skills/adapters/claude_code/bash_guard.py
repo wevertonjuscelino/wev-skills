@@ -55,6 +55,7 @@ class HookVerdict:
 
     decision: str = NO_OPINION
     reason: str = ""
+    fail_safe: bool = False  # the guard could not judge (error, forged state), not a policy ask
 
 
 @dataclass(frozen=True)
