@@ -1,0 +1,1 @@
+{"session_id": "s1", "turn_id": "t1", "cwd": "/tmp/work", "hook_event_name": "PreToolUse", "model": "m", "permission_mode": "default", "tool_name": "Bash", "tool_input": {"command": "ls -la"}, "tool_use_id": "u1"}
