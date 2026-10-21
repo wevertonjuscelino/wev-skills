@@ -17,7 +17,7 @@ Scope: what the OpenAI Codex CLI 0.160.0 exposes for skills/plugins, instruction
   - `codex-rs/core-plugins/src/manifest.rs`, `codex-rs/utils/plugins/src/plugin_namespace.rs`
   - `codex-rs/agent-roles/src/discovery.rs`, `agent_role_config.rs`
 - The repo `docs/*.md` files at that tag are stubs that only link to developers.openai.com. The docs site itself was NOT fetched (gap).
-- Local smoke test (no model call): `codex debug prompt-input` in a temp project with an `AGENTS.md` containing a marker and a `.agents/skills/probe-skill/SKILL.md`. Output contained the AGENTS.md marker and the skill listed with its file path. Scratch dir: `/private/tmp/claude-501/-Users-tonton-Documents-GitHub-wev-skills/d31c0e96-972e-4df6-a0aa-7c9006f3ee38/scratchpad/codex/smoke`.
+- Local smoke test (no model call): `codex debug prompt-input` in a temp project with an `AGENTS.md` containing a marker and a `.agents/skills/probe-skill/SKILL.md`. Output contained the AGENTS.md marker and the skill listed with its file path.
 - addyosmani/agent-skills at commit `aeac41d4d005999432bb7312f7ff06383a91d59d` (2026-10-13): `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, `docs/codex-setup.md`.
 - User config `~/.codex/config.toml` and `~/.codex/hooks.json` were read for shape only. Values and secrets were not copied. Nothing was modified.
 
@@ -80,7 +80,7 @@ Labels: VERIFIED (read in source or observed locally), DOC-ONLY (stated in a rep
 ```toml
 [mcp_servers.<name>]
 command = "npx"                       # stdio
-args = ["-y", "pkg@1.2.3"]
+args = ["-y", "some-package"]
 cwd = "..."
 env_vars = ["TOKEN_NAME"]             # names passed from the parent env
 startup_timeout_sec = 30              # float; startup_timeout_ms also accepted

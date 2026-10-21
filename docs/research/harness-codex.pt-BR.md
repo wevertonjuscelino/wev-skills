@@ -17,7 +17,7 @@ Escopo: o que o OpenAI Codex CLI 0.160.0 expõe para skills/plugins, instruçõe
   - `codex-rs/core-plugins/src/manifest.rs`, `codex-rs/utils/plugins/src/plugin_namespace.rs`
   - `codex-rs/agent-roles/src/discovery.rs`, `agent_role_config.rs`
 - Os arquivos `docs/*.md` do repositório nessa tag são stubs que apenas apontam para developers.openai.com. O site de documentação em si NÃO foi buscado (lacuna).
-- Teste de fumaça local (sem chamada de modelo): `codex debug prompt-input` em um projeto temporário com um `AGENTS.md` contendo um marcador e um `.agents/skills/probe-skill/SKILL.md`. A saída continha o marcador do AGENTS.md e a skill listada com o caminho do seu arquivo. Diretório temporário: `/private/tmp/claude-501/-Users-tonton-Documents-GitHub-wev-skills/d31c0e96-972e-4df6-a0aa-7c9006f3ee38/scratchpad/codex/smoke`.
+- Teste de fumaça local (sem chamada de modelo): `codex debug prompt-input` em um projeto temporário com um `AGENTS.md` contendo um marcador e um `.agents/skills/probe-skill/SKILL.md`. A saída continha o marcador do AGENTS.md e a skill listada com o caminho do seu arquivo.
 - addyosmani/agent-skills no commit `aeac41d4d005999432bb7312f7ff06383a91d59d` (2026-10-13): `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, `docs/codex-setup.md`.
 - A configuração do usuário `~/.codex/config.toml` e `~/.codex/hooks.json` foram lidas apenas para conhecer o formato. Valores e segredos não foram copiados. Nada foi modificado.
 
@@ -80,7 +80,7 @@ Rótulos: VERIFIED (lido no código-fonte ou observado localmente), DOC-ONLY (af
 ```toml
 [mcp_servers.<name>]
 command = "npx"                       # stdio
-args = ["-y", "pkg@1.2.3"]
+args = ["-y", "some-package"]
 cwd = "..."
 env_vars = ["TOKEN_NAME"]             # names passed from the parent env
 startup_timeout_sec = 30              # float; startup_timeout_ms also accepted
