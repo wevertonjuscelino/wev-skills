@@ -46,6 +46,27 @@ def fold(text: str) -> str:
     return text.casefold() if CASE_INSENSITIVE else text
 
 
+def same_place(left: str, right: str) -> bool:
+    """Whether two absolute paths name one place: equal as written, or, where the platform
+    ignores case, equal casefolded and confirmed by the file system. A case-sensitive volume
+    on macOS keeps ``Repo`` and ``repo`` apart; a path that cannot be read is not the same."""
+    if left == right:
+        return True
+    if fold(left) != fold(right):
+        return False
+    try:
+        return os.path.samefile(left, right)
+    except OSError:
+        return False
+
+
+def place_within(path: str, root: str) -> bool:
+    """Whether ``path`` is ``root`` or lies under it: its ancestor at the depth of ``root``
+    is the same place as ``root`` (``same_place``)."""
+    parts, depth = Path(path).parts, len(Path(root).parts)
+    return len(parts) >= depth and same_place(str(Path(*parts[:depth])), str(Path(root)))
+
+
 def _tilde_base(prefix: str, cwd: PathLike) -> str | None:
     if prefix == HOME_TILDE:
         return os.path.expanduser(HOME_TILDE)

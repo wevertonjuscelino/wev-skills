@@ -8,7 +8,6 @@ acting as if there were no run.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +23,7 @@ from wev_skills.core import run_registry
 from wev_skills.core.contracts import Mode, RiskLevel, TaskStatus, higher_risk
 from wev_skills.core.errors import WevError
 from wev_skills.core.run_registry import RegistryEntry
-from wev_skills.security.paths import fold
+from wev_skills.security.paths import place_within, same_place
 from wev_skills.state.model import Phase, RunState
 from wev_skills.state.store import StateStore, active_run, run_dir, runs_by_recency, runs_dir
 
@@ -155,13 +154,11 @@ def _in_directory(directory: Path, entries: Sequence[RegistryEntry]) -> ActiveRu
 
 
 def _same(left: Path, right: Path) -> bool:
-    """Whether two paths name the same place, casefolded where the file system ignores case."""
-    return fold(str(left)) == fold(str(right))
+    return same_place(str(left), str(right))
 
 
 def _contains(root: Path, path: Path) -> bool:
-    folded_root, folded = fold(str(root)), fold(str(path))
-    return folded == folded_root or folded.startswith(folded_root.rstrip(os.sep) + os.sep)
+    return place_within(str(path), str(root))
 
 
 def _through_registry(
@@ -235,10 +232,10 @@ def _trusted_in(directory: Path, entries: Sequence[RegistryEntry]) -> ActiveRun 
         found = _registered(entry)
         if found is not None:
             return found
-    claimed = {fold(str(_resolved(Path(entry.state_dir)))) for entry in mine}
+    claimed = [_resolved(Path(entry.state_dir)) for entry in mine]
     for name in _tree_names(directory):
         state_dir = _resolved(directory / name)
-        unclaimed = fold(str(state_dir)) not in claimed
+        unclaimed = not any(_same(state_dir, place) for place in claimed)
         if unclaimed and _is_dir(runs_dir(state_dir)) and _has_open_run(state_dir):
             return _restricted(directory, state_dir, "", UNREGISTERED)
     return None
@@ -255,7 +252,8 @@ def find_hook_run(
     ``UNREGISTERED``; its state is read only for its phase. A registry that exists but
     cannot be read gives ``REGISTRY_UNREADABLE``. The tree's ``wev.config.json`` is read
     only to find state directories to report, never for a policy. Paths are compared with
-    the registry's roots casefolded where the file system ignores case (``paths.fold``).
+    the registry's roots without case only where the file system confirms the same place
+    (``paths.same_place``).
     """
     start = _resolved(Path(cwd))
     entries = run_registry.read_registry()
