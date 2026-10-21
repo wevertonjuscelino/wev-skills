@@ -28,6 +28,8 @@ SENSITIVE = (
     "agent export --out agents",
     "remote start --host h --task t -- uptime",
     "remote stop --host h --task t",
+    "jev ask --questions q.json --state-file notes.txt",
+    "jev batch --questions q.json --items i.jsonl --out r.jsonl",
     "--config agent.json run status",
 )
 WRAPPERS = (

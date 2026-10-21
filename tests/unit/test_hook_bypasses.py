@@ -146,6 +146,8 @@ class EngineCommandTests(HookCase):
             "agent export --out agents",
             "remote start --host h --task t --mode execute -- rm -rf /",
             "remote stop --host h --task t",
+            "jev ask --questions q.json --state x",
+            "jev batch --questions q.json --items i.jsonl --out r.jsonl",
             "--config /tmp/agent.json run status",
             "--config=/tmp/agent.json check-command -- ls",
             "--conf /tmp/agent.json run status",
@@ -168,6 +170,7 @@ class EngineCommandTests(HookCase):
             "check-command -- rm -rf x",
             "classify --objective x",
             "agent list",
+            "jev status",
             "--lang en run status",
             "exec -- ls",
         ):
@@ -202,7 +205,7 @@ class ScopeTests(ExecuteModeCase):
         self.assertEqual(self.decision(f"cat {self.work}/{DOT_ENV}", elsewhere), DENY)
         self.assertEqual(self.decision(f"cd {self.work} && rm -rf src", elsewhere), ASK)
         self.assertEqual(self.decision(f"git -C {self.work} reset --hard", elsewhere), ASK)
-        self.assertIsNone(self.decision("rm -rf build", elsewhere))
+        self.assertEqual(self.without_run("rm -rf build", elsewhere), ASK)
 
     def test_changing_directory_is_followed(self) -> None:
         self.assertEqual(self.decision("cd .wev && cp /tmp/forged.json approvals.json"), DENY)
