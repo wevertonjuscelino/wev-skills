@@ -6,7 +6,8 @@
 stated in the request with `--source request`, then ask only about missing required
 fields. Each `next` consumes one round and returns at most three questions. The engine
 requires an objective (`goal`), completion evidence (`done`), scope and work kind; constraints
-are optional. A clear request needs no questions.
+are optional, and so is the outcome (`outcome`): what should happen after the goal
+is reached. A clear request needs no questions.
 
 ```sh
 wev intake start --request 'Add a CSV export to reports'
@@ -37,6 +38,8 @@ are redacted; redaction does not guarantee recognition of every possible secret.
 objective. An explicitly different `--objective` is refused. Operations retain the external
 side-effect signal and assumptions establish a minimum unknown count. The complete brief
 is saved in run state, copied into a `run.intake_attached` audit event and returned
-to the caller. Plan reminders carry the scope, constraints and completion criteria. The interview
+to the caller. Plan reminders carry the scope, constraints, outcome and completion criteria. The outcome
+is context, not scope: the `wev-orchestrate` skill tells the agent to propose a broader
+approach to the user when it would serve the outcome better, and never to adopt one alone. The interview
 and its evidence describe intent; execution verification and human approval gates still
 apply normally.

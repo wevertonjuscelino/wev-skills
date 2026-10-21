@@ -98,7 +98,7 @@ def _intake_lines(state: RunState, lang: str) -> list[Line]:
         return []
     recorded = intake["brief"]
     lines: list[Line] = []
-    for field in ("scope", "constraints"):
+    for field in ("scope", "constraints", "outcome"):
         value = recorded.get(field)
         if isinstance(value, str) and value:
             text = i18n.t(f"intake.brief.{field}", lang, value=one_line(value))

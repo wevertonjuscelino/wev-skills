@@ -143,6 +143,7 @@ class CommandTests(unittest.TestCase):
         for field in ("goal", "done", "scope", "kind"):
             value = "operations" if field == "kind" else "confirmed"
             self.call("intake", "set", intake_id, "--field", field, "--value", value)
+        self.call("intake", "set", intake_id, "--field", "outcome", "--value", "fewer tickets")
         self.call("intake", "finish", intake_id)
         with patch("wev_skills.commands.run.new_orchestrator") as factory:
             engine = factory.return_value[0]
@@ -161,3 +162,4 @@ class CommandTests(unittest.TestCase):
         reminder = build_brief(restored, "next", 4000, "en")
         self.assertIn("Scope: confirmed", reminder)
         self.assertIn("Done when: confirmed", reminder)
+        self.assertIn("Outcome beyond the goal: fewer tickets", reminder)

@@ -62,9 +62,15 @@ The answer holds `classification` (complexity, risk), `strategy`, `discovery` an
 
 Tell the user the flow and its reasons in one or two sentences.
 
+A run started with `run start --from-intake` may carry an `outcome`: what the user wants to happen after the goal is reached. Work toward the goal. When a broader approach would serve that outcome better, propose it to the user in one sentence and wait; never widen the scope on your own.
+
 ### 2. Plan (planned and gated flows)
 
 Write a plan file with the tasks, their files, dependencies, acceptance criteria and checks, then store it. Write the checks so they can actually prove each criterion (see "Verify" for what the engine will and will not accept): a check object ties one command to the criteria it proves. The format is in [references/plan-format.md](references/plan-format.md); a complete sample is at `${CLAUDE_PLUGIN_ROOT}/examples/plan.example.json`. Keep tasks that edit the same file in a dependency chain, because the engine never offers overlapping tasks together.
+
+Before storing the plan, make it deeper, not bigger. For each task answer in a line or two: what a leading practitioner of this kind of work would do that the request does not ask for; which primary material they would start from (the failing log, the raw data, the source, not a summary of it); which methods and tools they would use; and which command, not you and not the user, would show the result is right. Turn each answer into an acceptance criterion or a check, or drop it. A demanding target is welcome when a check measures it (for example a timing under a threshold); a goal no command can measure stays out of the criteria. YAGNI still decides the code: depth raises the bar for evidence, not the amount of code.
+
+In a `planned` or `gated` flow you may also widen the review. Restate the objective as the actions it serves rather than the artifact it produces, and pick at most two agents from `agent list` whose work brings a field the task touches (for example `security-auditor` for code that parses input). Each must produce something checkable: a check, a reproduction, or findings with file references. Asking an agent to sound like a role adds nothing.
 
 ```
 "${CLAUDE_PLUGIN_ROOT}/bin/wev" plan set --file plan.json
@@ -97,7 +103,7 @@ Only a tool the agent may use can be restored.
 
 Hand each contract to exactly one agent:
 
-- For real work, delegate to the plugin subagent named by the contract's `agent_id`, as `wev-skills:<agent_id>` (for example `wev-skills:code-reviewer`). Paste the whole contract into the prompt. If the subagent does not exist, use a general-purpose subagent and paste the agent's instructions from `agent show <agent_id>`.
+- For real work, delegate to the plugin subagent named by the contract's `agent_id`, as `wev-skills:<agent_id>` (for example `wev-skills:code-reviewer`). Paste the whole contract into the prompt, and point it at the primary sources (files, logs, failing output) rather than your own summary of them. If the subagent does not exist, use a general-purpose subagent and paste the agent's instructions from `agent show <agent_id>`.
 - For trivial work in a `direct` flow, do it yourself in the main session.
 - Start only tasks that `task next` offered. Run tasks in parallel only when several were offered together.
 
@@ -136,7 +142,7 @@ This runs the task's checks and stores the evidence. Then record the outcome the
 
 How to satisfy this honestly: write checks that fail before the work and pass after it, tie each to the criterion it proves, and run `task check` after the final edit. Expect the baseline to expose a check that passed already. Do not add a no-op check or touch a file to move the fingerprint.
 
-When a criterion cannot be proved by a command, pass manual evidence with `--evidence-file FILE`, a JSON object with an `evidence` list. Each item names the criterion in `kind` and a `ref` that is an existing file under the run's log directory, under the run's evidence directory (`<state dir>/runs/<id>/evidence/`) or one of the files the task lists in the plan; any other existing file is refused and the error says so. To show a file or an output, run it through `exec` and reference the log. The report labels it as supplied by the agent.
+When no command can prove a criterion, first tell the user what access would let one prove it (logs, a test machine, a dataset, an account they must set up) and ask for it. Only when that access is not available, pass manual evidence with `--evidence-file FILE`, a JSON object with an `evidence` list. Each item names the criterion in `kind` and a `ref` that is an existing file under the run's log directory, under the run's evidence directory (`<state dir>/runs/<id>/evidence/`) or one of the files the task lists in the plan; any other existing file is refused and the error says so. To show a file or an output, run it through `exec` and reference the log. The report labels it as supplied by the agent.
 
 Other statuses are `partial`, `blocked`, `failed` and `not_executed`; use them when they are the truth, and add `--blocker` for blocked work. `failed` needs a running task. If a check fails, fix the cause and check again; do not record `verified` around it, and never say a check passed that did not run.
 
