@@ -6,6 +6,8 @@ from __future__ import annotations
 import getpass
 import os
 import sys
+import tempfile
+from pathlib import Path
 from unittest import mock
 
 from tests.unit.test_hook_trust import ASK, DENY
@@ -18,6 +20,14 @@ from wev_skills.security.paths import glob_may_match_protected, is_protected
 
 DOT_ENV = "." + "env"
 FOLD = "wev_skills.security.paths.CASE_INSENSITIVE"
+
+
+def volume_folds_case(directory: Path) -> bool:
+    """Whether ``directory``'s file system reaches a file under its upper-case spelling."""
+    with tempfile.TemporaryDirectory(dir=directory) as tmp:
+        probe = Path(tmp) / "case-probe"
+        probe.write_text("x\n", encoding="utf-8")
+        return (Path(tmp) / "CASE-PROBE").exists()
 
 
 class SymlinkedAncestorTests(UprootCase, SituationTests):
@@ -90,13 +100,22 @@ class CaseFoldingTests(UprootCase):
             f"cat {str(self.regdir).upper()}/active-runs.json": DENY,
             "mv ~/.LOCAL/state /tmp/x": ASK,
             "mv ~/.local/STATE /tmp/x": ASK,
-            "grep -r x ~/.LOCAL": ASK,
         }
         for line, wanted in rows.items():
             with self.subTest(line=line, folding=True):
                 self.assertEqual(self.decide_with(True, line), wanted)
             with self.subTest(line=line, folding=False):
                 self.assertIsNone(self.decide_with(False, line))
+
+    def test_a_located_entry_found_only_on_the_volume(self) -> None:
+        """A case-differing match is accepted only when the file system confirms it."""
+        self.regdir.mkdir(parents=True)
+        line = "grep -r x ~/.LOCAL"
+        folded = ASK if volume_folds_case(self.home) else None
+        with self.subTest(line=line, folding=True):
+            self.assertEqual(self.decide_with(True, line), folded)
+        with self.subTest(line=line, folding=False):
+            self.assertIsNone(self.decide_with(False, line))
 
     def test_is_protected_folds_located_entries_only_when_the_platform_does(self) -> None:
         entry = str(self.work.parent / "Keys" / "id")
