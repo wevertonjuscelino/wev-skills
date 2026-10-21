@@ -41,6 +41,8 @@ externo e suposições estabelecem um mínimo de incógnitas. O briefing complet
 para o estado da execução e o evento de auditoria `run.intake_attached`, e devolvido
 ao chamador. Lembretes do plano carregam escopo, restrições, resultado e critérios de conclusão. O
 resultado é contexto, não escopo: a skill `wev-orchestrate` manda o agente propor ao usuário
-uma abordagem mais ampla quando ela servir melhor ao resultado, e nunca adotá-la sozinho. A entrevista e
+uma abordagem mais ampla quando ela servir melhor ao resultado, e nunca adotá-la sozinho.
+Perto do limite de tamanho do lembrete, o resultado é o primeiro a sair. Um registro com
+resultado não pode ser lido por versões anteriores; um registro sem ele não muda. A entrevista e
 suas evidências descrevem intenção; verificações de execução e portões humanos continuam
 aplicáveis.

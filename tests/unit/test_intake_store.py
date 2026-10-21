@@ -9,6 +9,7 @@ import os
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -136,6 +137,16 @@ class CommandTests(unittest.TestCase):
         code, error = self.call("run", "start", "--from-intake", str(result["id"]))
         self.assertNotEqual(code, 0)
         self.assertEqual(error["error"]["code"], "intake_incomplete")
+
+    def test_the_outcome_never_crowds_out_the_task_lines_near_the_limit(self) -> None:
+        recorded = {"scope": "reports", "outcome": "fewer tickets " * 20, "done": ["confirmed"]}
+        initial = RunState("20261013T000000Z-abc123", "confirmed", Mode.AUTO, "at", "at")
+        state = replace(initial, discovery={"intake": {"id": "x", "brief": recorded}})
+        reminder = build_brief(state, "next", 600, "en")
+        self.assertIn("Tasks: no plan yet", reminder)
+        self.assertIn("Done when: confirmed", reminder)
+        self.assertNotIn("Outcome beyond the goal", reminder)
+        self.assertIn("Outcome beyond the goal", build_brief(state, "next", 2000, "en"))
 
     def test_run_uses_intake_and_keeps_the_brief_in_the_audit_event(self) -> None:
         _, result = self.call("intake", "start", "--request", "Export reports")

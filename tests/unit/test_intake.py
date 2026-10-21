@@ -165,6 +165,13 @@ class FinishTests(IntakeCase):
         _, brief = model.finish(filled(record, "outcome"))
         self.assertEqual(brief.outcome, "support stops exporting reports by hand")
 
+    def test_a_record_without_an_outcome_stays_readable_by_older_versions(self) -> None:
+        record = filled(self.record, "goal", "done", "scope", "kind", "constraints")
+        stored = [item["field"] for item in record.to_dict()["fields"]]
+        self.assertNotIn("outcome", stored)
+        with_outcome = filled(record, "outcome").to_dict()["fields"]
+        self.assertIn("outcome", [item["field"] for item in with_outcome])
+
     def test_an_assumed_outcome_gets_a_conservative_default(self) -> None:
         record = model.set_field(self.record, "outcome", (), "assumption")
         self.assertEqual(model.value_of(record, "outcome"), ("Deliver the stated goal only",))

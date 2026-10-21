@@ -36,6 +36,8 @@ PRIORITY_FRAME = 0
 PRIORITY_CONTEXT = 1
 PRIORITY_TASKS = 2
 PRIORITY_CRITERIA = 3
+PRIORITY_OUTCOME = 4
+"""The intake outcome: context only, so it never crowds out the task lines."""
 CURRENT_STATUSES = (TaskStatus.RUNNING, TaskStatus.READY)
 SOURCE_LABEL = "wev run record"
 
@@ -98,11 +100,15 @@ def _intake_lines(state: RunState, lang: str) -> list[Line]:
         return []
     recorded = intake["brief"]
     lines: list[Line] = []
-    for field in ("scope", "constraints", "outcome"):
+    for field, priority in (
+        ("scope", PRIORITY_CONTEXT),
+        ("constraints", PRIORITY_CONTEXT),
+        ("outcome", PRIORITY_OUTCOME),
+    ):
         value = recorded.get(field)
         if isinstance(value, str) and value:
             text = i18n.t(f"intake.brief.{field}", lang, value=one_line(value))
-            lines.append((PRIORITY_CONTEXT, text))
+            lines.append((priority, text))
     criteria = recorded.get("done", ())
     if isinstance(criteria, (tuple, list)):
         for value in criteria:

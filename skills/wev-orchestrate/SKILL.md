@@ -68,9 +68,9 @@ A run started with `run start --from-intake` may carry an `outcome`: what the us
 
 Write a plan file with the tasks, their files, dependencies, acceptance criteria and checks, then store it. Write the checks so they can actually prove each criterion (see "Verify" for what the engine will and will not accept): a check object ties one command to the criteria it proves. The format is in [references/plan-format.md](references/plan-format.md); a complete sample is at `${CLAUDE_PLUGIN_ROOT}/examples/plan.example.json`. Keep tasks that edit the same file in a dependency chain, because the engine never offers overlapping tasks together.
 
-Before storing the plan, make it deeper, not bigger. For each task answer in a line or two: what a leading practitioner of this kind of work would do that the request does not ask for; which primary material they would start from (the failing log, the raw data, the source, not a summary of it); which methods and tools they would use; and which command, not you and not the user, would show the result is right. Turn each answer into an acceptance criterion or a check, or drop it. A demanding target is welcome when a check measures it (for example a timing under a threshold); a goal no command can measure stays out of the criteria. YAGNI still decides the code: depth raises the bar for evidence, not the amount of code.
+Before storing the plan, make it deeper, not bigger. For each task answer in a line or two: what a leading practitioner of this kind of work would do that the request does not ask for; which primary material they would start from (the failing log, the raw data, the source, not a summary of it), named by path, log or URL in the task's `objective` so it reaches the contract; which methods and tools they would use; and which command, not you and not the user, would show the result is right. Turn each answer into an acceptance criterion or a check, or drop it. A demanding target is welcome when a check measures it (for example a timing under a threshold); a goal no command can measure stays out of the criteria. YAGNI still decides the code: depth raises the bar for evidence, not the amount of code.
 
-In a `planned` or `gated` flow you may also widen the review. Restate the objective as the actions it serves rather than the artifact it produces, and pick at most two agents from `agent list` whose work brings a field the task touches (for example `security-auditor` for code that parses input). Each must produce something checkable: a check, a reproduction, or findings with file references. Asking an agent to sound like a role adds nothing.
+In a `planned` or `gated` flow you may also widen the review. Restate the objective as the actions it serves rather than the artifact it produces, and pick at most two agents from `agent list` whose work brings a field the task touches (for example `security-auditor` for code that parses input). Each must produce something checkable: a check, a reproduction, or findings with file references. Asking an agent to sound like a role adds nothing. Run them in step 5, before `task review`.
 
 ```
 "${CLAUDE_PLUGIN_ROOT}/bin/wev" plan set --file plan.json
@@ -103,7 +103,7 @@ Only a tool the agent may use can be restored.
 
 Hand each contract to exactly one agent:
 
-- For real work, delegate to the plugin subagent named by the contract's `agent_id`, as `wev-skills:<agent_id>` (for example `wev-skills:code-reviewer`). Paste the whole contract into the prompt, and point it at the primary sources (files, logs, failing output) rather than your own summary of them. If the subagent does not exist, use a general-purpose subagent and paste the agent's instructions from `agent show <agent_id>`.
+- For real work, delegate to the plugin subagent named by the contract's `agent_id`, as `wev-skills:<agent_id>` (for example `wev-skills:code-reviewer`). Paste the whole contract into the prompt. The engine copies only the plan task into the contract, so the primary sources reach the subagent only when the task's `objective` names them; do not replace them with your own summary. If the subagent does not exist, use a general-purpose subagent and paste the agent's instructions from `agent show <agent_id>`.
 - For trivial work in a `direct` flow, do it yourself in the main session.
 - Start only tasks that `task next` offered. Run tasks in parallel only when several were offered together.
 
@@ -153,6 +153,8 @@ Every `task start` counts as an attempt. After a failed attempt the answer carri
 `next_step` can be an instruction instead of a command: a pending approval; a denied gate ("denied by the operator"; the operator reopens it with `approval request --reopen-denied`, never with a grant command); plan mode once the plan is set ("ready for human review"); a check on a tree nothing changed in (do the work, or mark the task `read_only` in the plan with `--amend --reason`). A stale approval (the check that needed it was replaced and `task check` now reports `all_met`) no longer blocks `next_step`; it is listed under `stale_approvals`.
 
 ### 5. Review
+
+If you chose extra reviewing agents in step 2, run them once the task's work is checked: delegate each one with the task contract and the diff, and tell it not to delegate further. A check one of them proposes joins the task with `plan set --amend --reason <text>`, so `task check` runs it; findings with file references go into the `--summary` of `task review`, naming the agent that produced them. An unresolved finding is a `reject`.
 
 When the strategy sets `needs_independent_review`, `task record` answers with a `task review` command naming a reviewer. Run the review with a different agent than the one that did the work (usually `wev-skills:code-reviewer`), give it the diff and the acceptance criteria, then record its verdict:
 

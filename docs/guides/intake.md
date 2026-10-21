@@ -40,6 +40,8 @@ side-effect signal and assumptions establish a minimum unknown count. The comple
 is saved in run state, copied into a `run.intake_attached` audit event and returned
 to the caller. Plan reminders carry the scope, constraints, outcome and completion criteria. The outcome
 is context, not scope: the `wev-orchestrate` skill tells the agent to propose a broader
-approach to the user when it would serve the outcome better, and never to adopt one alone. The interview
+approach to the user when it would serve the outcome better, and never to adopt one alone.
+Near the reminder's length limit the outcome is dropped first. A record that has an outcome
+cannot be read by versions before it; a record without one is unchanged. The interview
 and its evidence describe intent; execution verification and human approval gates still
 apply normally.
