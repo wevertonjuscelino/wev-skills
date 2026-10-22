@@ -122,6 +122,22 @@ A seleção de ferramentas (`tool_selection`, hipótese H10) sempre mantém um p
 
 Como `planning: auto` decide: economy planeja tudo acima de trivial; standard e premium planejam a partir de complexidade moderada; qualquer nível planeja acima do risco baixo; `always` e `never` prevalecem; o modo plan e os fluxos com portão (gated) sempre planejam. Risco, aprovação, revisão e limites são iguais para todos os níveis. `tool_profile: lean` está descrito no [guia de agentes](creating-agents.pt-BR.md); é uma opção de custo e nunca acrescenta uma ferramenta nem muda permissões.
 
+### `specialists`
+
+| Chave | Padrão | Significado |
+|---|---|---|
+| `max_per_project` | `5` (1 a 20) | Máximo de especialistas que um projeto pode ter |
+| `max_lessons_rendered` | `12` (1 a 50) | Lições ativas mostradas num subagente exportado e num contrato de tarefa |
+| `max_lessons` | `30` (1 a 30) | Lições ativas que um especialista pode ter; acima disso é preciso aposentar uma antes |
+| `stale_after_runs` | `20` (mínimo 1) | Execuções sem que uma lição seja vista, após as quais ela fica obsoleta |
+| `score_samples` | `3` (1 a 10) | Vezes que um caso pontuado é executado numa rodada de pontuação |
+| `score_max_runs` | `60` (1 a 1000) | Máximo de execuções de agente que uma rodada de pontuação pode iniciar |
+| `score_max_new_lessons` | `3` (0 a 10) | Máximo de lições que uma rodada de pontuação pode propor; 0 não propõe nenhuma |
+| `score_timeout_seconds` | `900.0` (0,1 a 3600) | Tempo que uma execução pontuada pode levar |
+| `score_on_finish` | `false` | Se o fim de uma execução também pontua os especialistas que ela usou |
+
+As quatro primeiras chaves estão explicadas no [guia de especialistas](specialists.pt-BR.md). As chaves `score_*` limitam uma rodada de pontuação; uma execução fixada antes de elas existirem lê os padrões (implementado e testado; veja `tests/unit/test_config_specialists.py`). O laço de pontuação que as lê não faz parte desta mudança (somente documentado).
+
 ## Níveis de modelo e roteamento
 
 O roteador (`wev route-model`) escolhe um nível a partir da classificação e depois um modelo desse nível:

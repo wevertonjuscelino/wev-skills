@@ -120,6 +120,22 @@ Tool selection (`tool_selection`, hypothesis H10) always keeps a floor (the read
 
 How `planning: auto` decides: economy plans anything above trivial; standard and premium plan from moderate complexity; any tier plans above low risk; `always` and `never` override; plan mode and gated flows always plan. Risk, approval, review and limits are the same for every tier. `tool_profile: lean` is described in the [agent guide](creating-agents.md); it is a cost option, and it never adds a tool or changes permissions.
 
+### `specialists`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `max_per_project` | `5` (1 to 20) | Most specialists a project may hold |
+| `max_lessons_rendered` | `12` (1 to 50) | Active lessons shown in an exported subagent and in a task contract |
+| `max_lessons` | `30` (1 to 30) | Active lessons one specialist may hold; beyond it one must be retired first |
+| `stale_after_runs` | `20` (minimum 1) | Runs without a lesson being seen after which the lesson becomes stale |
+| `score_samples` | `3` (1 to 10) | Times a scored case is run in one scoring pass |
+| `score_max_runs` | `60` (1 to 1000) | Most agent runs one scoring pass may start |
+| `score_max_new_lessons` | `3` (0 to 10) | Most lessons one scoring pass may propose; 0 proposes none |
+| `score_timeout_seconds` | `900.0` (0.1 to 3600) | Time one scored run may take |
+| `score_on_finish` | `false` | Whether a run's finish also scores the specialists it used |
+
+The first four keys are explained in the [specialists guide](specialists.md). The `score_*` keys bound a scoring pass; a run pinned before they existed reads their defaults (`implemented and tested`; see `tests/unit/test_config_specialists.py`). The scoring loop that reads them is not part of this change (`documented only`).
+
 ## Model tiers and routing
 
 The router (`wev route-model`) picks a tier from the classification, then a model from that tier:

@@ -21,6 +21,11 @@ class NewDefaultsTests(unittest.TestCase):
         self.assertEqual(config.specialists.max_lessons_rendered, 12)
         self.assertEqual(config.specialists.max_lessons, 30)
         self.assertEqual(config.specialists.stale_after_runs, 20)
+        self.assertEqual(config.specialists.score_samples, 3)
+        self.assertEqual(config.specialists.score_max_runs, 60)
+        self.assertEqual(config.specialists.score_max_new_lessons, 3)
+        self.assertEqual(config.specialists.score_timeout_seconds, 900.0)
+        self.assertFalse(config.specialists.score_on_finish)
         self.assertEqual(config.limits.run_budget_units, 400.0)
         self.assertEqual(config.limits.run_max_attempts_total, 12)
 
@@ -38,6 +43,15 @@ class NewDefaultsTests(unittest.TestCase):
             {"limits": {"run_budget_units": 0}},
             {"limits": {"run_max_attempts_total": 0}},
             {"specialists": {"unknown": 1}},
+            {"specialists": {"score_samples": 0}},
+            {"specialists": {"score_samples": 11}},
+            {"specialists": {"score_max_runs": 0}},
+            {"specialists": {"score_max_runs": 1001}},
+            {"specialists": {"score_max_new_lessons": -1}},
+            {"specialists": {"score_max_new_lessons": 11}},
+            {"specialists": {"score_timeout_seconds": 0}},
+            {"specialists": {"score_timeout_seconds": 3600.5}},
+            {"specialists": {"score_on_finish": "yes"}},
         )
         for overrides in bad:
             with self.subTest(overrides=overrides), self.assertRaises(ValidationError):
@@ -46,6 +60,27 @@ class NewDefaultsTests(unittest.TestCase):
     def test_a_state_pinned_before_these_keys_still_loads(self) -> None:
         old = {k: v for k, v in DEFAULT_CONFIG.items() if k not in ("intake", "specialists")}
         self.assertEqual(Config.from_dict(old).intake.max_rounds, 3)
+
+    def test_the_score_bounds_are_accepted_at_their_edges(self) -> None:
+        edges = {
+            "score_samples": (1, 10),
+            "score_max_runs": (1, 1000),
+            "score_max_new_lessons": (0, 10),
+            "score_timeout_seconds": (0.1, 3600.0),
+        }
+        for key, values in edges.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    config = parse_config(None, {"specialists": {key: value}})
+                    self.assertEqual(getattr(config.specialists, key), value)
+
+    def test_a_state_pinned_without_score_keys_gets_their_defaults(self) -> None:
+        old = json.loads(json.dumps(DEFAULT_CONFIG))
+        for key in ("score_samples", "score_max_runs", "score_max_new_lessons"):
+            old["specialists"].pop(key, None)
+        old["specialists"].pop("score_timeout_seconds", None)
+        old["specialists"].pop("score_on_finish", None)
+        self.assertEqual(Config.from_dict(old).specialists, Config().specialists)
 
 
 class ProjectDirTrustTests(unittest.TestCase):
