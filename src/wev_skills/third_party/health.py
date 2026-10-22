@@ -22,7 +22,7 @@ from wev_skills.third_party.fetch import mcp_argv
 from wev_skills.third_party.sources import Source
 
 HEALTH_TIMEOUT = 60.0
-MAX_LINE = 1024 * 1024
+MAX_LINE = 32 * 1024 * 1024  # the real rea answers tools/list with ~3.2 MB on one line
 MAX_SKILL_BYTES = 1024 * 1024
 PROTOCOL = "2025-06-18"
 
@@ -68,6 +68,12 @@ class _BadJsonRpc(Exception):
     pass
 
 
+class _TooLong(Exception):
+    def __init__(self, seen: int) -> None:
+        super().__init__(seen)
+        self.seen = seen
+
+
 class _Timeout(Exception):
     pass
 
@@ -80,7 +86,9 @@ def _read_reply(lines: queue.Queue[str | None], request_id: int, deadline: float
             line = lines.get(timeout=max(deadline - time.monotonic(), 0.001))
         except queue.Empty:
             raise _Timeout from None
-        if not line or len(line) > MAX_LINE:
+        if line and len(line) > MAX_LINE:
+            raise _TooLong(len(line))
+        if not line:
             raise _BadJsonRpc
         try:
             message = json.loads(line)
@@ -159,6 +167,8 @@ def _health_mcp(version: str, npx: str) -> HealthReport:
         return _fail("timeout")
     except _NoTools:
         return _fail("no_tools")
+    except _TooLong as exc:
+        return _fail("reply_too_large", limit=MAX_LINE // (1024 * 1024), seen=exc.seen)
     except _BadJsonRpc, OSError:
         return _exit_or_bad_json(proc)
     finally:

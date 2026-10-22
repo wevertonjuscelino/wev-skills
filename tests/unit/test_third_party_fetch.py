@@ -185,6 +185,26 @@ class FetchCase(unittest.TestCase):
 
         self.refused(tarball(build), "unsafe_member")
 
+    def test_link_up_but_inside_the_top_directory_is_kept(self) -> None:
+        def build(archive: tarfile.TarFile) -> None:
+            add_file(archive, "top/skills/a/SKILL.md")
+            add_link(archive, "top/.opencode/skills", "../skills/")
+
+        path = self.install(tarball(build))
+        self.assertTrue((path / ".opencode/skills").is_symlink())
+        self.assertTrue((path / ".opencode/skills").resolve().is_relative_to(path.resolve()))
+
+    def test_links_leaving_the_top_directory_are_refused(self) -> None:
+        for label, target in (
+            ("two up", "../../etc"),
+            ("absolute", "/etc"),
+            ("parent of top", ".."),
+        ):
+            with self.subTest(label):
+                self.refused(tarball(lambda a, t=target: add_link(a, "top/a", t)), "unsafe_member")
+
+        self.refused(tarball(lambda a: add_link(a, "top/x/a", "../..")), "unsafe_member")
+
     def test_link_inside_the_archive_is_allowed(self) -> None:
         def build(archive: tarfile.TarFile) -> None:
             add_file(archive, "top/a")

@@ -63,6 +63,19 @@ class McpTests(unittest.TestCase):
     def test_deeply_nested_json_is_bad_jsonrpc(self) -> None:
         self.assertEqual(mcp("nested").code, "bad_jsonrpc")
 
+    def test_a_multi_megabyte_tools_list_passes(self) -> None:
+        report = mcp("big-reply")
+        self.assertTrue(report.ok, report)
+        self.assertGreater(report.params["tools"], 1000)
+
+    def test_a_reply_over_the_cap_is_refused_naming_the_limit(self) -> None:
+        report = mcp("huge-reply")
+        self.assertEqual(report.code, "reply_too_large")
+        self.assertEqual(report.params["limit"], 32)
+        self.assertGreater(report.params["seen"], health_mod.MAX_LINE)
+        self.assertIn("32 MiB", health_mod.render(report, "en"))
+        self.assertIn("32 MiB", health_mod.render(report, "pt-BR"))
+
     def test_grandchild_holding_stdout_does_not_hang_and_dies(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pidfile = Path(tmp) / "pid"
@@ -197,6 +210,7 @@ class RenderTests(unittest.TestCase):
         "spawn_failed",
         "timeout",
         "bad_jsonrpc",
+        "reply_too_large",
         "no_tools",
         "no_skills",
         "bad_skill",
