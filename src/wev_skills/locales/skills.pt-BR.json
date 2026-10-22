@@ -8,5 +8,9 @@
   "skills.decline.help": "Registra que a versão mais nova de uma fonte foi recusada, para não ser oferecida de novo.",
   "skills.decline.source": "O nome da fonte (rea, agent-skills ou wev-skills).",
   "skills.error.nothing_to_decline": "Nenhuma versão mais nova de {name} foi vista ainda; rode `wev skills check` antes.",
-  "skills.hook.updates": "Há atualizações de skills de terceiros: {items}. Pergunte uma vez à pessoa se quer atualizar; se sim, rode `wev skills update <source>`; se não, rode `wev skills decline <source>`."
+  "skills.hook.updates": "Há atualizações de skills de terceiros: {items}. Pergunte uma vez à pessoa se quer atualizar; se sim, rode `wev skills update <source>`; se não, rode `wev skills decline <source>`.",
+  "skills.install.help": "Baixa uma versão de uma fonte e a instala ao lado das outras, sem torná-la ativa.",
+  "skills.install.version": "A versão a instalar (padrão: a mais nova).",
+  "skills.error.bad_version": "Versão inválida: {version}.",
+  "skills.error.install_failed": "Não foi possível instalar {name} ({code}); nada foi deixado para trás."
 }

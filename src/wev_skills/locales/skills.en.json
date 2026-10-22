@@ -8,5 +8,9 @@
   "skills.decline.help": "Record that the newest version of a source was declined, so it is not offered again.",
   "skills.decline.source": "The source name (rea, agent-skills or wev-skills).",
   "skills.error.nothing_to_decline": "No newer version of {name} has been seen yet; run `wev skills check` first.",
-  "skills.hook.updates": "Third-party skill updates are available: {items}. Ask the person once whether to update; on yes run `wev skills update <source>`; on no run `wev skills decline <source>`."
+  "skills.hook.updates": "Third-party skill updates are available: {items}. Ask the person once whether to update; on yes run `wev skills update <source>`; on no run `wev skills decline <source>`.",
+  "skills.install.help": "Download a version of a source and install it beside the others, without making it active.",
+  "skills.install.version": "The version to install (default: the newest one).",
+  "skills.error.bad_version": "Not a valid version: {version}.",
+  "skills.error.install_failed": "Could not install {name} ({code}); nothing was left behind."
 }

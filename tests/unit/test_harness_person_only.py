@@ -28,6 +28,7 @@ PERSON_ONLY = (
     "wev approval grant a1",
     "wev run adopt x",
     "wev harness uninstall --target gemini",
+    "wev skills install rea",
     "git push && wev approval grant a1",
     # the marker comes from the whole line, not from the first reason shown
     "wev approval grant a1 --config x.json",

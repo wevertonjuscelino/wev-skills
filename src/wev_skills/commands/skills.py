@@ -13,10 +13,12 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.cli import CommandResult
 from wev_skills.commands import Subparsers
-from wev_skills.core.errors import ValidationError
+from wev_skills.core.errors import RemoteError, ValidationError
+from wev_skills.core.ports import SubprocessRunner
 from wev_skills.third_party import check as check_mod
+from wev_skills.third_party import fetch as fetch_mod
 from wev_skills.third_party import state as state_mod
-from wev_skills.third_party.sources import SOURCES, source
+from wev_skills.third_party.sources import SOURCES, Source, source
 
 
 def _run_list(_args: argparse.Namespace) -> dict[str, Any]:
@@ -112,6 +114,29 @@ def _run_decline(args: argparse.Namespace) -> dict[str, Any]:
     return {"source": name, "declined": item.latest_seen}
 
 
+def _release_for(src: Source, version: str | None) -> check_mod.Release:
+    if version is None:
+        return check_mod.latest(src, check_mod.fetch)
+    if not state_mod.VERSION_RE.fullmatch(version):
+        raise ValidationError("bad_version", i18n.t("skills.error.bad_version", version=version))
+    tarball = f"{check_mod.BASE_URLS['github']}/repos/{src.package}/tarball/{version}"
+    return check_mod.Release(version, src.changelog.format(version=version), tarball)
+
+
+def _run_install(args: argparse.Namespace) -> dict[str, Any]:
+    src = source(args.source)
+    try:
+        release = _release_for(src, args.version)
+        path = fetch_mod.install_version(
+            src, release, state_mod.data_home(), fetch_mod.download, SubprocessRunner()
+        )
+    except check_mod.CheckFailed as exc:
+        raise RemoteError(
+            exc.code, i18n.t("skills.error.install_failed", name=src.name, code=exc.code)
+        ) from exc
+    return {"source": src.name, "version": release.version, "path": str(path), "active": False}
+
+
 def register(subparsers: Subparsers) -> None:
     group = subparsers.add_parser("skills", help=i18n.t("skills.group.help"))
     commands = group.add_subparsers(dest="skills_command", required=True)
@@ -123,3 +148,7 @@ def register(subparsers: Subparsers) -> None:
     declining = commands.add_parser("decline", help=i18n.t("skills.decline.help"))
     declining.add_argument("source", help=i18n.t("skills.decline.source"))
     declining.set_defaults(handler=_run_decline)
+    installing = commands.add_parser("install", help=i18n.t("skills.install.help"))
+    installing.add_argument("source", help=i18n.t("skills.decline.source"))
+    installing.add_argument("--version", help=i18n.t("skills.install.version"))
+    installing.set_defaults(handler=_run_install)
