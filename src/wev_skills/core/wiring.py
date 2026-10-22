@@ -240,6 +240,7 @@ def build_services(
     runner: Runner | None = None,
     clock: Clock | None = None,
     source: str = SOURCE_DEFAULTS,
+    sources: tuple[str, ...] = (),
 ) -> Services:
     """Wire everything for ``config`` at ``root``. ``source`` says where ``config`` came from."""
     base = Path(root)
@@ -260,5 +261,5 @@ def build_services(
         provider=build_provider(protected, real_runner, base),
         router=build_model_router(protected),
         agents=build_agents(protected, base),
-        pinned=ResolvedConfig(config, source, config_digest(config)),
+        pinned=ResolvedConfig(config, source, config_digest(config), sources),
     )

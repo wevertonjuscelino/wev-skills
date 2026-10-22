@@ -9,10 +9,12 @@ from pathlib import Path
 from unittest import mock
 
 from tests.unit._agent_helpers import RepoCase, run
-from wev_skills.config import config_digest, resolve_config, user_config_path
+from wev_skills.config import config_digest, pinned_snapshot, resolve_config, user_config_path
+from wev_skills.core.active import ambient_language
+from wev_skills.core.errors import ValidationError
 
 
-class UserTierTests(RepoCase):
+class UserTierBase(RepoCase):
     def setUp(self) -> None:
         super().setUp()
         self._home = tempfile.TemporaryDirectory()
@@ -28,6 +30,8 @@ class UserTierTests(RepoCase):
         self.user.write_text(json.dumps(doc), encoding="utf-8")
         return self.user
 
+
+class UserTierTests(UserTierBase):
     def test_user_file_alone_sets_values_and_names_itself(self) -> None:
         self.write_user({"decision": {"provider": "jev"}, "language": "pt-BR"})
         resolved = resolve_config(None, self.tmp)
@@ -110,3 +114,32 @@ class UserTierTests(RepoCase):
         merged = resolve_config(None, self.tmp).config
         self.assertEqual((merged.limits.max_attempts, merged.intake.max_rounds), (7, 2))
         self.assertEqual(pinned, config_digest(merged))
+
+    def test_a_user_jev_command_inside_the_repository_is_refused(self) -> None:
+        inside = self.tmp / "tools" / "jev"
+        self.write_user({"decision": {"jev": {"command": str(inside)}}})
+        with self.assertRaises(ValidationError) as caught:
+            resolve_config(None, self.tmp)
+        self.assertEqual(caught.exception.code, "invalid_config")
+
+
+class AmbientLanguageTests(UserTierBase):
+    """``ambient_language`` and the pinned snapshot read ``language`` from single files."""
+
+    def test_the_user_file_language_counts_without_a_repository_file(self) -> None:
+        self.write_user({"language": "pt-BR"})
+        self.assertEqual(ambient_language(self.tmp), "pt-BR")
+
+    def test_a_symlinked_user_file_is_skipped_for_the_language(self) -> None:
+        real = self.user.parent / "real.json"
+        real.write_text(json.dumps({"language": "pt-BR"}), encoding="utf-8")
+        self.user.symlink_to(real)
+        self.assertIsNone(ambient_language(self.tmp))
+
+    def test_a_repository_path_containing_a_plus_keeps_its_language(self) -> None:
+        root = self.tmp.parent / "C + C++"
+        (root / ".git").mkdir(parents=True)
+        (root / "wev.config.json").write_text('{"language": "pt-BR"}', encoding="utf-8")
+        self.assertEqual(ambient_language(root), "pt-BR")
+        pinned = resolve_config(None, root)
+        self.assertEqual(pinned_snapshot(pinned)["language"], "pt-BR")

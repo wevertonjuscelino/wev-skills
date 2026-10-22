@@ -120,7 +120,9 @@ def new_orchestrator(args: argparse.Namespace, run_id: str | None) -> tuple[Orch
         raise StateConflict("run_active", message, details)
     root = find_repo_root(cwd)
     resolved = resolve_config(args.config, root)
-    services = wiring.build_services(resolved.config, root, source=resolved.source)
+    services = wiring.build_services(
+        resolved.config, root, source=resolved.source, sources=resolved.sources
+    )
     chosen = run_id if run_id is not None else new_run_id(services.clock)
     timeout = resolved.config.limits.lock_timeout_seconds
     store = StateStore(run_dir(services.state_dir, chosen), services.clock, timeout)

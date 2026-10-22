@@ -290,29 +290,24 @@ def resolve_config(explicit: str | None, root: str | os.PathLike[str]) -> Resolv
     return ResolvedConfig(config, source, config_digest(config), files)
 
 
-def explicit_language(source: str) -> str | None:
-    """The ``language`` the config files at ``source`` set themselves, else ``None``.
+def explicit_language(path: str) -> str | None:
+    """The ``language`` the config file at ``path`` sets itself, else ``None``.
 
-    ``source`` may join several files (``resolve_config``); the last one setting it wins.
-    The built-in default, a missing or unreadable file and a file without the key all give
-    ``None``: only a language somebody wrote counts against the ``LANG`` environment.
+    A missing or unreadable file and a file without the key give ``None``: only a language
+    somebody wrote counts against the ``LANG`` environment.
     """
-    found: str | None = None
-    # shortcut: a path containing " + " is misread as two files and gives None; use another name.
-    for path in () if source == SOURCE_DEFAULTS else source.split(SOURCE_JOIN):
-        try:
-            value = read_json_object(path).get("language")
-        except NotFound, ValidationError:
-            continue
-        found = value if isinstance(value, str) else found
-    return found
+    try:
+        value = read_json_object(path).get("language")
+    except NotFound, ValidationError:
+        return None
+    return value if isinstance(value, str) else None
 
 
 def pinned_snapshot(pinned: ResolvedConfig) -> dict[str, Any]:
-    """The configuration a run stores. ``language`` is kept only when the file set it, so the
-    run can tell an explicit language from the default."""
+    """The configuration a run stores. ``language`` is kept only when a file set it (the last
+    one wins), so the run can tell an explicit language from the default."""
     snapshot = pinned.config.to_dict()
-    if explicit_language(pinned.source) is None:
+    if not any(explicit_language(path) for path in pinned.sources):
         snapshot.pop("language", None)
     return snapshot
 
