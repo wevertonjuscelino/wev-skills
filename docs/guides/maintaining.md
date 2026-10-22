@@ -59,6 +59,10 @@ Read the run log first; each step is separate, and a run stops at the first fail
 - Failed at the dev fast-forward (dev has commits main lacks, because a pull request was merged into dev while the release ran, or a ruleset refused the push): the release is published, but dev is behind in version terms. Until dev contains the release commit its computed version is wrong. As an administrator, put the release commit under the new work: rebase the commits dev gained onto `main` and push dev (the dev ruleset blocks force pushes, so this needs the admin bypass), or, if there is nothing to keep, `git push origin main:dev`. Avoid merging pull requests into dev while a release runs.
 - A tag pushed by mistake: the tag ruleset blocks deletion until the owner lifts it for the occasion; delete the release and the tag, then start over.
 
+## End-to-end tests
+
+Run `make e2e` before a release, and after any change to `install.sh`, to the third-party skill commands (`wev skills ...`) or to the rea commands (`wev rea ...`). It spends network and, for some scenarios, Docker time or an account (see the [installation guide](installation.md#end-to-end-tests)). Commit the report it writes to `evals/reports/e2e-<date>.md` with the change, and say in the pull request which scenarios were skipped and why.
+
 ## Repository settings
 
 This is the configuration of `wevertonjuscelino/wev-skills`, kept here so that it is reviewable and can be re-applied. It was applied through the GitHub API on 2026-10-15; the repository settings page is the current record.

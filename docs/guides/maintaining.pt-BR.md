@@ -59,6 +59,10 @@ Leia primeiro o log da execução; cada passo é separado e a execução para na
 - Falhou no avanço de dev (dev tem commits que main não tem, porque um pull request foi mesclado em dev enquanto a release rodava, ou um ruleset recusou o push): a release está publicada, mas dev está atrasado em termos de versão. Enquanto dev não contiver o commit de release, sua versão calculada está errada. Como administrador, coloque o commit de release sob o trabalho novo: refaça o rebase dos commits que dev ganhou sobre `main` e envie dev (o ruleset de dev bloqueia force push, então isso exige o bypass de administrador) ou, se não houver nada a manter, `git push origin main:dev`. Evite mesclar pull requests em dev enquanto uma release roda.
 - Uma tag enviada por engano: o ruleset de tags bloqueia a exclusão até o dono liberá-lo para a ocasião; apague a release e a tag e recomece.
 
+## Testes de ponta a ponta
+
+Rode `make e2e` antes de uma release, e depois de qualquer mudança no `install.sh`, nos comandos de skills de terceiros (`wev skills ...`) ou nos comandos do rea (`wev rea ...`). Ele gasta rede e, em alguns cenários, tempo de Docker ou uma conta (veja o [guia de instalação](installation.pt-BR.md#testes-de-ponta-a-ponta)). Commite o relatório que ele grava em `evals/reports/e2e-<data>.md` junto com a mudança e diga no pull request quais cenários foram pulados e por quê.
+
 ## Configurações do repositório
 
 Esta é a configuração de `wevertonjuscelino/wev-skills`, guardada aqui para poder ser revisada e reaplicada. Ela foi aplicada pela API do GitHub em 2026-10-15; a página de configurações do repositório é o registro atual.

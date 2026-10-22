@@ -39,6 +39,8 @@ The rea integration (`wev rea serve|status|mode|build-image`, the `wev-rea` cont
 
 The installer (`install.sh`), the user-level configuration tier (`~/.config/wev-skills/wev.config.json` read below the repository's file) and `wev jev key set` were added later. Status: implemented and tested with fake harness CLIs and a local source (unit tests, offline). The download route (releases API and `git clone` of the tag), a real `claude plugin install`, real Codex, Gemini CLI and OpenCode, a real JEV probe and the interactive dependency-install path are not run in this change (e2e part); the `curl | bash` line is documented only until the owner publishes the script. See the [installation guide](guides/installation.md#quick-install) and [SECURITY.md](../SECURITY.md#installer).
 
+End-to-end run of 2026-10-22 ([report](../evals/reports/e2e-2026-10-22.md)), by area. Installer, local-source route: tested end to end on macOS with an isolated HOME (not a clean machine); 13 of 13 checks passed against the real npm registry and GitHub releases, covering install, re-run, update, rollback (state seeded), a broken install, `rea serve` in direct mode and uninstall `--purge`. Installer, download route: not run. Linux: blank container, not yet run (skipped, Docker daemon not running). rea isolated mode and image: not run (same reason). Claude Code, Codex, Gemini CLI, OpenCode, JEV live and the daily update check: not run against the real harness or service (scenarios implemented but untested). No "compatible with" claim is made for any harness.
+
 ## Summary
 
 | # | Criterion | Status |

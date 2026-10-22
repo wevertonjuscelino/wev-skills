@@ -29,7 +29,7 @@ O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um
 | rea (servidor MCP de engenharia reversa de terceiros): `wev rea` (serve, status, mode, build-image), imagem de contêiner, registro por harness | Implementado e testado com executáveis `npx` e `docker` falsos (testes unitários); o servidor rea real, o build real do contêiner e os carregadores reais dos harnesses não são executados nesta alteração (parte e2e). A skill `wev-reverse` está apenas documentada | O rea diz que "not a sandbox" (não é um sandbox); veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa) |
 | Outros ambientes de agentes e suporte a Windows | Apenas documentado / bloqueado | Adaptadores futuros; travas de arquivo POSIX hoje |
 
-As evidências detalhadas de aceitação estão no [status do MVP](docs/mvp-status.pt-BR.md). A [revisão local de segurança de 2026-10-13](docs/security-review-2026-10-13.pt-BR.md) registra achados e escopo; é uma revisão interna, não uma certificação.
+Execução de ponta a ponta de 2026-10-22: a rota de fonte local do instalador passou em 13 de 13 verificações no macOS com HOME isolado (não uma máquina limpa); os cenários de Linux e Docker foram pulados e nenhum cenário de harness rodou. Veja [Testes de ponta a ponta](docs/guides/installation.pt-BR.md#testes-de-ponta-a-ponta) e [o relatório](evals/reports/e2e-2026-10-22.md). As evidências detalhadas de aceitação estão no [status do MVP](docs/mvp-status.pt-BR.md). A [revisão local de segurança de 2026-10-13](docs/security-review-2026-10-13.pt-BR.md) registra achados e escopo; é uma revisão interna, não uma certificação.
 
 ## Requisitos
 

@@ -308,6 +308,32 @@ Limites: `rea mode` e `rea build-image` geram um pedido de confirmação no Clau
 | O módulo remoto | SSH para os hosts que você configurou |
 | Workflows do GitHub Actions | Sim, quando rodam no GitHub; nenhum concluiu uma execução |
 
+## Testes de ponta a ponta
+
+O `make e2e` roda o instalador de verdade, a rede de verdade e as skills de terceiros de verdade, o que o `make test` nunca faz. Ele lista os cenários e o que cada um gasta, e pede `yes`:
+
+```sh
+make e2e
+WEV_E2E_CONFIRM=yes make e2e E2E="macos-core"   # sem terminal: a variável responde por você
+```
+
+Sem terminal e sem `WEV_E2E_CONFIRM=yes` nada roda (saída 2). O runner usa a rede real (o registro npm e as releases do GitHub) e nunca o seu `HOME` real: cada cenário instala com `install.sh --source <este clone>` em uma árvore temporária de `HOME` e `XDG_*` que ele remove depois. Ele grava `evals/reports/e2e-<data>.md`, com uma seção por cenário e uma linha por verificação (passou, falhou, ou pulada com o motivo), e sai com 1 se alguma verificação falhou. O relatório é commitado; o mais recente é [e2e-2026-10-22.md](../../evals/reports/e2e-2026-10-22.md).
+
+| Cenário | Onde | Gasta | Situação no relatório mais recente |
+|---|---|---|---|
+| `macos-core` | este Mac, `HOME` isolado | só rede | passou, 13 de 13 verificações. macOS: testado com HOME isolado, não uma máquina limpa |
+| `linux-core` | contêiner em branco de `docker/e2e/Dockerfile` | rede e um `docker build` (minutos) | pulado: daemon do Docker parado. Linux: contêiner em branco, ainda não executado |
+| `macos-isolated` | este Mac, Docker | rede e um `docker build` (minutos) | pulado: daemon do Docker parado |
+| `claude` | `HOME` isolado e o seu login do Claude | conta do Claude Code e tokens | não executado; implementado mas não testado: nunca rodou contra um harness real |
+| `codex` | `HOME` isolado e o seu login do Codex | conta do Codex e tokens | não executado; implementado mas não testado: nunca rodou contra um harness real |
+| `gemini`, `opencode` | este Mac | você instala a CLI antes | não executado; implementado mas não testado: nunca rodou contra um harness real |
+| `jev` | `HOME` isolado com uma chave que você digita | uma chamada `jev ask` | não executado; implementado mas não testado |
+| `update-daily` | este Mac | rede | não executado; implementado mas não testado |
+
+Os cenários dos harnesses, `jev` e `update-daily` estão escritos mas nunca foram executados, e cada um imprime a sua linha de custo antes da confirmação. O `macos-core` cobre a instalação, uma segunda execução, o caminho de atualização (instalar um `rea` anterior, reverter, atualizar), uma instalação quebrada que deve deixar a versão ativa intacta, o `rea serve` respondendo `initialize` e `tools/list`, e `install.sh --uninstall --purge`. O passo de reverter semeia o estado, porque a CLI não consegue ativar uma release mais antiga; o relatório diz isso.
+
+A documentação só diz "compatível com" um harness depois que o cenário dele passou. Nenhum cenário de harness rodou, então as seções de harness mantêm "não executado contra o harness real". A primeira execução também achou três problemas do instalador, corrigidos em branches próprios (veja o [changelog](../../CHANGELOG.md)).
+
 ## Rodando os testes e o lint
 
 ```sh
