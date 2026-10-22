@@ -81,3 +81,5 @@ These five labels describe the state of every piece of work in the project. Do n
 | simulated units | unidades simuladas | The cost and duration numbers of the evaluation harness; neither money nor time. |
 | context manager | gerenciador de contexto | The component (`wev_skills.context`) that compacts context items under a token budget. It serves `wev context compact` and the evaluation harness; the orchestration flow does not use it. |
 | harness | harness | Everything around the model that plans, constrains, checks and records its work. |
+| scored case | caso pontuado | A real situation stored in `evals/cases/<id>.json` with a check that fails at its base commit; `wev specialists score` runs it to decide lessons. |
+| score decision | decisão por nota | A lesson accepted or retired by `wev specialists score` (`accepted_by` `score`) because no case lost a pass and the total rose; a person's decision stays final. |

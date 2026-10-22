@@ -134,7 +134,12 @@
         "max_per_project": { "type": "integer", "minimum": 1, "maximum": 20 },
         "max_lessons_rendered": { "type": "integer", "minimum": 1, "maximum": 50 },
         "max_lessons": { "type": "integer", "minimum": 1, "maximum": 30 },
-        "stale_after_runs": { "type": "integer", "minimum": 1 }
+        "stale_after_runs": { "type": "integer", "minimum": 1 },
+        "score_samples": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "score_max_runs": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "score_max_new_lessons": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "score_timeout_seconds": { "type": "number", "minimum": 0.1, "maximum": 3600 },
+        "score_on_finish": { "type": "boolean" }
       }
     }
   },

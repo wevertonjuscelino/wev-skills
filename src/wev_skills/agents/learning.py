@@ -1,4 +1,7 @@
-"""Deterministic observations from engine records, never from an agent's prose."""
+"""Deterministic observations from engine records, never from an agent's prose.
+
+A lesson that score retired comes back here as ``proposed``; a person's decision is not undone.
+"""
 
 from __future__ import annotations
 
@@ -9,9 +12,11 @@ from dataclasses import replace
 from wev_skills import i18n
 from wev_skills.agents.experience import (
     ACTIVE,
+    KIND_MODEL,
     PROPOSED,
     PROPOSER,
     RETIRED,
+    SCORER,
     STALE,
     Lesson,
     LessonEvidence,
@@ -19,7 +24,7 @@ from wev_skills.agents.experience import (
     check_key,
 )
 from wev_skills.core.contracts import TaskStatus
-from wev_skills.state.model import RunState
+from wev_skills.state.model import RunState, TaskRecord
 
 
 def _id(key: tuple[str, ...]) -> str:
@@ -52,6 +57,11 @@ def _observations(state: RunState, agent_id: str) -> list[tuple[tuple[str, ...],
 _UNVERIFIED = frozenset({TaskStatus.FAILED, TaskStatus.BLOCKED, TaskStatus.PARTIAL})
 
 
+def task_ended(record: TaskRecord) -> bool:
+    """Whether the task ended, verified or not; a pending or running one has not."""
+    return record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
+
+
 Shown = Mapping[str, Mapping[str, tuple[str, ...]]]
 """Per run id, per task id: the lesson ids its starts showed (``shown_lessons.for_task``)."""
 
@@ -62,14 +72,27 @@ def _usage(states: Sequence[RunState], agent_id: str, shown: Shown) -> dict[str,
     for state in states:
         run_shown = shown.get(state.run_id, {})
         for task_id, record in state.tasks.items():
-            ended = record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
-            if record.agent_id != agent_id or not ended:
+            if record.agent_id != agent_id or not task_ended(record):
                 continue
             good = int(record.status is TaskStatus.VERIFIED)
             for lesson_id in run_shown.get(task_id, ()):
                 verified, unverified = found.get(lesson_id, (0, 0))
                 found[lesson_id] = (verified + good, unverified + 1 - good)
     return found
+
+
+def model_lesson(case_id: str, text: str, score_id: str, now: str) -> Lesson:
+    """A lesson the model wrote while scoring a case: proposed until someone accepts it."""
+    return Lesson(
+        _id(("model", case_id, text)),
+        KIND_MODEL,
+        text,
+        LessonEvidence(score_id, case_id, ()),
+        now,
+        PROPOSER,
+        status=PROPOSED,
+        derivation="model",
+    )
 
 
 def derive(
@@ -124,8 +147,15 @@ def derive(
 
 def _carry(lesson: Lesson, before: Lesson | None) -> Lesson:
     """A person's decision outlives relearning; anything no person decided is proposed,
-    including a lesson the engine accepted or retired before acceptance existed."""
-    if before is None or before.accepted_by == PROPOSER or before.status == PROPOSED:
+    including a lesson the engine accepted or retired before acceptance existed. A score
+    run's acceptance is kept, but its retirement is only a proposal to retire: the lesson
+    comes back proposed."""
+    if (
+        before is None
+        or (before.status == RETIRED and before.accepted_by == SCORER)
+        or before.accepted_by == PROPOSER
+        or before.status == PROPOSED
+    ):
         return replace(lesson, status=PROPOSED, accepted_by=PROPOSER)
     if before.status == RETIRED:
         return replace(lesson, status=RETIRED, accepted_by=before.accepted_by)
@@ -137,13 +167,23 @@ def reconcile(
 ) -> tuple[Lesson, ...]:
     """Preserve the operator's decisions and retain at most the configured, hard-capped 30
     lessons. A new lesson, or one only the engine accepted (before acceptance existed), is
-    proposed: it is not shown until a person accepts it. Lessons a person decided on are kept
-    before proposed ones, so the cap drops proposals before it drops a decision."""
+    proposed: it is not shown until a person (or a score run) accepts it. Lessons the model
+    wrote are not derived from records, so they are kept as they are, and so is a lesson a
+    person decided on even when no record derives it again. The cap drops proposals first,
+    then score decisions, and a person's decision last."""
     before = {lesson.id: lesson for lesson in old}
     found = [_carry(lesson, before.get(lesson.id)) for lesson in derived]
+    seen = {lesson.id for lesson in derived}
+    found += [
+        _carry(lesson, lesson)
+        for lesson in old
+        if lesson.id not in seen
+        and (lesson.kind == KIND_MODEL or lesson.accepted_by not in (PROPOSER, SCORER))
+    ]
     found.sort(
         key=lambda item: (
             item.accepted_by == PROPOSER,
+            item.accepted_by == SCORER,
             item.status != ACTIVE,
             -item.confirmations,
             item.contradictions,

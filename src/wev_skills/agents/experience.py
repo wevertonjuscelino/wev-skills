@@ -2,10 +2,11 @@
 
 A lesson is derived from the engine's own records of a run (``learning.derive``) and
 stored in the specialist's spec by an explicit learning command, as ``proposed``; it is shown
-only after the person at a terminal accepts it. It is text the agent reads:
-nothing in
-this module, in the factory or in the exporter lets a lesson change tools, permissions or
-any other field of the spec, and experience is not inherited through ``extends``.
+only after the person at a terminal accepts it, or after a score run accepts it
+(``accepted_by`` ``score``, see ``evaluation.scoring``); a person's decision is final against
+score. It is text the agent reads: nothing in this module, in the factory or in the exporter
+lets a lesson change tools, permissions or any other field of the spec, and experience is
+not inherited through ``extends``.
 
 The lesson's own text is built from structured fields and shown as one cleaned line. Text a
 person or an agent wrote (a criterion, a review summary, the optional note) is kept apart in
@@ -23,12 +24,14 @@ from wev_skills.core._codec import Serializable
 from wev_skills.core.textsafe import clean_text
 from wev_skills.security import untrusted
 
-KIND_PRACTICE, KIND_PITFALL, KIND_NEED = "practice", "pitfall", "need"
-LESSON_KINDS = (KIND_PRACTICE, KIND_PITFALL, KIND_NEED)
+KIND_PRACTICE, KIND_PITFALL, KIND_NEED, KIND_MODEL = "practice", "pitfall", "need", "model"
+LESSON_KINDS = (KIND_PRACTICE, KIND_PITFALL, KIND_NEED, KIND_MODEL)
 ACTIVE, STALE, RETIRED, PROPOSED = "active", "stale", "retired", "proposed"
 LESSON_STATUSES = (ACTIVE, STALE, RETIRED, PROPOSED)
 PROPOSER = "engine"
 """``accepted_by`` of a lesson no person has accepted yet."""
+SCORER = "score"
+"""``accepted_by`` of a lesson a score run decided on; reserved like ``PROPOSER``."""
 LESSON_TEXT_MAX = 600
 """The schema's bound on a lesson's text; rendering cleans the text to the same length."""
 AUTHORED_MAX = 240
@@ -98,11 +101,14 @@ def check_key(argv: Sequence[str]) -> tuple[str, ...]:
     return ("check", hashlib.sha256("\0".join(argv).encode()).hexdigest())
 
 
-def _fenced(lesson_id: str, label: str, text: str) -> str:
+MODEL_LABEL = "model-written lesson"
+
+
+def _fenced(lesson_id: str, label: str, text: str, limit: int = AUTHORED_MAX) -> str:
     """``text`` in the untrusted-data fence, with a marker id derived from the lesson so the
     same lesson always renders the same bytes (the export is compared with the file)."""
     digest = hashlib.sha256(f"{lesson_id}\0{label}".encode()).hexdigest()
-    return untrusted.wrap(clean_text(text, AUTHORED_MAX), label, digest[:_NONCE_LENGTH])
+    return untrusted.wrap(clean_text(text, limit), label, digest[:_NONCE_LENGTH])
 
 
 def render_lesson(lesson: Lesson, lang: str | None = None) -> str:
@@ -114,8 +120,14 @@ def render_lesson(lesson: Lesson, lang: str | None = None) -> str:
         contradictions=lesson.contradictions,
     )
     kind = i18n.t(f"agents.experience.kind.{lesson.kind}", lang)
-    head = f"[{kind}] {clean_text(lesson.text, LESSON_TEXT_MAX)} ({counts})"
-    blocks = [_fenced(lesson.id, item.label, item.text) for item in lesson.authored]
+    if lesson.kind == KIND_MODEL:  # model-written text is never bare: fixed line, text fenced
+        said = i18n.t("agents.experience.model_line", lang, by=lesson.accepted_by)
+        head = f"[{kind}] {said} ({counts})"
+        blocks = [_fenced(lesson.id, MODEL_LABEL, lesson.text, LESSON_TEXT_MAX)]
+    else:
+        head = f"[{kind}] {clean_text(lesson.text, LESSON_TEXT_MAX)} ({counts})"
+        blocks = []
+    blocks += [_fenced(lesson.id, item.label, item.text) for item in lesson.authored]
     if lesson.note:
         blocks.append(_fenced(lesson.id, NOTE_LABEL, lesson.note))
     return "\n".join([head, *blocks])

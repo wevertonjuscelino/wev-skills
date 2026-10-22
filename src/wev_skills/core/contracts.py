@@ -261,6 +261,13 @@ class RawCommandResult(Serializable):
 
 
 @dataclass(frozen=True)
+class AgentRunResult(Serializable):
+    ok: bool
+    output: str
+    timed_out: bool = False
+
+
+@dataclass(frozen=True)
 class PlanTask(Serializable):
     id: str
     title: str

@@ -1,0 +1,22 @@
+{
+  "id": "health-large-tools-list",
+  "title": "MCP health check reads a multi-megabyte tools/list reply",
+  "source": "e2e",
+  "ref": "06fc92c",
+  "agents": [
+    "wev-engineer"
+  ],
+  "base_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
+  "objective": "Add src/wev_skills/third_party/health.py with health(source: Source, version: str, root: Path, runner: SubprocessRunner, *, npx: str) -> HealthReport. For the rea MCP source it starts the executable named by npx with arguments `-y rea-agents@<version> mcp`; the child inherits the parent's environment variables as they are. It speaks newline-delimited JSON-RPC over the child's stdio: send initialize and read its reply, send notifications/initialized, then send tools/list and read the reply, one JSON object per line. It returns HealthReport(ok, code, params) where ok is True with params[\"tools\"] set to the number of tools listed. A tools/list reply can list thousands of tools; the report must still be ok.",
+  "check": [
+    "python3",
+    "-m",
+    "unittest",
+    "tests.unit.test_third_party_health.McpTests.test_a_multi_megabyte_tools_list_passes"
+  ],
+  "files": [
+    "tests/__init__.py",
+    "tests/unit/test_third_party_health.py",
+    "tests/fixtures/fake_npx_mcp.py"
+  ]
+}

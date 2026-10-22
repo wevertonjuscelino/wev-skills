@@ -2,11 +2,15 @@
 
 ``accept`` and ``retire`` are the human operator's decisions on a proposed lesson: they need
 a terminal and a typed word (``commands._human``), and an agent never runs them.
+``score`` is person-only too, but by the hook (asked on Claude Code, denied on harnesses that
+cannot ask) and not by a typed word: it runs the ``claude`` CLI unattended. Its decisions are
+recorded as ``accepted_by`` ``score`` and need no person.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 from typing import Any
 
 from wev_skills import i18n
@@ -15,8 +19,11 @@ from wev_skills.agents.experience import AUTHORED_MAX, LESSON_TEXT_MAX, Lesson
 from wev_skills.commands import Subparsers
 from wev_skills.commands._human import confirm_human, summary_lines
 from wev_skills.commands._scope import resolve_scope
+from wev_skills.commands._scoring import score
 from wev_skills.core import wiring
+from wev_skills.core.errors import ValidationError
 from wev_skills.core.textsafe import clean_text
+from wev_skills.evaluation.scoring import SCORES_FILE
 from wev_skills.governance.audit import AuditLog
 
 DECISIONS = {"accept": project.accept_lesson, "retire": project.retire_lesson}
@@ -89,6 +96,25 @@ def _decide(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _score(args: argparse.Namespace) -> dict[str, Any]:
+    scope = resolve_scope(args.config)
+    return {"score": score(scope, args.id).to_dict(), "config_source": scope.source}
+
+
+def _scores(args: argparse.Namespace) -> dict[str, Any]:
+    scope = resolve_scope(args.config)
+    path = scope.state_dir / SCORES_FILE
+    lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    try:
+        found = [json.loads(line) for line in lines if line.strip()]
+    except ValueError as exc:
+        raise ValidationError(
+            "bad_score_history", i18n.t("evaluation.scoring.bad_history")
+        ) from exc
+    kept = [item for item in found if args.id is None or item.get("agent") == args.id]
+    return {"scores": kept, "config_source": scope.source}
+
+
 def register(subparsers: Subparsers) -> None:
     parser = subparsers.add_parser("specialists", help=i18n.t("agents.specialists.help"))
     actions = parser.add_subparsers(dest="specialists_command", required=True)
@@ -107,3 +133,9 @@ def register(subparsers: Subparsers) -> None:
         action.set_defaults(handler=_decide)
         action.add_argument("id")
         action.add_argument("lesson")
+    action = actions.add_parser("score", help=i18n.t("agents.specialists.score"))
+    action.set_defaults(handler=_score)
+    action.add_argument("id")
+    action = actions.add_parser("scores", help=i18n.t("agents.specialists.scores"))
+    action.set_defaults(handler=_scores)
+    action.add_argument("id", nargs="?", default=None)
