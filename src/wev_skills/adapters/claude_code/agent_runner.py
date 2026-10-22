@@ -31,10 +31,12 @@ def _parse(raw: RawCommandResult) -> AgentRunResult:
     if raw.timed_out:
         return AgentRunResult(False, i18n.t("agent_runner.timed_out"), True)
     try:
-        result = json.loads(raw.stdout).get("result")
+        data = json.loads(raw.stdout)
+        result = data.get("result")
+        failed = data.get("is_error") is True
     except ValueError, AttributeError:
-        result = None
-    if not isinstance(result, str):
+        result, failed = None, False
+    if failed or not isinstance(result, str):
         return AgentRunResult(False, i18n.t("agent_runner.bad_output", code=raw.exit_code))
     return AgentRunResult(raw.exit_code == 0, result)
 
@@ -68,6 +70,8 @@ class ClaudeAgentRunner:
             prompt,
             "--output-format",
             "json",
+            "--restricted",
+            "--strict-mcp-config",
             "--plugin-dir",
             str(self._plugin_root),
         ]
@@ -78,8 +82,10 @@ class ClaudeAgentRunner:
         self._require_plugin()
         tools = ",".join(UNATTENDED_TOOLS)
         system = _body(render_subagent(spec, max_lessons=self._max_lessons))
+        if system.startswith("-"):
+            system = " " + system  # a leading dash would be read as a flag
         argv = [
-            *self._base(objective),
+            *self._base("Task:\n" + objective),
             "--tools",
             tools,
             "--allowedTools",
@@ -95,7 +101,7 @@ class ClaudeAgentRunner:
     def ask(self, prompt: str, timeout: float) -> AgentRunResult:
         self._require_plugin()
         argv = [
-            *self._base(prompt),
+            *self._base("Request:\n" + prompt),
             "--tools",
             "",
             "--permission-mode",

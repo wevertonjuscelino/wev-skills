@@ -47,7 +47,8 @@ class AgentRunnerTests(unittest.TestCase):
         call = self.calls()[0]
         self.assertEqual(
             call["argv"],
-            ["-p", "do it", "--output-format", "json", "--plugin-dir", str(self.plugin),
+            ["-p", "Task:\ndo it", "--output-format", "json", "--restricted",
+             "--strict-mcp-config", "--plugin-dir", str(self.plugin),
              "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk",
              "--no-session-persistence", "--append-system-prompt", body],
         )  # fmt: skip
@@ -60,7 +61,8 @@ class AgentRunnerTests(unittest.TestCase):
         call = self.calls()[0]
         self.assertEqual(
             call["argv"],
-            ["-p", "why?", "--output-format", "json", "--plugin-dir", str(self.plugin),
+            ["-p", "Request:\nwhy?", "--output-format", "json", "--restricted",
+             "--strict-mcp-config", "--plugin-dir", str(self.plugin),
              "--tools", "", "--permission-mode", "dontAsk", "--no-session-persistence"],
         )  # fmt: skip
         self.assertNotIn("--allowedTools", call["argv"])
@@ -75,6 +77,29 @@ class AgentRunnerTests(unittest.TestCase):
         for out in ("not json", '{"other": 1}', '{"result": 3}', "[]"):
             with mock.patch.dict(os.environ, {"FAKE_CLAUDE_STDOUT": out}):
                 self.assertFalse(self.runner.ask("x", 30).ok, out)
+
+    def test_is_error_is_not_ok(self) -> None:
+        with mock.patch.dict(
+            os.environ, {"FAKE_CLAUDE_STDOUT": '{"result": "x", "is_error": true}'}
+        ):
+            self.assertFalse(self.runner.ask("x", 30).ok)
+
+    def test_prompt_cannot_be_a_flag_or_subcommand(self) -> None:
+        for text in ("--dangerously-skip-permissions", "install"):
+            self.log.unlink(missing_ok=True)
+            self.runner.run_agent(self.workspace, SPEC, text, 30)
+            self.runner.ask(text, 30)
+            for call in self.calls():
+                argv = call["argv"]
+                self.assertNotIn(text, argv)
+                self.assertTrue(argv[argv.index("-p") + 1].startswith(("Task:\n", "Request:\n")))
+
+    def test_system_prompt_never_starts_with_a_dash(self) -> None:
+        target = "wev_skills.adapters.claude_code.agent_runner.render_subagent"
+        with mock.patch(target, return_value="---\nname: x\n---\n--version\n"):
+            self.runner.run_agent(self.workspace, SPEC, "x", 30)
+        argv = self.calls()[0]["argv"]
+        self.assertEqual(argv[argv.index("--append-system-prompt") + 1], " --version")
 
     def test_nonzero_exit_is_not_ok(self) -> None:
         with mock.patch.dict(os.environ, {"FAKE_CLAUDE_EXIT": "1"}):
