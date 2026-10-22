@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import tempfile
 import unittest
@@ -56,6 +57,8 @@ class StateCase(unittest.TestCase):
         good = {"active": "1.0.0", "previous": None, "frozen": False}
         for bad in (
             {"sources": {"rea": {**good, "active": "../x"}}},
+            {"sources": {"rea": {**good, "active": "."}}},
+            {"sources": {"rea": {**good, "previous": ".."}}},
             {"sources": {"rea": {**good, "frozen": "yes"}}},
             {"sources": {"rea": {**good, "extra": 1}}},
             {"sources": {}, "extra": 1},
@@ -75,6 +78,18 @@ class StateCase(unittest.TestCase):
 
         with mock.patch.dict("os.environ", {"XDG_DATA_HOME": "/x/data"}):
             self.assertEqual(state.data_home(), Path("/x/data/wev-skills/third-party"))
+
+    def test_data_home_falls_back_to_local_share(self) -> None:
+        from unittest import mock
+
+        with mock.patch.dict("os.environ", {"HOME": "/h"}):
+            os.environ.pop("XDG_DATA_HOME", None)
+            self.assertEqual(state.data_home(), Path("/h/.local/share/wev-skills/third-party"))
+
+    def test_dotted_versions_are_still_allowed(self) -> None:
+        self.assertTrue(state.VERSION_RE.fullmatch("1.0.0-rc.1"))
+        self.assertTrue(state.VERSION_RE.fullmatch("v1.5"))
+        self.assertIsNone(state.VERSION_RE.fullmatch("..."))
 
 
 if __name__ == "__main__":

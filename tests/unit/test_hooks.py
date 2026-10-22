@@ -407,6 +407,17 @@ class PreToolUseTests(HookCase):
             with self.subTest(command=command):
                 self.assertIsNone(self.bash(command))
 
+    def test_hook_does_not_ask_for_check(self) -> None:
+        self.start()
+        for command in (
+            f'"{WEV}" skills check --daily',
+            f"{WEV} skills check",
+            f"{WEV} skills decline rea",
+            f"{WEV} skills list",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(self.bash(command))
+
     def test_calls_to_the_wev_cli_are_left_alone_in_plan_mode_too(self) -> None:
         self.start(mode="plan")
         for command in self.WEV_CALLS:
@@ -575,12 +586,30 @@ class HooksFileTests(unittest.TestCase):
         self.data = json.loads(HOOKS_FILE.read_text(encoding="utf-8"))
 
     def entries(self) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+        """Every ``wev hook`` entry; the daily version check is covered separately."""
         return [
             (event, group, hook)
             for event, groups in self.data["hooks"].items()
             for group in groups
             for hook in group["hooks"]
+            if " hook " in hook["command"]
         ]
+
+    def test_hooks_json_has_startup_entry(self) -> None:
+        groups = self.data["hooks"]["SessionStart"]
+        startup = [g for g in groups if g.get("matcher") == "startup"]
+        self.assertEqual(len(startup), 1)
+        self.assertEqual(
+            startup[0]["hooks"],
+            [
+                {
+                    "type": "command",
+                    "command": '"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills check --daily',
+                    "timeout": 15,
+                }
+            ],
+        )
+        self.assertIn("compact|resume", [g.get("matcher") for g in groups])
 
     def test_it_declares_the_three_events_with_their_matchers(self) -> None:
         self.assertEqual(list(self.data), ["hooks"])
