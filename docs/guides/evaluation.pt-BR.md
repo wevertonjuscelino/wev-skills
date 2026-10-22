@@ -129,6 +129,10 @@ Escreva fixtures que exercitem um mecanismo, diga em `description` o que elas ex
 - As tarefas incluídas são exemplos, não um benchmark. Suas taxas de aprovação não devem ser citadas como tal.
 - Os mecanismos motivados pelo artigo de pesquisa (compactação em estágios, planejamento condicional, perfis de ferramentas, lembretes de plano e outros) estão implementados como padrões configuráveis cujo efeito num modelo real não foi medido. Veja `docs/research/hypotheses.pt-BR.md` e `docs/research/experiments.pt-BR.md`.
 
+## Comparando execuções reais antes e depois de mudar uma instrução
+
+Mudanças de instrução nas skills (por exemplo o passo de plano mais profundo da `wev-orchestrate`) não podem ser medidas pelo harness roteirizado, porque ele não chama modelo. Até existir um harness com modelo real, compare execuções reais à mão: rode os mesmos objetivos nos mesmos repositórios antes e depois da mudança, com o mesmo modelo, e leia cada `wev run report --format json`. Conte por execução: critérios de aceitação por tarefa, critérios amarrados a uma verificação, tarefas `verified` com evidência `tested`, vereditos de revisão `reject` e tentativas até a tarefa ser verificada. Registre o modelo, as datas e os relatórios. Nenhuma comparação dessas foi feita, então nenhuma melhora é afirmada: rotule qualquer afirmação sobre essas práticas como apenas documentada até que seja.
+
 ## Avaliando com um modelo real
 
 Trabalho futuro; não implementado. Exige um provedor de modelo, que este repositório não chama (os testes unitários e o CI rodam sem provedor pago), um agente que implemente a interface de agente do harness chamando um modelo, tarefas apoiadas em repositórios e verificações reais, execuções repetidas por tarefa e configuração, e um registro dos identificadores de modelo, datas e saídas brutas. Enquanto uma execução assim não for feita e registrada, as hipóteses seguem não testadas.

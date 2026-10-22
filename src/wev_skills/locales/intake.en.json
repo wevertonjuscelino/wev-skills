@@ -24,9 +24,11 @@
   "intake.default.done": "Present findings and state limitations",
   "intake.default.scope": "Change only what the request names",
   "intake.default.constraints": "Preserve existing constraints",
+  "intake.default.outcome": "Deliver the stated goal only",
   "intake.arg.from_intake": "Finished intake identifier",
   "intake.error.objective_mismatch": "Objective differs from the finished brief",
   "intake.brief.scope": "Scope: {value}",
   "intake.brief.constraints": "Constraints: {value}",
-  "intake.brief.done": "Done when: {value}"
+  "intake.brief.done": "Done when: {value}",
+  "intake.brief.outcome": "Outcome beyond the goal: {value}"
 }

@@ -71,6 +71,7 @@ This section is not part of the adapted material below; it belongs to wev-skills
 - Say what you ran and what you did not run.
 - Never report a check as passed if it did not run.
 - Label the state of the work as one of: tested, untested, mocked, documented only, or blocked.
+- Be ambitious about the result and its proof, not about the amount of code: a demanding target belongs in the success criteria only when a check measures it, and a broader approach is proposed to the person, not adopted alone.
 
 These guidelines are working when diffs contain fewer unneeded changes, fewer rewrites come from overcomplication, and clarifying questions arrive before the implementation instead of after a mistake.
 

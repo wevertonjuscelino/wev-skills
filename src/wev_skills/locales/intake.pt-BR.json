@@ -24,9 +24,11 @@
   "intake.default.done": "Apresentar resultados e declarar limitações",
   "intake.default.scope": "Alterar somente o que o pedido menciona",
   "intake.default.constraints": "Preservar restrições existentes",
+  "intake.default.outcome": "Entregar somente o objetivo declarado",
   "intake.arg.from_intake": "Identificador de briefing finalizado",
   "intake.error.objective_mismatch": "Objetivo difere do briefing finalizado",
   "intake.brief.scope": "Escopo: {value}",
   "intake.brief.constraints": "Restrições: {value}",
-  "intake.brief.done": "Pronto quando: {value}"
+  "intake.brief.done": "Pronto quando: {value}",
+  "intake.brief.outcome": "Resultado além do objetivo: {value}"
 }

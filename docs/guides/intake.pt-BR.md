@@ -6,7 +6,8 @@
 informados no pedido com `--source request` e perguntar somente pelos campos obrigatórios
 faltantes. Cada `next` consome uma rodada e devolve no máximo três perguntas. O engine
 exige objetivo (`goal`), evidências de conclusão (`done`), escopo e tipo de trabalho;
-restrições são opcionais. Um pedido claro dispensa perguntas.
+restrições são opcionais, e o resultado (`outcome`) também: o que deve acontecer depois
+que o objetivo for atingido. Um pedido claro dispensa perguntas.
 
 ```sh
 wev intake start --request 'Adicionar exportação CSV aos relatórios'
@@ -38,6 +39,10 @@ conhecidos de segredos são ocultados; isso não garante reconhecer todo segredo
 `--objective` explicitamente diferente é recusado. Operações preservam o sinal de efeito
 externo e suposições estabelecem um mínimo de incógnitas. O briefing completo é copiado
 para o estado da execução e o evento de auditoria `run.intake_attached`, e devolvido
-ao chamador. Lembretes do plano carregam escopo, restrições e critérios de conclusão. A entrevista e
+ao chamador. Lembretes do plano carregam escopo, restrições, resultado e critérios de conclusão. O
+resultado é contexto, não escopo: a skill `wev-orchestrate` manda o agente propor ao usuário
+uma abordagem mais ampla quando ela servir melhor ao resultado, e nunca adotá-la sozinho.
+Perto do limite de tamanho do lembrete, o resultado é o primeiro a sair. Um registro com
+resultado não pode ser lido por versões anteriores; um registro sem ele não muda. A entrevista e
 suas evidências descrevem intenção; verificações de execução e portões humanos continuam
 aplicáveis.
