@@ -22,7 +22,8 @@ from pathlib import Path
 
 from wev_skills import i18n
 from wev_skills.adapters.harness_package import PACKAGE_NAME, build_package
-from wev_skills.core.errors import NotFound, RemoteError, ValidationError, WevError
+from wev_skills.core.contracts import RawCommandResult
+from wev_skills.core.errors import NotFound, RemoteError, StateConflict, ValidationError, WevError
 from wev_skills.core.fsutil import atomic_write_text, ensure_private_dir
 from wev_skills.core.ports import Runner
 
@@ -119,10 +120,10 @@ def write_manifest(root: Path, manifest: Manifest) -> None:
     atomic_write_text(root / "manifest.json", json.dumps(data, indent=2) + "\n")
 
 
-def _run(runner: Runner, argv: tuple[str, ...]) -> None:
+def _run(runner: Runner, argv: tuple[str, ...]) -> RawCommandResult:
     result = runner.run(argv, None, CLI_TIMEOUT_SECONDS, None)
     if result.exit_code == 0:
-        return
+        return result
     detail = (result.stderr or result.stdout).strip()[:300]
     message = i18n.t("harness.error.cli_failed", command=" ".join(argv), detail=detail)
     raise RemoteError("harness_cli_failed", message, {"argv": list(argv)})
@@ -276,6 +277,31 @@ def _codex_registrations(package: Path) -> tuple[tuple[str, ...], ...]:
     )
 
 
+def _names_package(data: object) -> bool:
+    # shortcut: the shape of `list -o json` is unknown in the note, so any object named
+    # wev-skills counts; narrow it once the e2e run shows the real shape
+    if isinstance(data, dict):
+        return data.get("name") == PACKAGE_NAME or any(_names_package(v) for v in data.values())
+    return isinstance(data, list) and any(_names_package(v) for v in data)
+
+
+def _refuse_foreign(runner: Runner, target: str, previous: Manifest | None) -> None:
+    """With no wev manifest, a ``wev-skills`` Gemini extension is the person's own, and a
+    later ``uninstall`` would remove it: refuse. Codex's list output is unknown (docs only)."""
+    if target != GEMINI or previous is not None:
+        return
+    argv = (GEMINI, "extensions", "list", "-o", "json")
+    output = _run(runner, argv).stdout
+    try:
+        listed = _names_package(json.loads(output))
+    except ValueError as exc:
+        message = i18n.t("harness.error.cli_failed", command=" ".join(argv), detail=output[:300])
+        raise RemoteError("harness_cli_failed", message, {"argv": list(argv)}) from exc
+    if listed:
+        message = i18n.t("harness.error.gemini_foreign", name=PACKAGE_NAME)
+        raise StateConflict("harness_gemini_foreign", message, {"name": PACKAGE_NAME})
+
+
 def _register(runner: Runner, registrations: tuple[tuple[str, ...], ...]) -> None:
     done: list[tuple[str, ...]] = []
     try:
@@ -308,6 +334,13 @@ def _undo_previous(runner: Runner, previous: Manifest, root: Path) -> None:
     (root / "manifest.json").unlink(missing_ok=True)  # it would list undone registrations
 
 
+def _mark_removed(error: BaseException, previous: Manifest | None, root: Path) -> None:
+    """A failure after ``_undo_previous`` leaves no install at all: say so in the error."""
+    removed = previous is not None and not (root / "manifest.json").exists()
+    if removed and isinstance(error, WevError):
+        error.details["previous_removed"] = True
+
+
 def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Manifest:
     """Build and register the package; on any failure undo what this call did."""
     _check_target(target)
@@ -315,14 +348,16 @@ def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Man
     base = data_home / PACKAGE_NAME
     created_base = None if base.exists() else base
     previous = _read(root, target)
+    _refuse_foreign(runner, target, previous)
     files: list[str] = []
     try:
         _populate(target, runner, root, wev_path, previous, files)
         registrations = _registrations(target, root / "package")
         performed = () if target in PERSON_LINKS else registrations
         _register(runner, performed)
-    except BaseException:
+    except BaseException as exc:
         remove_files(tuple(files), root, created_base)
+        _mark_removed(exc, previous, root)
         raise
     manifest = Manifest(target, tuple(files), registrations)
     try:

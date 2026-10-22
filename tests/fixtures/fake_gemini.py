@@ -4,6 +4,7 @@
 FAKE_GEMINI_LOG: file that receives one JSON argv per line.
 FAKE_GEMINI_FAIL: argv prefixes as words, separated by "|" (e.g. "extensions validate|extensions
 link"); a call matching any of them exits 1.
+FAKE_GEMINI_LIST: what ``extensions list`` prints (default ``[]``).
 """
 
 from __future__ import annotations
@@ -21,6 +22,8 @@ def main() -> int:
     if any(args[: len(prefix)] == prefix for prefix in prefixes):
         sys.stderr.write("fake gemini: failing on demand\n")
         return 1
+    if args[:2] == ["extensions", "list"]:
+        sys.stdout.write(os.environ.get("FAKE_GEMINI_LIST", "[]") + "\n")
     return 0
 
 

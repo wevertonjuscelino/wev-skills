@@ -12,7 +12,7 @@ from unittest import mock
 from wev_skills import cli
 from wev_skills.adapters.harness_install import install, uninstall
 from wev_skills.core.contracts import RawCommandResult
-from wev_skills.core.errors import NotFound, RemoteError, ValidationError
+from wev_skills.core.errors import NotFound, RemoteError, StateConflict, ValidationError
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.core.wiring import REPO_ROOT
 
@@ -67,8 +67,9 @@ class GeminiInstallTests(GeminiBase):
     def test_install_only_validates_and_leaves_the_link_to_the_person(self) -> None:
         self.install()
         calls = self.calls()
-        self.assertEqual([c[:2] for c in calls], [["extensions", "validate"]])
-        self.assertIn(".staging-", calls[0][2])  # the staged package is checked before the copy
+        self.assertEqual(calls[0], ["extensions", "list", "-o", "json"])
+        self.assertEqual([c[:2] for c in calls[1:]], [["extensions", "validate"]])
+        self.assertIn(".staging-", calls[1][2])  # the staged package is checked before the copy
         stored = json.loads((self.root / "manifest.json").read_text())
         self.assertEqual(
             stored["registrations"],
@@ -86,7 +87,7 @@ class GeminiInstallTests(GeminiBase):
         with self.assertRaises(RemoteError) as caught:
             self.install()
         self.assertEqual(caught.exception.exit_code, 8)
-        self.assertEqual([c[:2] for c in self.calls()], [["extensions", "validate"]])
+        self.assertEqual([c[1] for c in self.calls()], ["list", "validate"])
         self.assertEqual(self.files(), set())
         self.assertFalse((self.data / "wev-skills").exists())
 
@@ -95,16 +96,18 @@ class GeminiInstallTests(GeminiBase):
         before = (self.root / "manifest.json").read_text()
         hooks = self.package / "hooks" / "hooks.json"
         self.fail_on("extensions validate")
-        with self.assertRaises(RemoteError):
+        with self.assertRaises(RemoteError) as caught:
             self.install()
+        self.assertNotIn("previous_removed", caught.exception.details)
         self.assertEqual((self.root / "manifest.json").read_text(), before)
         self.assertTrue(hooks.is_file())
-        self.assertEqual([c[1] for c in self.calls()], ["validate", "validate"])  # no uninstall
+        # no uninstall; the list check runs only when no wev manifest exists
+        self.assertEqual([c[1] for c in self.calls()], ["list", "validate", "validate"])
 
     def test_reinstall_keeps_the_link_and_replaces_the_files(self) -> None:
         self.install()
         self.install()
-        self.assertEqual([c[1] for c in self.calls()], ["validate", "validate"])
+        self.assertEqual([c[1] for c in self.calls()], ["list", "validate", "validate"])
         stored = json.loads((self.root / "manifest.json").read_text())
         self.assertEqual(len(stored["registrations"]), 2)
         self.assertEqual(len(stored["files"]), len(set(stored["files"])))
@@ -113,7 +116,7 @@ class GeminiInstallTests(GeminiBase):
         (self.root / "manifest.json").mkdir(parents=True)
         with self.assertRaises(RemoteError):
             self.install()
-        self.assertEqual([c[1] for c in self.calls()], ["validate"])
+        self.assertEqual([c[1] for c in self.calls()], ["list", "validate"])
         self.assertFalse(self.package.exists())
 
     def test_a_tampered_gemini_registration_is_never_run(self) -> None:
@@ -144,12 +147,29 @@ class GeminiInstallTests(GeminiBase):
             self.install()
         self.assertEqual(self.calls(), [])
 
+    def test_a_wev_skills_extension_wev_did_not_install_is_refused(self) -> None:
+        listed = [{"name": "other"}, {"name": "wev-skills", "path": "/theirs"}]
+        for output in (json.dumps(listed), json.dumps({"extensions": listed})):
+            env = mock.patch.dict(os.environ, {"FAKE_GEMINI_LIST": output})
+            with self.subTest(output=output):
+                with env, self.assertRaises(StateConflict) as caught:
+                    self.install()
+                self.assertEqual(caught.exception.exit_code, 5)
+                self.assertFalse((self.data / "wev-skills").exists())
+        self.assertEqual({c[1] for c in self.calls()}, {"list"})
+
+    def test_an_unreadable_extension_list_is_refused(self) -> None:
+        env = mock.patch.dict(os.environ, {"FAKE_GEMINI_LIST": "not json"})
+        with env, self.assertRaises(RemoteError):
+            self.install()
+        self.assertEqual([c[1] for c in self.calls()], ["list"])
+
 
 class GeminiUninstallTests(GeminiBase):
     def test_uninstall_runs_the_inverse_and_removes_what_wev_made(self) -> None:
         self.install()
         uninstall("gemini", FakeGeminiRunner(), self.data)
-        self.assertEqual(self.calls()[1:], [["extensions", "uninstall", "wev-skills"]])
+        self.assertEqual(self.calls()[2:], [["extensions", "uninstall", "wev-skills"]])
         self.assertFalse((self.data / "wev-skills").exists())
         self.assertTrue(self.data.is_dir())
 
@@ -186,4 +206,4 @@ class GeminiCliTests(GeminiBase):
         steps = json.loads(out.getvalue())["next_steps"]
         self.assertIn(f"gemini extensions link {self.package}", steps[0])
         self.assertIn("gemini extensions list -o json", steps[1])
-        self.assertEqual(len(self.calls()), 1)  # validate only
+        self.assertEqual([c[1] for c in self.calls()], ["list", "validate"])  # no link

@@ -222,8 +222,9 @@ class FixRoundTests(InstallBase):
     def test_failed_reinstall_leaves_no_stale_manifest(self) -> None:
         self.install()
         self.fail_on("plugin add")
-        with self.assertRaises(RemoteError):
+        with self.assertRaises(RemoteError) as caught:
             self.install()
+        self.assertIs(caught.exception.details.get("previous_removed"), True)
         self.assertEqual(self.files(), set())
         adds = [c for c in self.calls() if c[:2] == ["plugin", "add"]]
         removes = [c for c in self.calls() if c[:2] == ["plugin", "remove"]]
