@@ -6,12 +6,14 @@
   "agents": [
     "wev-engineer"
   ],
-  "base_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
-  "objective": "In src/wev_skills/third_party/fetch.py, install_version(source, release: Release, home: Path, opener, runner) extracts a GitHub release tarball under home/<source>/<version>. Make it accept an archive whose member `top/.opencode/skills` is a symlink with target `../skills/` (pointing at `top/skills`, where `top/skills/a/SKILL.md` exists) and extract it with the link in place, resolving to a path inside the version directory. Links that would resolve outside the top directory must still be refused with CheckFailed(\"unsafe_member\").",
+  "base_commit": "25f579142e0fa73f4a865a901b55e51f58475bf2",
+  "objective": "In src/wev_skills/third_party/fetch.py, install_version(source, release: Release, home: Path, opener, runner) extracts a GitHub release tarball under home/<source>/<version>. Keep extracted symlinks inside the top directory of the archive: accept a link whose target resolves to a path within the top directory, and refuse with CheckFailed(\"unsafe_member\") any link that resolves outside it or that would alias the top directory itself (for example a link to the directory it sits in, or a chain of links that climbs back out). Nothing may be left under home after a refusal.",
   "check": [
     "python3",
     "-m",
     "unittest",
+    "tests.unit.test_third_party_fetch.FetchCase.test_links_cannot_alias_the_source_directory",
+    "tests.unit.test_third_party_fetch.FetchCase.test_links_leaving_the_top_directory_are_refused",
     "tests.unit.test_third_party_fetch.FetchCase.test_link_up_but_inside_the_top_directory_is_kept"
   ],
   "files": [

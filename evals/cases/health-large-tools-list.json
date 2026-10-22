@@ -7,7 +7,7 @@
     "wev-engineer"
   ],
   "base_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
-  "objective": "Add src/wev_skills/third_party/health.py with health(source: Source, version: str, root: Path, runner: SubprocessRunner, *, npx: str) -> HealthReport. For the rea MCP source it starts `npx -y rea-agents@<version> mcp` (the npx argument names the executable), speaks JSON-RPC over stdio (initialize, then tools/list) and returns HealthReport(ok, code, params) where ok is True with params[\"tools\"] set to the number of tools listed. The server's reply to tools/list arrives as a single line and can be several megabytes; the report must still be ok. tests/fixtures/fake_npx_mcp.py is a stand-in server you can run.",
+  "objective": "Add src/wev_skills/third_party/health.py with health(source: Source, version: str, root: Path, runner: SubprocessRunner, *, npx: str) -> HealthReport. For the rea MCP source it starts the executable named by npx with arguments `-y rea-agents@<version> mcp`; the child inherits the parent's environment variables as they are. It speaks newline-delimited JSON-RPC over the child's stdio: send initialize and read its reply, send notifications/initialized, then send tools/list and read the reply, one JSON object per line. It returns HealthReport(ok, code, params) where ok is True with params[\"tools\"] set to the number of tools listed. A tools/list reply can list thousands of tools; the report must still be ok.",
   "check": [
     "python3",
     "-m",
