@@ -32,7 +32,7 @@ def pinned_version(state: State) -> str:
     return item.active
 
 
-def _checked_version(version: str) -> str:
+def checked_version(version: str) -> str:
     if not SEMVER_RE.fullmatch(version):
         raise ValidationError("rea_version_invalid", i18n.t("rea.error.version_invalid"))
     return version
@@ -64,7 +64,7 @@ def serve_argv(
     docker: str = "docker",
     npx: str = "npx",
 ) -> tuple[str, ...]:
-    _checked_version(version)
+    checked_version(version)
     if cfg.mode == "direct":
         return (npx, *mcp_argv(version)[1:])
     work = _checked_cwd(cwd)
