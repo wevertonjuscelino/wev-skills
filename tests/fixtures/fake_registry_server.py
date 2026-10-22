@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-Scripted = tuple[int, bytes]
-"""``(status, body)`` for one path; a path that is not scripted answers 404."""
+Scripted = tuple[int, bytes] | tuple[int, bytes, float]
+"""``(status, body)`` or ``(status, body, drip_seconds)`` for one path; unscripted paths answer 404.
+
+With a drip, the body is sent one byte at a time with that pause between bytes, so no single
+socket operation is slow but the whole answer is."""
 
 
 class _Server(ThreadingHTTPServer):
@@ -26,12 +30,15 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         self.server.paths.append(self.path)
-        status, body = self.server.routes.get(self.path, (404, b"{}"))
+        status, body, *drip = self.server.routes.get(self.path, (404, b"{}"))
         try:
             self.send_response(status)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            for start in range(0, len(body), 1 if drip else len(body) or 1):
+                self.wfile.write(body[start : start + (1 if drip else len(body))])
+                self.wfile.flush()
+                time.sleep(drip[0] if drip else 0)
         except OSError:
             pass
 

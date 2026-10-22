@@ -14,7 +14,7 @@ from wev_skills.core.errors import ValidationError
 from wev_skills.core.fsutil import atomic_write_text
 from wev_skills.third_party.sources import SOURCES
 
-VERSION_RE = re.compile(r"(?!\.+$)[A-Za-z0-9._-]+")  # not "." or "..", a path segment
+VERSION_RE = re.compile(r"(?!\.+$)[A-Za-z0-9._-]{1,64}")  # not "." or "..": a path segment
 _VERSION_FIELDS = ("active", "previous", "latest_seen", "declined")
 _TEXT_FIELDS = ("last_check",)
 

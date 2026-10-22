@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import threading
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from wev_skills import i18n
@@ -18,7 +20,7 @@ from wev_skills.third_party.sources import SOURCES, source
 
 
 def _run_list(_args: argparse.Namespace) -> dict[str, Any]:
-    current = state_mod.load(state_mod.data_home() / "state.json")
+    current = state_mod.load(_state_path())
     rows = []
     for src in SOURCES:
         item = current.sources.get(src.name, state_mod.SourceState())
@@ -37,7 +39,7 @@ def _run_list(_args: argparse.Namespace) -> dict[str, Any]:
     return {"sources": rows}
 
 
-def _state_path() -> Any:
+def _state_path() -> Path:
     return state_mod.data_home() / "state.json"
 
 
@@ -45,6 +47,20 @@ def _session_json(updates: tuple[check_mod.Update, ...]) -> str:
     context = check_mod.daily_context(updates)
     event = {"hookEventName": "SessionStart", "additionalContext": context}
     return json.dumps({"hookSpecificOutput": event}, ensure_ascii=False)
+
+
+def _scan_within_budget(current: state_mod.State, now: datetime) -> check_mod.Outcome | None:
+    """The scan, or ``None`` after the wall-clock budget: a slow answer is left behind."""
+    box: list[check_mod.Outcome] = []
+
+    def work() -> None:
+        scan = check_mod.scan(current, now, check_mod.fetch, check_mod.BASE_URLS, force=False)
+        box.append(scan)
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
+    worker.join(check_mod.DAILY_BUDGET)
+    return None if worker.is_alive() or not box else box[0]
 
 
 def _run_daily() -> CommandResult:
@@ -55,8 +71,9 @@ def _run_daily() -> CommandResult:
         current = state_mod.load(path)
         if not check_mod.is_due(current, now):
             return silent
-        opener = check_mod.budgeted(check_mod.fetch, check_mod.DAILY_BUDGET)
-        outcome = check_mod.scan(current, now, opener, check_mod.BASE_URLS, force=False)
+        outcome = _scan_within_budget(current, now)
+        if outcome is None:
+            return silent
         if outcome.state != current:
             state_mod.save(path, outcome.state)
         return (
@@ -102,7 +119,6 @@ def register(subparsers: Subparsers) -> None:
     listing.set_defaults(handler=_run_list)
     checking = commands.add_parser("check", help=i18n.t("skills.check.help"))
     checking.add_argument("--daily", action="store_true", help=i18n.t("skills.check.daily"))
-    checking.add_argument("--json", action="store_true", help=i18n.t("skills.check.json"))
     checking.set_defaults(handler=_run_check)
     declining = commands.add_parser("decline", help=i18n.t("skills.decline.help"))
     declining.add_argument("source", help=i18n.t("skills.decline.source"))

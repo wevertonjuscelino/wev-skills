@@ -5,7 +5,6 @@
   "skills.error.state_invalid": "The third-party state file {path} is invalid ({why}).",
   "skills.check.help": "Check the registries for newer versions of the third-party sources.",
   "skills.check.daily": "Session-start mode: do nothing unless a day has passed, and print the hook JSON only when an update is available.",
-  "skills.check.json": "Print JSON (the default; accepted for scripts).",
   "skills.decline.help": "Record that the newest version of a source was declined, so it is not offered again.",
   "skills.decline.source": "The source name (rea, agent-skills or wev-skills).",
   "skills.error.nothing_to_decline": "No newer version of {name} has been seen yet; run `wev skills check` first.",

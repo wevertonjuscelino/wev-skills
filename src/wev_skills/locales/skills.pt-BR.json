@@ -5,7 +5,6 @@
   "skills.error.state_invalid": "O arquivo de estado de terceiros {path} é inválido ({why}).",
   "skills.check.help": "Consulta os registros por versões mais novas das fontes de terceiros.",
   "skills.check.daily": "Modo de início de sessão: não faz nada se não passou um dia e só imprime o JSON do hook quando há atualização.",
-  "skills.check.json": "Imprime JSON (o padrão; aceito para scripts).",
   "skills.decline.help": "Registra que a versão mais nova de uma fonte foi recusada, para não ser oferecida de novo.",
   "skills.decline.source": "O nome da fonte (rea, agent-skills ou wev-skills).",
   "skills.error.nothing_to_decline": "Nenhuma versão mais nova de {name} foi vista ainda; rode `wev skills check` antes.",

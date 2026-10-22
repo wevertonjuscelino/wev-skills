@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
@@ -11,6 +10,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from wev_skills import i18n
+from wev_skills.security.untrusted import sanitize
 from wev_skills.third_party.sources import SOURCES, Source
 from wev_skills.third_party.state import VERSION_RE, SourceState, State
 
@@ -23,7 +23,6 @@ REQUEST_TIMEOUT = 5.0
 DAILY_BUDGET = 10.0
 INTERVAL = timedelta(days=1)
 MAX_BODY = 4 * 1024 * 1024
-MAX_URL = 200
 
 
 class CheckFailed(Exception):
@@ -68,19 +67,6 @@ def fetch(url: str, timeout: float) -> bytes:
     return body
 
 
-def budgeted(opener: Opener, seconds: float) -> Opener:
-    """An opener that spends at most ``seconds`` in total, whatever the sources do."""
-    deadline = time.monotonic() + seconds
-
-    def limited(url: str, timeout: float) -> bytes:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise CheckFailed("budget")
-        return opener(url, min(timeout, remaining))
-
-    return limited
-
-
 def _get_json(opener: Opener, url: str) -> object:
     try:
         return json.loads(opener(url, REQUEST_TIMEOUT))
@@ -89,8 +75,10 @@ def _get_json(opener: Opener, url: str) -> object:
     except urllib.error.HTTPError as exc:
         exc.close()
         raise CheckFailed(f"http_{exc.code}") from exc
-    except (OSError, ValueError) as exc:  # network, timeout, bad JSON, bad UTF-8
-        raise CheckFailed("unreachable" if isinstance(exc, OSError) else "bad_shape") from exc
+    except (ValueError, RecursionError) as exc:  # bad JSON, bad UTF-8, absurd nesting
+        raise CheckFailed("bad_shape") from exc
+    except OSError as exc:  # network, timeout
+        raise CheckFailed("unreachable") from exc
 
 
 def _text(doc: object, *keys: str) -> str:
@@ -109,12 +97,6 @@ def _version(value: str) -> str:
     return value
 
 
-def _url(value: str) -> str:
-    if not value.startswith("https://") or len(value) > MAX_URL:
-        raise CheckFailed("bad_shape")
-    return value
-
-
 def _npm(src: Source, opener: Opener, base: str) -> Release:
     doc = _get_json(opener, f"{base}/{src.package}")
     version = _version(_text(doc, "dist-tags", "latest"))
@@ -122,7 +104,7 @@ def _npm(src: Source, opener: Opener, base: str) -> Release:
         tarball: str | None = _text(doc, "versions", version, "dist", "tarball")
     except CheckFailed:
         tarball = None
-    return Release(version, _url(src.changelog.format(version=version)), tarball)
+    return Release(version, src.changelog.format(version=version), tarball)
 
 
 def _github_head(src: Source, opener: Opener, base: str) -> Release:
@@ -130,7 +112,7 @@ def _github_head(src: Source, opener: Opener, base: str) -> Release:
     sha = _version(_text(doc, "sha"))
     return Release(
         sha[:12],
-        _url(f"https://github.com/{src.package}/commit/{sha}"),
+        f"https://github.com/{src.package}/commit/{sha}",
         f"{base}/repos/{src.package}/tarball/{sha}",
     )
 
@@ -144,7 +126,7 @@ def _github(src: Source, opener: Opener, base: str) -> Release:
         return _github_head(src, opener, base)
     version = _version(_text(doc, "tag_name"))
     tarball = doc.get("tarball_url") if isinstance(doc, dict) else None
-    link = _url(_text(doc, "html_url"))
+    link = src.changelog.format(version=version)  # never the answer's own html_url
     return Release(version, link, tarball if isinstance(tarball, str) else None)
 
 
@@ -199,5 +181,5 @@ def check(
 
 
 def daily_context(updates: Sequence[Update]) -> str:
-    items = "; ".join(f"{u.source} {u.active} -> {u.latest} ({u.url})" for u in updates)
+    items = "; ".join(sanitize(f"{u.source} {u.active} -> {u.latest} ({u.url})") for u in updates)
     return i18n.t("skills.hook.updates", items=items)

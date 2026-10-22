@@ -2,22 +2,22 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/wev\" skills check --daily",
-            "timeout": 15
-          }
-        ]
-      },
-      {
         "matcher": "compact|resume",
         "hooks": [
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/wev\" hook session-context",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/wev\" skills check --daily",
+            "timeout": 15
           }
         ]
       }

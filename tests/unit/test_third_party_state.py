@@ -90,6 +90,8 @@ class StateCase(unittest.TestCase):
         self.assertTrue(state.VERSION_RE.fullmatch("1.0.0-rc.1"))
         self.assertTrue(state.VERSION_RE.fullmatch("v1.5"))
         self.assertIsNone(state.VERSION_RE.fullmatch("..."))
+        self.assertTrue(state.VERSION_RE.fullmatch("1" * 64))
+        self.assertIsNone(state.VERSION_RE.fullmatch("1" * 65))
 
 
 if __name__ == "__main__":
