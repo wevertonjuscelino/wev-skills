@@ -106,6 +106,20 @@ Implemented and tested against a local fake server; the live service was not run
 - Redaction masks recognizable secrets in logs, audit records, guard events and approval records, including values after secret-named flags, `Authorization` headers, URLs with credentials or token-like query parameters, and well-known webhook URLs. It is best effort. Whole-argv redaction (the value after `--password`, credentials in URLs and similar) also applies on refused paths. `tests/integration/test_refused_redaction.py` searches every file under the state directory for a canary after allowed, denied, approval-required and guard-refused executions, for these event types: `exec.ran`, `exec.denied`, `exec.approval_requested`, `guard.tripped`, `task.checked`, `approval.requested` and `task.recorded`. In addition, any audit event that stores a list under the key `argv` is masked as one command line.
 - Directories under the state directory are created with mode 0700 and files, including lock files, with mode 0600.
 
+## Other harnesses
+
+`wev harness install --target codex|gemini|opencode` puts the guard hooks into Codex, Gemini CLI and OpenCode. Status: implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part). The same guardrail-not-boundary position applies.
+
+- **Asks are reminders.** These harnesses have no ask decision for hooks. A policy `ask` of the guard (a command Claude Code would put to the person) becomes allow plus a warning to the agent. Do not read an ask there as a gate. A `deny` stays a deny.
+- **Fail-safe is deny.** An unreadable hook input, an internal error, an unregistered run, an unreadable run registry or an answer that cannot be parsed becomes a deny, not an allow.
+- **Codex works under the session directory.** The Codex hook does not receive the workdir the model chose for a command (verified in the Codex source at rust-v0.160.0), so a command is judged as if it ran in the session cwd. Gemini CLI (`dir_path`) and OpenCode (`workdir`) send one, and the guard honors it; an invalid value is a deny.
+- **OpenCode limits.** The guard is a plugin (`plugins/wev-guard.js`) that runs `bin/wev` without a shell and denies when `wev` cannot run. Its warning goes to `console.warn`, which likely never reaches the agent, so an OpenCode ask is in practice a silent allow. `spawnSync` blocks the plugin for up to 10 seconds per bash call. The manifest keeps unresolved paths, so a changed `XDG_CONFIG_HOME` makes `uninstall` refuse until it is restored. The plugin was tested under node with a fake `wev` and never run inside OpenCode.
+- **Codex trust is yours.** Codex asks the person to trust hooks once; wev does not bypass that gate. Until you trust them, they do not run.
+- **Gemini link consent is yours.** wev runs only `gemini extensions validate`. The person runs `gemini extensions link` and accepts its security warning; wev never accepts it for them. Until then, no Gemini hook is installed.
+- **The manifest is data, not instructions.** `uninstall` reads `$XDG_DATA_HOME/wev-skills/harness/<target>/manifest.json` only as a list: registrations are compared to fixed tuples, every file path must stay inside the target's directory, and symlinks are refused. It removes only what wev wrote. Anyone who can write the manifest can still make `uninstall` fail, and an agent in your account can edit the harness config files directly.
+- **Out of scope.** A symlinked parent above the wev-owned data root is the user's own layout and is not defended against.
+- **Asks on `install` and `uninstall`.** In Claude Code the hook asks before `wev harness install` and `uninstall`; `export` is not asked.
+
 ## Known limits
 
 These are open. Do not rely on the engine for any of them.

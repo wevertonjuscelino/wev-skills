@@ -6,6 +6,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
+- Harness adapters for Codex, Gemini CLI and OpenCode: `wev hook pre-tool-use|session-context --harness codex|gemini|opencode`, `wev harness export|install|uninstall --target ...` with a manifest under `$XDG_DATA_HOME/wev-skills/harness/<target>/`. Implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part). A policy ask becomes allow plus a warning on these harnesses and a fail-safe ask becomes deny; Codex commands are judged under the session cwd; the OpenCode plugin was tested under node with a fake `wev` and never run inside OpenCode. See SECURITY.md, "Other harnesses".
+
 - Built-in JEV client (`decision.jev.command` `builtin`): an HTTP client that looks the key up in `TYPESAFE_API_KEY`, the user's wev-skills env file (mode 600) and the macOS keychain, retries only 429 and 529 inside `decision.jev.timeout_seconds`, reads at most 1 MiB of a response, and falls back to the local policy on any failure. Setting `command` keeps the external-program path. Implemented and tested against a local fake server; the live TypeSafe service was not run in this change.
 - `wev jev status|ask|batch`; `status` reports `orchestration` (`wev` or `harness`), which the `wev-orchestrate` skill reads first. The Bash hook answers `ask` for `jev ask` and `jev batch`, which send data to the JEV service; `jev status` is not asked. Implemented and tested.
 

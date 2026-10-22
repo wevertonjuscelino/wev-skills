@@ -25,6 +25,7 @@ O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um
 | Especialistas de projeto, experiência limitada e orçamento de execução | Implementado e testado | Só registros do motor; lições consultivas; unidades de comando, não tokens ou dinheiro |
 | Skills, hooks e manifestos do plugin | Implementado e testado | Testes de formato e subprocesso; integração real não testada |
 | Adaptadores opcionais JEV, SSH/tmux e avaliação | Simulado com mocks | Uma resposta JEV gravada e hosts remotos simulados |
+| Codex, Gemini CLI e OpenCode: exportação do pacote, instalação, desinstalação, codecs dos hooks | Implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e) | Um ask de política vira allow mais aviso nesses harnesses; veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md) |
 | Outros ambientes de agentes e suporte a Windows | Apenas documentado / bloqueado | Adaptadores futuros; travas de arquivo POSIX hoje |
 
 As evidências detalhadas de aceitação estão no [status do MVP](docs/mvp-status.pt-BR.md). A [revisão local de segurança de 2026-10-13](docs/security-review-2026-10-13.pt-BR.md) registra achados e escopo; é uma revisão interna, não uma certificação.
@@ -85,7 +86,10 @@ A entrada de objetivos está documentada no [guia de entrevista](docs/guides/int
 | SSH com inventário e sessões tmux pertencentes à tarefa | [Operações remotas](docs/guides/remote-ops.pt-BR.md) | `wev-remote-ops` |
 | Diretrizes gerenciadas de projeto no `CLAUDE.md` | [Skill de diretrizes](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Verificações de READMEs bilíngues | [Padrão de README](skills/wev-readme/SKILL.md) | `wev-readme` |
+| Skills, hooks de guarda e agentes para Codex, Gemini CLI e OpenCode | [Instalação: Codex, Gemini CLI e OpenCode](docs/guides/installation.pt-BR.md#codex-gemini-cli-e-opencode) | CLI `wev harness` |
 | Atualizações revisadas de fontes e conciliação de conflitos | [Política de manutenção](skills/wev-skill-maintenance/references/policy.pt-BR.md) | `wev-skill-maintenance` |
+
+Harnesses: o Claude Code usa o plugin; Codex, Gemini CLI e OpenCode recebem as skills e o guarda por `wev harness install --target <nome>`.
 
 Configuração, decisões locais e o provedor JEV opcional de terceiros estão documentados em [configuração e provedores](docs/guides/configuration-and-providers.pt-BR.md). As skills instruem o agente; o código do motor impõe transições de tarefa e regras de verificação ([ADR 0002](docs/architecture/decisions/0002-engine-enforces-skills-instruct.pt-BR.md)).
 

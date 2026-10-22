@@ -128,6 +128,34 @@ claude plugin marketplace remove wev-skills-marketplace
 
 Status: apenas documentado (não executado). Desinstalar o plugin deixa seus diretórios `.wev/` e quaisquer arquivos de agentes que você exportou para `.claude/agents/`. Apague-os você mesmo se quiser: `.wev/` guarda os registros de execução, as aprovações e o log de auditoria daquele projeto, e o registro por usuário `active-runs.json` (veja acima) guarda entradas de execuções que nunca foram encerradas. Se você criou o link simbólico acima, remova-o com `rm ~/.local/bin/wev`.
 
+## Codex, Gemini CLI e OpenCode
+
+O Claude Code usa o plugin acima. Os outros três harnesses recebem as mesmas skills, os hooks do guarda e (Gemini CLI e OpenCode) os agentes por `wev harness`. Status: implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e). Nada abaixo foi executado contra um Codex, Gemini CLI ou OpenCode reais. O Claude Code pergunta a você antes de rodar `harness install` e `harness uninstall`; `harness export` não pergunta.
+
+```sh
+bin/wev harness export --target codex --out ./pkg
+bin/wev harness install --target codex
+bin/wev harness uninstall --target codex
+```
+
+- `export --target codex|gemini|opencode --out DIR [--wev PATH]` escreve os arquivos do pacote e não instala nada. O resultado lista `files` e `skipped` com o motivo: os subagentes do Codex são pulados (formato desconhecido), os agentes do Gemini e do OpenCode omitem ferramentas e modelo, e o formato do wrapper de hooks do Gemini é inferido.
+- `install --target ...` escreve os arquivos, registra-os e anota cada caminho num manifesto em `$XDG_DATA_HOME/wev-skills/harness/<target>/manifest.json` (senão `~/.local/share/wev-skills/harness/<target>/manifest.json`). Os comandos dos hooks chamam o `bin/wev` deste clone por caminho absoluto (`--wev` o substitui). O resultado traz `next_steps`. Uma falha desfaz o que foi escrito, e rodar `install` duas vezes não duplica entradas.
+- `uninstall --target ...` remove só o que o manifesto lista. Nunca edita um arquivo que o wev não criou, exceto para retirar as entradas exatas que ele acrescentou.
+
+O que você faz por conta própria, por harness:
+
+| Harness | O wev faz | Você faz |
+|---|---|---|
+| Codex | `codex plugin marketplace add` e `plugin add` | Confiar nos hooks uma vez, no prompt de confiança do próprio Codex. O wev não contorna essa trava |
+| Gemini CLI | Só `gemini extensions validate` | Rodar `gemini extensions link <caminho do pacote>` você mesmo (ele mostra um aviso de segurança que o wev nunca aceita por você) e conferir com `gemini extensions list -o json`. Um `uninstall` estrito sai com 8 e mantém os arquivos e o manifesto se você nunca fez o link |
+| OpenCode | Escreve `plugins/wev-guard.js`, `skills/wev-*` e `agents/wev-*.md` em `$XDG_CONFIG_HOME/opencode` (senão `~/.config/opencode`) | Nada, não há CLI para chamar. O wev se recusa a sobrescrever um arquivo que não criou |
+
+Limites que você deve conhecer antes de confiar nisso (detalhes em [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md#outros-harnesses)):
+
+- Nesses três harnesses um `ask` de política do guarda vira allow mais aviso, então os asks do guarda são lembretes. Um `deny` continua deny, e qualquer falha interna também.
+- O Codex não passa ao hook o workdir escolhido pelo modelo, então os comandos do Codex são julgados sob o diretório da sessão.
+- O plugin do OpenCode foi testado sob node com um `wev` falso; nunca rodou dentro do OpenCode.
+
 ## Verificar a instalação
 
 Cada verificação diz o que ela prova.

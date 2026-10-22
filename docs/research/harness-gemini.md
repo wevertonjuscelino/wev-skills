@@ -46,6 +46,7 @@ Source: docs/hooks/index.md, docs/hooks/reference.md (v0.65.0). Gemini CLI HAS h
 - Output (exit 0, stdout JSON only): `decision` allow|deny (alias block), `reason` (sent to the agent as a tool error), `continue:false` + `stopReason` (kills the loop), `systemMessage`, `suppressOutput`, `hookSpecificOutput.tool_input` (merge-overrides args). Exit 2 = block, stderr is the reason, turn continues. Other exit codes = warning, action proceeds. Non-JSON stdout is treated as allow plus a systemMessage.
 - ASK: a hook cannot ask. Hook decision values are only allow/deny. The policy engine has `decision = "ask_user"` (extension policies/*.toml example), but extension `allow` is ignored. Mapping wev "approval needed" (exit 4) to Gemini means deny with a reason, or a policy rule with ask_user. Not verified by running.
 - Variables for hook processes: `GEMINI_PROJECT_DIR`, `GEMINI_PLANS_DIR`, `GEMINI_SESSION_ID`, `GEMINI_CWD`, alias `CLAUDE_PROJECT_DIR`.
+- Per-call workdir (source for the wev codec): the shell tool takes an optional `dir_path` argument, in gemini-cli `packages/core/src/tools/shell.ts`. Read from source; not run against a real Gemini CLI.
 - Management: `/hooks panel|enable-all|disable-all|enable <name>|disable <name>`.
 
 ## 5. MCP servers

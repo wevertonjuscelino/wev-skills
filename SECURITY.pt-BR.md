@@ -106,6 +106,20 @@ Implementado e testado contra um servidor falso local; o serviço real não foi 
 - A redação mascara segredos reconhecíveis em logs, registros de auditoria, eventos do guarda e registros de aprovação, incluindo valores depois de opções com nome de segredo, cabeçalhos `Authorization`, URLs com credenciais ou parâmetros com cara de token e URLs de webhook conhecidas. É melhor esforço. A redação do argv inteiro (o valor depois de `--password`, credenciais em URLs e semelhantes) também vale nos caminhos de recusa. O `tests/integration/test_refused_redaction.py` procura uma isca em todos os arquivos do diretório de estado depois de execuções permitidas, negadas, que exigem aprovação e recusadas pelo guarda, para estes tipos de evento: `exec.ran`, `exec.denied`, `exec.approval_requested`, `guard.tripped`, `task.checked`, `approval.requested` e `task.recorded`. Além disso, qualquer evento de auditoria que guarde uma lista sob a chave `argv` é mascarado como uma única linha de comando.
 - Diretórios sob o diretório de estado são criados com modo 0700, e os arquivos, inclusive os de trava, com modo 0600.
 
+## Outros harnesses
+
+`wev harness install --target codex|gemini|opencode` coloca os hooks do guarda no Codex, no Gemini CLI e no OpenCode. Status: implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e). Vale a mesma posição de guarda, não de fronteira.
+
+- **Asks são lembretes.** Esses harnesses não têm decisão ask para hooks. Um `ask` de política do guarda (um comando que o Claude Code levaria à pessoa) vira allow mais um aviso ao agente. Não leia um ask ali como uma trava. Um `deny` continua deny.
+- **Falha segura é deny.** Entrada do hook ilegível, erro interno, run não registrada, registro de runs ilegível ou resposta que não pode ser interpretada viram deny, não allow.
+- **O Codex trabalha sob o diretório da sessão.** O hook do Codex não recebe o workdir que o modelo escolheu para um comando (verificado no código do Codex em rust-v0.160.0), então o comando é julgado como se rodasse no cwd da sessão. O Gemini CLI (`dir_path`) e o OpenCode (`workdir`) enviam um, e o guarda o respeita; um valor inválido é deny.
+- **Limites do OpenCode.** O guarda é um plugin (`plugins/wev-guard.js`) que roda `bin/wev` sem shell e nega quando o `wev` não consegue rodar. O aviso vai para `console.warn`, que provavelmente nunca chega ao agente, então um ask do OpenCode é na prática um allow silencioso. `spawnSync` bloqueia o plugin por até 10 segundos a cada chamada de bash. O manifesto guarda caminhos não resolvidos, então um `XDG_CONFIG_HOME` alterado faz o `uninstall` recusar até ser restaurado. O plugin foi testado sob node com um `wev` falso e nunca rodou dentro do OpenCode.
+- **A confiança do Codex é sua.** O Codex pede à pessoa que confie nos hooks uma vez; o wev não contorna essa trava. Até você confiar, eles não rodam.
+- **O consentimento do link do Gemini é seu.** O wev roda só `gemini extensions validate`. A pessoa roda `gemini extensions link` e aceita o aviso de segurança dele; o wev nunca o aceita por ela. Até lá, nenhum hook do Gemini fica instalado.
+- **O manifesto é dado, não instrução.** O `uninstall` lê `$XDG_DATA_HOME/wev-skills/harness/<target>/manifest.json` só como uma lista: os registros são comparados com tuplas fixas, todo caminho de arquivo deve ficar dentro do diretório do alvo, e links simbólicos são recusados. Ele remove só o que o wev escreveu. Quem pode escrever no manifesto ainda consegue fazer o `uninstall` falhar, e um agente na sua conta pode editar direto os arquivos de configuração do harness.
+- **Fora de escopo.** Um pai simbólico acima da raiz de dados do wev é o layout do próprio usuário e não é defendido.
+- **Asks em `install` e `uninstall`.** No Claude Code o hook pergunta antes de `wev harness install` e `uninstall`; `export` não pergunta.
+
 ## Limites conhecidos
 
 Estes pontos estão abertos. Não conte com o motor para nenhum deles.
