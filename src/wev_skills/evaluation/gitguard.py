@@ -16,7 +16,7 @@ from wev_skills.evaluation.workspace import GitTampered, run_git
 WATCHED_FILES = ("config", "config.worktree")
 WATCHED_DIRS = ("hooks", "info")
 MAX_READ_BYTES = 1_000_000
-"""A file is hashed up to this many bytes; its size and mode are always recorded."""
+"""A watched file larger than this cannot be fingerprinted and counts as a change."""
 
 
 def shared_git_dir(runner: Runner, root: Path) -> Path:
@@ -25,12 +25,15 @@ def shared_git_dir(runner: Runner, root: Path) -> Path:
 
 
 def _digest(path: Path) -> tuple[str, int]:
-    """Digest of at most ``MAX_READ_BYTES`` of a regular file, and its size; never follows links."""
+    """Digest of a regular file and its size; never follows links. A file over
+    ``MAX_READ_BYTES`` raises (fail closed): a change past the hashed prefix would go unseen."""
     fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
     with os.fdopen(fd, "rb") as handle:
         info = os.fstat(handle.fileno())
         if not stat.S_ISREG(info.st_mode):
             raise OSError("not a regular file")
+        if info.st_size > MAX_READ_BYTES:
+            raise OSError("watched file too large to fingerprint")
         return hashlib.sha256(handle.read(MAX_READ_BYTES)).hexdigest(), info.st_size
 
 
@@ -46,7 +49,7 @@ def _entry(digest: Any, path: Path, name: str) -> None:
         detail = f"link\0{os.readlink(path)}"
     elif stat.S_ISREG(info.st_mode):
         content, size = _digest(path)
-        detail = f"file\0{content}\0{size}"
+        detail = f"file\0{content}\0{size}\0{info.st_mtime_ns}"
     else:
         detail = f"other\0{stat.S_IFMT(info.st_mode)}"
     digest.update(f"{name}\0{mode:o}\0{detail}\0".encode())
@@ -76,7 +79,11 @@ def fingerprint(gitdir: Path) -> str:
 def tamper_guard(runner: Runner, root: Path) -> Callable[[], None]:
     """A check that raises ``GitTampered`` when the watched part of the git dir changed."""
     gitdir = shared_git_dir(runner, root)
-    before = fingerprint(gitdir)
+    try:
+        before = fingerprint(gitdir)
+    except Exception as exc:  # already unreadable or oversized: refuse before any agent runs
+        message = i18n.t("evaluation.scoring.git_config_changed")
+        raise GitTampered("git_config_changed", message) from exc
 
     def check() -> None:
         try:

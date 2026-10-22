@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import json
 import os
@@ -21,6 +22,7 @@ from wev_skills.core.contracts import AgentRunResult
 from wev_skills.core.errors import GuardTripped, ProviderError, StateConflict, ValidationError
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.evaluation import snapshot
+from wev_skills.evaluation.gitguard import MAX_READ_BYTES
 from wev_skills.evaluation.scoring import SCORES_FILE, planned_runs, score_specialist
 from wev_skills.governance.audit import AuditLog
 
@@ -319,7 +321,12 @@ class ScoringTest(unittest.TestCase):
         self.assertIn("timed out", agent.prompts[0])
         self.assertIn("+++ b/fix-c1.txt", agent.prompts[0])  # the partial work reaches the diff
 
-    def run_recorded(self, act: Callable[[], None], error: type[Exception]) -> Exception:
+    def run_recorded(
+        self,
+        act: Callable[[], None],
+        error: type[Exception],
+        at_check: Callable[[], None] | None = None,
+    ) -> Exception:
         """Score with an agent that calls ``act``; the git calls after it must be none, its
         workspace gone and the lessons unchanged. Returns the error raised."""
         self.add_cases("c1")
@@ -342,7 +349,18 @@ class ScoringTest(unittest.TestCase):
             act()
 
         agent.on_run = run
-        with self.assertRaises(error) as ctx:
+
+        def check(*args: object, **kwargs: object) -> SimpleNamespace:
+            assert at_check is not None
+            at_check()
+            return SimpleNamespace()
+
+        patched = (
+            mock.patch("wev_skills.evaluation.score_runs.run_check", check)
+            if at_check
+            else contextlib.nullcontext()
+        )
+        with patched, self.assertRaises(error) as ctx:
             score_specialist(self.root, self.config, Recording(), agent, AGENT, self.audit)
         self.assertEqual(len(calls), marks[0])  # not one git call after the agent ran
         self.assertTrue(paths)
@@ -386,6 +404,43 @@ class ScoringTest(unittest.TestCase):
         hook.chmod(0o644)
         err = self.run_recorded(lambda: hook.chmod(0o755), StateConflict)
         self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def test_a_hook_planted_by_the_check_step_is_caught_after_run_check(self) -> None:
+        err = self.run_recorded(
+            lambda: None,
+            StateConflict,
+            at_check=lambda: (self.hooks() / "post-checkout").write_text("#!/bin/sh\n"),
+        )
+        self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def test_an_oversized_file_planted_by_the_agent_counts_as_tampering(self) -> None:
+        def plant() -> None:
+            (self.hooks() / "big").write_bytes(b"x" * (MAX_READ_BYTES + 1))
+
+        err = self.run_recorded(plant, StateConflict)
+        self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def refused_before_any_agent(self, plant: Callable[[], None]) -> None:
+        self.add_cases("c1")
+        plant()
+        agent = FakeAgent(lambda s: set())
+        with self.assertRaises(StateConflict) as ctx:
+            self.score(agent)
+        self.assertEqual(ctx.exception.code, "git_config_changed")
+        self.assertEqual(agent.runs, 0)
+
+    def test_an_oversized_file_present_before_the_run_refuses_it(self) -> None:
+        self.refused_before_any_agent(
+            lambda: (self.hooks() / "big").write_bytes(b"x" * (MAX_READ_BYTES + 1))
+        )
+
+    def test_an_unreadable_file_present_before_the_run_refuses_it(self) -> None:
+        def plant() -> None:
+            hook = self.hooks() / "locked"
+            hook.write_text("x")
+            hook.chmod(0)
+
+        self.refused_before_any_agent(plant)
 
     def test_an_agent_that_raises_leaves_no_git_call_and_no_workspace(self) -> None:
         def boom() -> None:
