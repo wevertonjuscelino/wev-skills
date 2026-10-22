@@ -559,8 +559,28 @@ class ExecPathTest(InstallCase):
         self.assertInstalled(done)
         self.assertEqual(self.exec_path(), [str(FAKE_BIN)])
         self.assertIn(
-            f"Not adding {nvm} to permissions.exec_path: other users can write", done.stdout
+            f"Not adding {nvm} to permissions.exec_path: group or other users can write",
+            done.stdout,
         )
+
+    def test_a_group_writable_directory_is_refused(self) -> None:
+        nvm, path = self.nvm_path(0o775)
+        done = self.install("--harness", "codex", "--rea-mode", "direct", PATH=path)
+        self.assertInstalled(done)
+        self.assertEqual(self.exec_path(), [str(FAKE_BIN)])
+        self.assertIn(f"Not adding {nvm} to permissions.exec_path: group or other", done.stdout)
+
+    # A directory owned by another uid cannot be created in a unit test (it needs root), so the
+    # exec_ref_owner refusal is not covered here.
+
+    def test_a_symlinked_directory_is_recorded_by_its_real_path(self) -> None:
+        nvm, _ = self.nvm_path()
+        link = self.dir / "link"
+        os.symlink(nvm, link)
+        path = f"{FAKE_BIN}:{self.tools}:{link}"
+        done = self.install("--harness", "codex", "--rea-mode", "direct", PATH=path)
+        self.assertInstalled(done)
+        self.assertEqual(self.exec_path(), [str(FAKE_BIN), str(nvm)])
 
     def test_an_existing_custom_entry_survives_and_nothing_is_duplicated(self) -> None:
         nvm, path = self.nvm_path()
