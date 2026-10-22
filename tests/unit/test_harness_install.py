@@ -258,7 +258,7 @@ class SecondFixTests(InstallBase):
         (package / "skills").symlink_to(outside)
         with self.assertRaises(ValidationError) as caught:
             self.install()
-        self.assertIn("skills", str(caught.exception))
+        self.assertEqual(caught.exception.details["path"], str(package / "skills"))
         self.assertEqual(list(outside.iterdir()), [])
         self.assertEqual(self.calls(), [])
 
@@ -274,8 +274,10 @@ class SecondFixTests(InstallBase):
 
     def test_a_partial_copy_is_removed_on_failure(self) -> None:
         (self.root / "package" / "hooks.json").mkdir(parents=True)  # the copy cannot replace it
-        with self.assertRaises(OSError):
+        with self.assertRaises(RemoteError) as caught:
             self.install()
+        self.assertEqual(caught.exception.exit_code, 8)
+        self.assertIsInstance(caught.exception.__cause__, OSError)
         self.assertEqual(self.files(), set())
         self.assertEqual(self.calls(), [])
 
@@ -378,10 +380,10 @@ class CliTests(InstallBase):
         self.assertEqual(code, 0)
         self.assertEqual(self.files(), set())
 
-    def test_only_codex_installs(self) -> None:
+    def test_only_codex_and_gemini_install(self) -> None:
         env = mock.patch.dict(os.environ, {"XDG_DATA_HOME": str(self.data)})
         with contextlib.redirect_stderr(io.StringIO()), env:
-            code = cli.main(["harness", "install", "--target", "gemini"])
+            code = cli.main(["harness", "install", "--target", "opencode"])
         self.assertEqual(code, 2)
         self.assertEqual(self.calls(), [])
 

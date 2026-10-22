@@ -15,10 +15,10 @@
   "harness.skipped.opencode_guard": "opencode guard: plugins/wev-guard.js is a // wev-placeholder with no guard; do not install until a later task ships it",
   "harness.install.help": "Install the wev package into a harness (codex only) and record what was written in a manifest.",
   "harness.uninstall.help": "Undo harness install: unregister and remove only the files the manifest lists.",
-  "harness.install.target": "Harness to install into (codex).",
+  "harness.install.target": "Harness to install into (codex, gemini).",
   "harness.install.wev": "Absolute path of the wev launcher the hooks and skills call (default: this clone's bin/wev).",
-  "harness.uninstall.target": "Harness to uninstall from (codex).",
-  "harness.error.not_installable": "Cannot install into {target}: only codex has an installer.",
+  "harness.uninstall.target": "Harness to uninstall from (codex, gemini).",
+  "harness.error.not_installable": "Cannot install into {target}: only codex and gemini have an installer.",
   "harness.error.cli_failed": "The harness command failed: {command} ({detail})",
   "harness.error.placeholder": "Refusing to install {path}: it is a placeholder (first line // wev-placeholder), not a shipped feature.",
   "harness.error.not_installed": "Nothing to uninstall: no manifest for {target}.",
@@ -27,5 +27,8 @@
   "harness.error.manifest_invalid": "The manifest {path} is not valid ({why}); nothing was run or removed. Delete the file or fix it, then retry.",
   "harness.error.symlink": "Refusing to write the package: {path} is a symlink or outside the package directory. Remove it and retry.",
   "harness.error.manifest_write": "The manifest could not be written ({error}); the registrations were undone.",
-  "harness.error.undo_previous": "Could not undo the previous install ({command} failed); it was left in place. Run uninstall again once the harness command works."
+  "harness.error.undo_previous": "Could not undo the previous install ({command} failed); it was left in place. Run uninstall again once the harness command works.",
+  "harness.error.copy_failed": "Could not copy {path} into the package ({error}); the files copied so far were removed.",
+  "harness.next.gemini_restart": "Gemini loads the extension only after a restart: start gemini again. The link keeps pointing at this package, so do not move it.",
+  "harness.next.gemini_check": "Check the extension is registered with: gemini extensions list -o json"
 }

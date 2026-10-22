@@ -30,7 +30,10 @@ def _data_home() -> Path:
 
 
 def _next_steps(target: str) -> list[str]:
-    keys = {"codex": ["harness.next.codex_trust", "harness.next.codex_check"]}[target]
+    keys = {
+        "codex": ["harness.next.codex_trust", "harness.next.codex_check"],
+        "gemini": ["harness.next.gemini_restart", "harness.next.gemini_check"],
+    }[target]
     return [i18n.t(key) for key in keys]
 
 

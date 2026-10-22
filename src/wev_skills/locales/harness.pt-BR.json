@@ -15,10 +15,10 @@
   "harness.skipped.opencode_guard": "guarda do opencode: plugins/wev-guard.js é um // wev-placeholder sem guarda; não instale até uma tarefa posterior entregá-lo",
   "harness.install.help": "Instala o pacote wev em um harness (somente codex) e registra o que foi escrito em um manifesto.",
   "harness.uninstall.help": "Desfaz o harness install: cancela o registro e remove apenas os arquivos listados no manifesto.",
-  "harness.install.target": "Harness onde instalar (codex).",
+  "harness.install.target": "Harness onde instalar (codex, gemini).",
   "harness.install.wev": "Caminho absoluto do launcher wev que os hooks e as skills chamam (padrão: bin/wev deste clone).",
-  "harness.uninstall.target": "Harness de onde desinstalar (codex).",
-  "harness.error.not_installable": "Não é possível instalar em {target}: só o codex tem instalador.",
+  "harness.uninstall.target": "Harness de onde desinstalar (codex, gemini).",
+  "harness.error.not_installable": "Não é possível instalar em {target}: só codex e gemini têm instalador.",
   "harness.error.cli_failed": "O comando do harness falhou: {command} ({detail})",
   "harness.error.placeholder": "Recusando instalar {path}: é um placeholder (primeira linha // wev-placeholder), não um recurso entregue.",
   "harness.error.not_installed": "Nada a desinstalar: não há manifesto para {target}.",
@@ -27,5 +27,8 @@
   "harness.error.manifest_invalid": "O manifesto {path} não é válido ({why}); nada foi executado nem removido. Apague o arquivo ou corrija-o e tente de novo.",
   "harness.error.symlink": "Recusando gravar o pacote: {path} é um link simbólico ou está fora do diretório do pacote. Remova-o e tente de novo.",
   "harness.error.manifest_write": "Não foi possível gravar o manifesto ({error}); os registros foram desfeitos.",
-  "harness.error.undo_previous": "Não foi possível desfazer a instalação anterior (falhou: {command}); ela foi mantida. Rode uninstall de novo quando o comando do harness voltar a funcionar."
+  "harness.error.undo_previous": "Não foi possível desfazer a instalação anterior (falhou: {command}); ela foi mantida. Rode uninstall de novo quando o comando do harness voltar a funcionar.",
+  "harness.error.copy_failed": "Não foi possível copiar {path} para o pacote ({error}); os arquivos copiados até aqui foram removidos.",
+  "harness.next.gemini_restart": "O Gemini só carrega a extensão após reiniciar: abra o gemini de novo. O link continua apontando para este pacote, então não o mova.",
+  "harness.next.gemini_check": "Confira se a extensão está registrada com: gemini extensions list -o json"
 }

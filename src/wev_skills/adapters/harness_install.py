@@ -1,11 +1,12 @@
 """Install the wev package into a harness and undo it, recorded in a manifest.
 
-Only Codex has an installer. The package is built under
+Codex and Gemini CLI have an installer. The package is built under
 ``<data_home>/wev-skills/harness/<target>/package`` and registered with the harness CLI
-(``codex plugin marketplace add`` then ``codex plugin add``, docs/research/harness-codex.md
-section 1). The CLI runs through the injected ``Runner``, never a shell. The manifest next
-to the package lists every file written and every registration with its inverse, so
-``uninstall`` removes those entries and nothing else. Hook trust is the person's step.
+(Codex: ``plugin marketplace add`` then ``plugin add``; Gemini: ``extensions validate``,
+then ``extensions link``; docs/research/harness-{codex,gemini}.md section 1). The CLI runs
+through the injected ``Runner``, never a shell. The manifest next to the package lists every
+file written and every registration with its inverse, so ``uninstall`` removes those entries
+and nothing else. Hook trust is the person's step.
 """
 
 from __future__ import annotations
@@ -23,10 +24,11 @@ from wev_skills.core.errors import NotFound, RemoteError, ValidationError, WevEr
 from wev_skills.core.fsutil import atomic_write_text, ensure_private_dir
 from wev_skills.core.ports import Runner
 
-INSTALLABLE = ("codex",)
+INSTALLABLE = ("codex", "gemini")
 PLACEHOLDER_MARK = "// wev-placeholder"
 MARKETPLACE_FILE = ".agents/plugins/marketplace.json"
 CODEX = "codex"
+GEMINI = "gemini"
 CLI_TIMEOUT_SECONDS = 60.0
 
 
@@ -83,7 +85,7 @@ def _read(root: Path) -> Manifest | None:
         raise _invalid(path, type(exc).__name__) from exc
     if target not in INSTALLABLE or not isinstance(files, list):
         raise _invalid(path, "target or files")
-    if stored != _codex_registrations(package):
+    if stored != _registrations(target, package):
         raise _invalid(path, "registrations")
     if not all(_confined(name, package) for name in files):
         raise _invalid(path, "files")
@@ -162,20 +164,29 @@ def _check_placeholders(files: list[Path]) -> None:
 
 def _refuse_symlinks(destination: Path, package: Path) -> None:
     """A symlink at the package or inside it would make the copy write elsewhere."""
+    current = destination.parent
+    while current != package and current != current.parent:
+        if current.is_symlink():  # name the link itself, not the file behind it
+            raise _unsafe(current)
+        current = current.parent
+    if package.is_symlink():
+        raise _unsafe(package)
     if not _confined(str(destination), package):
         raise _unsafe(destination)
-    current = destination.parent
-    while True:
-        if current.is_symlink():
-            raise _unsafe(current)
-        if current == package:
-            return
-        current = current.parent
 
 
 def _unsafe(path: Path) -> ValidationError:
     message = i18n.t("harness.error.symlink", path=str(path))
     return ValidationError("harness_symlink", message, {"path": str(path)})
+
+
+def _copy(source: Path, destination: Path) -> None:
+    """Copy one file; an OSError becomes a RemoteError (exit 8), like the manifest write."""
+    try:
+        atomic_write_text(destination, source.read_text(encoding="utf-8"))
+    except OSError as exc:
+        message = i18n.t("harness.error.copy_failed", path=str(destination), error=str(exc))
+        raise RemoteError("harness_copy_failed", message, {"path": str(destination)}) from exc
 
 
 def _build(target: str, root: Path, wev_path: Path, written: list[str]) -> None:
@@ -187,18 +198,38 @@ def _build(target: str, root: Path, wev_path: Path, written: list[str]) -> None:
     staging = Path(tempfile.mkdtemp(dir=root, prefix=".staging-"))
     try:
         built = build_package(target, staging, wev_path)
-        market = staging / MARKETPLACE_FILE
-        atomic_write_text(market, _marketplace_text())
-        built = [*built, market]
+        if target == CODEX:
+            market = staging / MARKETPLACE_FILE
+            atomic_write_text(market, _marketplace_text())
+            built = [*built, market]
         _check_placeholders(built)
         targets = [package / source.relative_to(staging) for source in built]
         for destination in targets:
             _refuse_symlinks(destination, package)
         for source, destination in zip(built, targets, strict=True):
-            atomic_write_text(destination, source.read_text(encoding="utf-8"))
+            _copy(source, destination)
             written.append(str(destination))
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+
+
+def _registrations(target: str, package: Path) -> tuple[tuple[str, ...], ...]:
+    if target == GEMINI:
+        return _gemini_registrations(package)
+    return _codex_registrations(package)
+
+
+def _gemini_registrations(package: Path) -> tuple[tuple[str, ...], ...]:
+    return (
+        (GEMINI, "extensions", "link", str(package)),
+        (GEMINI, "extensions", "uninstall", PACKAGE_NAME),
+    )
+
+
+def _check_package(runner: Runner, target: str, package: Path) -> None:
+    """Gemini validates the extension before any registration; a failure stops the install."""
+    if target == GEMINI:
+        _run(runner, (GEMINI, "extensions", "validate", str(package)))
 
 
 def _codex_registrations(package: Path) -> tuple[tuple[str, ...], ...]:
@@ -253,7 +284,8 @@ def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Man
     files: list[str] = []
     try:
         _build(target, root, wev_path, files)
-        registrations = _codex_registrations(root / "package")
+        registrations = _registrations(target, root / "package")
+        _check_package(runner, target, root / "package")
         _register(runner, registrations)
     except BaseException:
         _remove_files(tuple(files), root, created_base)
@@ -282,4 +314,5 @@ def uninstall(target: str, runner: Runner, data_home: Path) -> Manifest:
     _undo(runner, manifest.registrations, strict=True)
     _remove_files(manifest.files, root)
     (root / "manifest.json").unlink()
+    _remove_files((), root, data_home / PACKAGE_NAME)  # empty now that the manifest is gone
     return manifest
