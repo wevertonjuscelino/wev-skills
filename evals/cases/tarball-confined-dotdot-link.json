@@ -1,0 +1,21 @@
+{
+  "id": "tarball-confined-dotdot-link",
+  "title": "Tarball extraction keeps a relative symlink that stays inside the top directory",
+  "source": "e2e",
+  "ref": "06fc92c",
+  "agents": [
+    "wev-engineer"
+  ],
+  "base_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
+  "objective": "In src/wev_skills/third_party/fetch.py, install_version(source, release: Release, home: Path, opener, runner) extracts a GitHub release tarball under home/<source>/<version>. Make it accept an archive whose member `top/.opencode/skills` is a symlink with target `../skills/` (pointing at `top/skills`, where `top/skills/a/SKILL.md` exists) and extract it with the link in place, resolving to a path inside the version directory. Links that would resolve outside the top directory must still be refused with CheckFailed(\"unsafe_member\").",
+  "check": [
+    "python3",
+    "-m",
+    "unittest",
+    "tests.unit.test_third_party_fetch.FetchCase.test_link_up_but_inside_the_top_directory_is_kept"
+  ],
+  "files": [
+    "tests/__init__.py",
+    "tests/unit/test_third_party_fetch.py"
+  ]
+}

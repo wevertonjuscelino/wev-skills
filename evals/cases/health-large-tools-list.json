@@ -1,0 +1,22 @@
+{
+  "id": "health-large-tools-list",
+  "title": "MCP health check reads a multi-megabyte tools/list reply",
+  "source": "e2e",
+  "ref": "06fc92c",
+  "agents": [
+    "wev-engineer"
+  ],
+  "base_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
+  "objective": "Add src/wev_skills/third_party/health.py with health(source: Source, version: str, root: Path, runner: SubprocessRunner, *, npx: str) -> HealthReport. For the rea MCP source it starts `npx -y rea-agents@<version> mcp` (the npx argument names the executable), speaks JSON-RPC over stdio (initialize, then tools/list) and returns HealthReport(ok, code, params) where ok is True with params[\"tools\"] set to the number of tools listed. The server's reply to tools/list arrives as a single line and can be several megabytes; the report must still be ok. tests/fixtures/fake_npx_mcp.py is a stand-in server you can run.",
+  "check": [
+    "python3",
+    "-m",
+    "unittest",
+    "tests.unit.test_third_party_health.McpTests.test_a_multi_megabyte_tools_list_passes"
+  ],
+  "files": [
+    "tests/__init__.py",
+    "tests/unit/test_third_party_health.py",
+    "tests/fixtures/fake_npx_mcp.py"
+  ]
+}
