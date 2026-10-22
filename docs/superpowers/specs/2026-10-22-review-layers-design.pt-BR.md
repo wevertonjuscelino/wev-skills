@@ -2,7 +2,7 @@
 
 Versão em inglês: [2026-10-22-review-layers-design.md](2026-10-22-review-layers-design.md).
 
-Status: rascunho para aprovação do dono (2026-10-22). Nada aqui está implementado.
+Status: aprovado pelo dono (2026-10-22). Nada aqui está implementado.
 
 ## Intenção
 

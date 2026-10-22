@@ -2,7 +2,7 @@
 
 Portuguese version: [2026-10-22-review-layers-design.pt-BR.md](2026-10-22-review-layers-design.pt-BR.md).
 
-Status: draft for the owner's approval (2026-10-22). Nothing here is implemented.
+Status: approved by the owner (2026-10-22). Nothing here is implemented.
 
 ## Intent
 
