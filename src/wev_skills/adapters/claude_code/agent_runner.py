@@ -44,6 +44,16 @@ def _body(rendered: str) -> str:
     return "\n".join(lines[end + 1 :]).strip("\n")
 
 
+def _stderr_tail(stderr: str) -> str:
+    """The end of ``stderr``, cleaned before redaction (so an escape cannot split a secret)
+    and cut on a line boundary (so the cut cannot leave half a secret), then redacted again."""
+    cleaned = redact(sanitize(stderr))
+    tail = cleaned[-STDERR_TAIL_CHARS:]
+    if len(cleaned) > STDERR_TAIL_CHARS:
+        tail = tail.partition("\n")[2]  # the first line is partial
+    return redact(tail).strip()
+
+
 def _parse(raw: RawCommandResult) -> AgentRunResult:
     if raw.timed_out:
         return AgentRunResult(False, i18n.t("agent_runner.timed_out"), True)
@@ -54,7 +64,7 @@ def _parse(raw: RawCommandResult) -> AgentRunResult:
     except ValueError, AttributeError:
         result, failed = None, False
     if failed or not isinstance(result, str):
-        tail = sanitize(redact(raw.stderr))[-STDERR_TAIL_CHARS:].strip()
+        tail = _stderr_tail(raw.stderr)
         message = i18n.t("agent_runner.bad_output", code=raw.exit_code, stderr=tail)
         return AgentRunResult(False, message)
     return AgentRunResult(raw.exit_code == 0, result)

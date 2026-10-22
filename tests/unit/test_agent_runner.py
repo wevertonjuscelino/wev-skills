@@ -123,7 +123,7 @@ class AgentRunnerTests(unittest.TestCase):
             self.assertEqual(env["ANTHROPIC_BASE_URL"], "http://example.invalid")
 
     def test_bad_output_carries_a_cleaned_redacted_stderr_tail(self) -> None:
-        noise = "x" * 600 + "\x1b[31mapi_key=example_not_a_real_value boom"
+        noise = "x" * 600 + "\n\x1b[31mapi_key=example_not_a_real_value boom"
         with mock.patch.dict(
             os.environ, {"FAKE_CLAUDE_STDOUT": "not json", "FAKE_CLAUDE_STDERR": noise}
         ):
@@ -133,6 +133,25 @@ class AgentRunnerTests(unittest.TestCase):
         self.assertNotIn("\x1b", result.output)
         self.assertNotIn("example_not_a_real_value", result.output)
         self.assertNotIn("x" * 501, result.output)
+
+    def test_a_secret_split_by_escapes_and_cut_by_the_tail_is_not_shown(self) -> None:
+        secret = "pass\x1b[0mword=example_not_a_real_value"  # one line once sanitized
+        noise = "x" * 600 + "\n" + secret + "\n" + "y" * 484 + "\nboom"  # cut inside it
+        with mock.patch.dict(
+            os.environ, {"FAKE_CLAUDE_STDOUT": "not json", "FAKE_CLAUDE_STDERR": noise}
+        ):
+            output = self.runner.ask("x", 30).output
+        self.assertIn("boom", output)
+        self.assertNotIn("real_value", output)
+
+    def test_a_secret_split_by_an_escape_is_redacted_after_cleaning(self) -> None:
+        noise = "pass\x1b[0mword=example_not_a_real_value boom"
+        with mock.patch.dict(
+            os.environ, {"FAKE_CLAUDE_STDOUT": "not json", "FAKE_CLAUDE_STDERR": noise}
+        ):
+            output = self.runner.ask("x", 30).output
+        self.assertIn("password=", output)
+        self.assertNotIn("real_value", output)
 
     def test_nonzero_exit_is_not_ok(self) -> None:
         with mock.patch.dict(os.environ, {"FAKE_CLAUDE_EXIT": "1"}):
