@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# wev-skills installer: bash install.sh [flags]   (bash install.sh --help)
 # shellcheck disable=SC2059  # printf formats come from the message table, never from input
-# Questions are read from /dev/tty because under `curl | bash` stdin is this script.
+# wev-skills installer (bash install.sh --help). Questions use /dev/tty: under `curl | bash` stdin is this script.
 set -euo pipefail
 REPO="wevertonjuscelino/wev-skills"
 API_URL="https://api.github.com/repos/$REPO/releases/latest"
@@ -16,7 +15,6 @@ YES=0 PURGE=0 UNINSTALL=0 SOURCE="" HARNESS_ARG="" JEV_FLAG=ask REA_ARG="" L_ARG
 TMP="" PY="" WEV="" MKT_DIR="" OUT="" RC=0 ANS="" ROWS="" NEXT="" FAILED=0 SKIP_REA=0 CHOSEN=""
 OLD_PY=0 SHADOWED=0 STTY_SAVED=""
 case "${LANG:-}" in pt*) L="pt-BR" ;; *) L="en" ;; esac
-# Message table, one line per key, en and pt side by side (bash 3.2: no associative arrays).
 msg() {
   local en pt
   case "$1" in
@@ -37,7 +35,8 @@ msg() {
     old_python) en="python3 on your PATH is older than 3.14. The harness hooks start wev through 'env python3', so put a Python 3.14 first on PATH or the hooks will not run." pt="O python3 do seu PATH é anterior ao 3.14. Os hooks dos harnesses iniciam o wev por 'env python3'; ponha um Python 3.14 primeiro no PATH ou os hooks não vão rodar." ;;
     exec_added) en="Added %s to permissions.exec_path in your user config (npx or docker lives there)." pt="Adicionei %s a permissions.exec_path na sua configuração de usuário (npx ou docker estão lá)." ;;
     exec_ref_tree) en="Not adding %s to permissions.exec_path: it is inside the install tree or the temporary directory." pt="Não adicionei %s a permissions.exec_path: fica dentro da árvore de instalação ou do diretório temporário." ;;
-    exec_ref_ww) en="Not adding %s to permissions.exec_path: other users can write to it." pt="Não adicionei %s a permissions.exec_path: outros usuários podem escrever nele." ;;
+    exec_ref_ww) en="Not adding %s to permissions.exec_path: group or other users can write to it." pt="Não adicionei %s a permissions.exec_path: o grupo ou outros usuários podem escrever nele." ;;
+    exec_ref_owner) en="Not adding %s to permissions.exec_path: it is owned by neither root nor you." pt="Não adicionei %s a permissions.exec_path: não pertence nem ao root nem a você." ;;
     shadowed) en="TYPESAFE_API_KEY is exported in your environment and will win over the stored key." pt="TYPESAFE_API_KEY está exportada no seu ambiente e vai valer mais que a chave guardada." ;;
     fin_fail) en="Finished with %s failures (see the rows above)." pt="Terminou com %s falhas (veja as linhas acima)." ;;
     un_keep) en="Something failed above, so %s was kept. Fix it and run --uninstall again." pt="Algo falhou acima, então %s foi mantido. Corrija e rode --uninstall de novo." ;;
@@ -219,7 +218,6 @@ store_key() {
   if ! printf '%s\n' "$key" | "$PY" "$WEV" --lang "$L" jev key set >"$TMP/key.out"; then
     cat "$TMP/key.out" >&2; die 1 wev_fail "jev key set"
   fi
-  # an exported TYPESAFE_API_KEY shadows the stored key (the probe below ignores it)
   if [ "$(jval shadowed_by_env <"$TMP/key.out")" = True ]; then SHADOWED=1
   elif [ "$(jval key_source <"$TMP/key.out")" != env_file ]; then die 1 wev_fail "jev key set"; fi
 }
@@ -244,17 +242,19 @@ if jev == "1": d["provider"] = "jev"
 if d: c["decision"] = d
 cur = c.get("permissions", {}).get("exec_path", list(DEFAULT_EXEC_PATH))
 have, notes = list(cur), []
-inside = lambda x: any(x == s or x.startswith(s + "/") for s in (tmp, source) if s)
-for x in filter(None, extra.split("\n")):
-    why = 0 if x in have else 1 if inside(x) else 2 if os.stat(x).st_mode & 2 else 3
+real = os.path.realpath
+inside = lambda x: any(x == s or x.startswith(s + "/") for s in map(real, filter(None, (tmp, source))))
+for x in map(real, filter(None, extra.split("\n"))):
+    st = os.stat(x)
+    why = 0 if x in map(real, have) else 1 if inside(x) else 2 if st.st_mode & 0o022 else 3 if st.st_uid not in (0, os.getuid()) else 4
     if why:
-        notes.append(msgs[why % 3] % x)
-        have += [x] if why == 3 else []
+        notes.append(msgs[why % 4] % x)
+        have += [x] if why == 4 else []
 if have != cur:
     c["permissions"] = {**c.get("permissions", {}), "exec_path": have}
 open(tmp + "/exec.note", "w").write("\n".join(notes))
 print(json.dumps(c, indent=2))' "$file" "$L" "$1" "${WEV%/bin/wev}/src" "$TMP" "$SOURCE" "$ex" \
-      "$(msg exec_added)" "$(msg exec_ref_tree)" "$(msg exec_ref_ww)" >"$file.tmp"
+      "$(msg exec_added)" "$(msg exec_ref_tree)" "$(msg exec_ref_ww)" "$(msg exec_ref_owner)" >"$file.tmp"
     mv "$file.tmp" "$file"; chmod 600 "$file" )
   wevx config validate "$file"
 }
