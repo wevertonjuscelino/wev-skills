@@ -18,6 +18,7 @@
   "skills.health.spawn_failed": "A verificação não conseguiu executar o programa (saída {exit}).",
   "skills.health.timeout": "A verificação não terminou a tempo.",
   "skills.health.bad_jsonrpc": "O servidor respondeu algo que não é MCP válido.",
+  "skills.health.reply_too_large": "A resposta do servidor passa do limite de {limit} MiB (parou após {seen} caracteres).",
   "skills.health.no_tools": "O servidor iniciou, mas não lista nenhuma ferramenta.",
   "skills.health.no_skills": "Nenhum arquivo de skill foi encontrado nesta versão.",
   "skills.health.bad_skill": "A skill no diretório {dir} é inválida (nome ou descrição).",

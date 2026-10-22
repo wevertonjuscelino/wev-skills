@@ -2,7 +2,8 @@
 """Stand-in for ``npx -y rea-agents@V mcp``: JSON-RPC over stdio, scripted by NODE_FAKE_MCP_MODE.
 
 (Variables start with NODE_ because the health check passes only a minimal environment.)
-Modes: ok (default), empty-tools, garbage, hang, exit-non-zero, flood, grandchild, nested.
+Modes: ok (default), empty-tools, garbage, hang, exit-non-zero, flood, grandchild, nested,
+big-reply (4 MiB tools/list line), huge-reply (33 MiB line).
 Not evidence about the real server.
 """
 
@@ -57,6 +58,9 @@ for line in sys.stdin:
             print('{"jsonrpc":"2.0","method":"notifications/message"}', flush=True)
     elif method == "tools/list":
         tools = [] if mode == "empty-tools" else [{"name": "inspect", "description": "x"}]
+        if mode in ("big-reply", "huge-reply"):
+            size = (4 if mode == "big-reply" else 33) * 1024 * 1024
+            tools = [{"name": f"t{i}", "description": "x" * 1000} for i in range(size // 1000)]
         reply(message["id"], {"tools": tools})
         if mode == "grandchild":
             time.sleep(30)

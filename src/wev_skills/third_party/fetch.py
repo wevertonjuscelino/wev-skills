@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import posixpath
 import shutil
 import tarfile
 import time
@@ -67,12 +68,23 @@ def download(url: str, timeout: float) -> bytes:
     return b"".join(chunks)
 
 
+def _escapes_top(member: tarfile.TarInfo) -> bool:
+    """A symlink target is read from the link's own directory and must stay in the top directory."""
+    if PurePosixPath(member.linkname).is_absolute():
+        return True
+    parts = PurePosixPath(member.name).parts
+    resolved = posixpath.normpath(posixpath.join(posixpath.dirname(member.name), member.linkname))
+    return not parts or not (resolved == parts[0] or resolved.startswith(f"{parts[0]}/"))
+
+
 def _check_member(member: tarfile.TarInfo) -> None:
     name = PurePosixPath(member.name)
     unsafe = name.is_absolute() or ".." in name.parts or member.isdev() or member.isfifo()
-    if member.issym() or member.islnk():
+    if member.islnk():  # a hard link names a path from the archive root
         link = PurePosixPath(member.linkname)
         unsafe = unsafe or link.is_absolute() or ".." in link.parts
+    elif member.issym():
+        unsafe = unsafe or _escapes_top(member)
     if unsafe:
         raise CheckFailed("unsafe_member")
 

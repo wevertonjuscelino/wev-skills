@@ -28,6 +28,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Behavior change: engine commands that apply policy (`exec`, `task`, `plan set`, `run resume|report|finish`, `check-command`, `approval request|grant|deny`, `remote`, `specialists`, `agent create|export`, `jev ask|batch`) refuse an open run the per-user registry does not list, or one whose run id differs from its entry, with `unregistered_run` (exit 5), even with `--run`. `run status`, `run brief`, `plan show` and `state show|list` still work and report `registered`. A finished run is refused (`run_finished`) before anything else by every command that changes it or runs something, except `run report`, `run finish`, `guard check` and `task next`. New human-operator command `wev run adopt` shows the run's pinned configuration on single lines without terminal control characters, asks for a typed word at a terminal and registers the run; the Bash hook answers `ask` for it. Implemented and tested.
 - An unexpected error anywhere in the PreToolUse hook now answers `ask` instead of printing nothing (the stderr note stays); the plan-brief hooks still fail silent. Implemented and tested.
 
+### Fixed
+
+- The health check of the real rea server could never pass: its `tools/list` answer (207 tools) is one line of about 3.2 MB and the 1 MiB line cap refused it as `bad_jsonrpc`. The cap is now 32 MiB, still bounded, and a longer line fails as `reply_too_large`, naming the limit and the size read. Found by a real end-to-end run against the latest `rea-agents`. Implemented and tested with a fake server.
+- The agent-skills tarball was refused (`unsafe_member`) because of its symlink `.opencode/skills -> ../skills/`, which stays inside the archive. A symbolic link is now refused only when its target, read from the link's own directory, is absolute or leaves the single top-level directory; hard links keep the old rule, and the post-extraction check still confines every link to the promoted directory. Found by the same real run. Implemented and tested with local tarballs.
+
 ## [5.0.0] - 2026-10-20
 
 ### Fixed
