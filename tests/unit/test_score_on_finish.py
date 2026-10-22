@@ -15,6 +15,7 @@ from typing import Any
 from unittest import mock
 
 from wev_skills import cli
+from wev_skills.core.contracts import TaskStatus
 from wev_skills.core.errors import ValidationError
 from wev_skills.state import model
 from wev_skills.state.store import StateStore
@@ -34,7 +35,14 @@ class ScoreOnFinishTests(unittest.TestCase):
         os.chdir(self.work)
         self.addCleanup(os.chdir, previous)
 
-    def finish(self, on: bool, agents: dict[str, str], score: Any) -> tuple[int, dict[str, Any]]:
+    def finish(
+        self,
+        on: bool,
+        agents: dict[str, str],
+        score: Any,
+        statuses: dict[str, TaskStatus] | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        statuses = statuses or {}
         config = {"state_dir": "state", "specialists": {"score_on_finish": on}}
         (self.work / "wev.json").write_text(json.dumps(config), encoding="utf-8")
         self.run_cli("run", "start", "--objective", "x", "--files", "1", "--run-id", "r1")
@@ -43,7 +51,12 @@ class ScoreOnFinishTests(unittest.TestCase):
         def add(state: model.RunState) -> model.RunState:
             for task_id in agents:
                 state = model.with_task(state, task_id)
-            tasks = {t: dataclasses.replace(state.tasks[t], agent_id=a) for t, a in agents.items()}
+            tasks = {
+                t: dataclasses.replace(
+                    state.tasks[t], agent_id=a, status=statuses.get(t, TaskStatus.VERIFIED)
+                )
+                for t, a in agents.items()
+            }
             return dataclasses.replace(state, tasks={**state.tasks, **tasks})
 
         store.update(add)
@@ -91,6 +104,24 @@ class ScoreOnFinishTests(unittest.TestCase):
             [(e["specialist"], e["code"]) for e in out["score_errors"]],
             [("spec-a", "score_no_cases"), ("spec-b", "score_failed")],
         )
+
+    def test_only_specialists_with_an_ended_task_are_scored(self) -> None:
+        agents = {"T-1": "spec-a", "T-2": "spec-b"}
+        states = {"T-1": TaskStatus.PENDING, "T-2": TaskStatus.FAILED}
+        _, out = self.finish(True, agents, lambda _s, a: _report(a), states)
+        self.assertEqual([s["agent_id"] for s in out["scores"]], ["spec-b"])
+
+    def test_a_repeated_finish_does_not_score_again(self) -> None:
+        self.finish(True, {"T-1": "spec-a"}, lambda _s, a: _report(a))
+        with mock.patch("wev_skills.commands._scoring.score") as called:
+            code, out = self.run_cli("run", "finish", "--run", "r1")
+        self.assertEqual((code, called.call_count, "scores" in out), (0, 0, False))
+
+    def test_an_unregistered_run_is_refused_and_not_scored(self) -> None:
+        with mock.patch("wev_skills.core.active.is_registered", return_value=False):
+            code, out = self.finish(True, {"T-1": "spec-a"}, lambda _s, a: _report(a))
+        self.assertNotEqual(code, 0)
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":

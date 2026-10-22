@@ -21,7 +21,7 @@ from wev_skills.agents.experience import (
     check_key,
 )
 from wev_skills.core.contracts import TaskStatus
-from wev_skills.state.model import RunState
+from wev_skills.state.model import RunState, TaskRecord
 
 
 def _id(key: tuple[str, ...]) -> str:
@@ -54,6 +54,11 @@ def _observations(state: RunState, agent_id: str) -> list[tuple[tuple[str, ...],
 _UNVERIFIED = frozenset({TaskStatus.FAILED, TaskStatus.BLOCKED, TaskStatus.PARTIAL})
 
 
+def task_ended(record: TaskRecord) -> bool:
+    """Whether the task ended, verified or not; a pending or running one has not."""
+    return record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
+
+
 Shown = Mapping[str, Mapping[str, tuple[str, ...]]]
 """Per run id, per task id: the lesson ids its starts showed (``shown_lessons.for_task``)."""
 
@@ -64,8 +69,7 @@ def _usage(states: Sequence[RunState], agent_id: str, shown: Shown) -> dict[str,
     for state in states:
         run_shown = shown.get(state.run_id, {})
         for task_id, record in state.tasks.items():
-            ended = record.status is TaskStatus.VERIFIED or record.status in _UNVERIFIED
-            if record.agent_id != agent_id or not ended:
+            if record.agent_id != agent_id or not task_ended(record):
                 continue
             good = int(record.status is TaskStatus.VERIFIED)
             for lesson_id in run_shown.get(task_id, ()):
