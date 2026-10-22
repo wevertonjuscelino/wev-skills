@@ -207,7 +207,7 @@ class ScriptTextTest(unittest.TestCase):
         position = re.compile(r"(?:^|[;&|(]|\bthen|\bdo|\belse|\|\|)\s*\$[A-Za-z_{(]", re.M)
         self.assertIsNone(position.search(re.sub(r"\[\[.*?\]\]", "", self.code)))
         for var in ("PY", "WEV"):
-            self.assertEqual(len(re.findall(rf"\$\{{?{var}\b(?!\"|/|\}})", self.code)), 0, var)
+            self.assertEqual(len(re.findall(rf"\$\{{?{var}\b(?!\"|/|%|\}})", self.code)), 0, var)
 
     def test_is_strict_executable_and_under_400_lines(self) -> None:
         self.assertIn("set -euo pipefail", self.text)
@@ -519,6 +519,69 @@ class JevTest(InstallCase):
         self.assertEqual(done.returncode, 2)
         self.assertNotIn(KEY, done.stdout + done.stderr)
         self.assertFalse((self.dir / "conf" / "wev-skills" / ".env").exists())
+
+
+class ExecPathTest(InstallCase):
+    """npx from a version manager is invisible to rea unless its directory is on exec_path."""
+
+    def nvm_path(self, mode: int = 0o755) -> tuple[Path, str]:
+        nvm = self.dir / "nvm" / "bin"
+        nvm.mkdir(parents=True)
+        (nvm / "npx").write_text("#!/bin/sh\nexit 0\n")
+        (nvm / "npx").chmod(0o755)
+        nvm.chmod(mode)
+        return nvm, f"{FAKE_BIN}:{self.tools}:{nvm}"
+
+    def exec_path(self) -> list[str]:
+        return self.user_config()["permissions"]["exec_path"]  # type: ignore[index,return-value]
+
+    def test_a_version_manager_directory_is_added_and_rea_serve_finds_npx(self) -> None:
+        nvm, path = self.nvm_path()
+        self.seed_rea()
+        done = self.install("--harness", "codex", "--rea-mode", "direct", PATH=path)
+        self.assertInstalled(done)
+        self.assertEqual(self.exec_path(), [str(FAKE_BIN), str(nvm)])
+        self.assertIn(f"Added {nvm} to permissions.exec_path", done.stdout)
+        serve = subprocess.run(  # noqa: S603 - fixed argv, a temp HOME
+            [sys.executable, str(ROOT / "bin" / "wev"), "rea", "serve", "--dry-run"],
+            capture_output=True,
+            text=True,
+            cwd=self.dir / "work",
+            env=self.env(),
+            check=False,
+        )
+        self.assertEqual(serve.returncode, 0, serve.stderr)
+        self.assertIn(str(nvm / "npx"), serve.stdout)
+
+    def test_a_directory_others_can_write_to_is_refused_with_the_reason(self) -> None:
+        nvm, path = self.nvm_path(0o777)
+        done = self.install("--harness", "codex", "--rea-mode", "direct", PATH=path)
+        self.assertInstalled(done)
+        self.assertEqual(self.exec_path(), [str(FAKE_BIN)])
+        self.assertIn(
+            f"Not adding {nvm} to permissions.exec_path: other users can write", done.stdout
+        )
+
+    def test_an_existing_custom_entry_survives_and_nothing_is_duplicated(self) -> None:
+        nvm, path = self.nvm_path()
+        custom = {"permissions": {"exec_path": [str(FAKE_BIN), "/custom/dir", str(nvm)]}}
+        (self.dir / "conf" / "wev-skills" / "wev.config.json").write_text(json.dumps(custom))
+        done = self.install("--harness", "codex", "--rea-mode", "direct", PATH=path)
+        self.assertInstalled(done)
+        self.assertEqual(self.exec_path(), [str(FAKE_BIN), "/custom/dir", str(nvm)])
+        self.assertNotIn("Added", done.stdout)
+
+    def test_a_directory_inside_the_source_tree_is_refused(self) -> None:
+        inside = ROOT / "tests" / "fixtures" / "fake_bin"
+        self.assertTrue(inside.is_dir())
+        other = Path(tempfile.mkdtemp(dir=ROOT / "tests" / "fixtures"))
+        self.addCleanup(shutil.rmtree, other)
+        os.symlink(shutil.which("true") or "/usr/bin/true", other / "npx")
+        path = f"{FAKE_BIN}:{self.tools}:{other}"
+        done = self.install("--harness", "codex", "--rea-mode", "direct", PATH=path)
+        self.assertInstalled(done)
+        self.assertEqual(self.exec_path(), [str(FAKE_BIN)])
+        self.assertIn("inside the install tree", done.stdout)
 
 
 class UninstallTest(InstallCase):

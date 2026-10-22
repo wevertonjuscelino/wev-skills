@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # wev-skills installer: bash install.sh [flags]   (bash install.sh --help)
-# Thin on purpose: it asks, then calls the wev CLI, which holds the rules.
+# shellcheck disable=SC2059  # printf formats come from the message table, never from input
 # Questions are read from /dev/tty because under `curl | bash` stdin is this script.
 set -euo pipefail
 REPO="wevertonjuscelino/wev-skills"
@@ -35,6 +35,9 @@ msg() {
     ver_mismatch) en="Installed version %s does not match release %s." pt="A versão instalada %s não corresponde à release %s." ;;
     no_source) en="There is no bin/wev in %s." pt="Não há bin/wev em %s." ;;
     old_python) en="python3 on your PATH is older than 3.14. The harness hooks start wev through 'env python3', so put a Python 3.14 first on PATH or the hooks will not run." pt="O python3 do seu PATH é anterior ao 3.14. Os hooks dos harnesses iniciam o wev por 'env python3'; ponha um Python 3.14 primeiro no PATH ou os hooks não vão rodar." ;;
+    exec_added) en="Added %s to permissions.exec_path in your user config (npx or docker lives there)." pt="Adicionei %s a permissions.exec_path na sua configuração de usuário (npx ou docker estão lá)." ;;
+    exec_ref_tree) en="Not adding %s to permissions.exec_path: it is inside the install tree or the temporary directory." pt="Não adicionei %s a permissions.exec_path: fica dentro da árvore de instalação ou do diretório temporário." ;;
+    exec_ref_ww) en="Not adding %s to permissions.exec_path: other users can write to it." pt="Não adicionei %s a permissions.exec_path: outros usuários podem escrever nele." ;;
     shadowed) en="TYPESAFE_API_KEY is exported in your environment and will win over the stored key." pt="TYPESAFE_API_KEY está exportada no seu ambiente e vai valer mais que a chave guardada." ;;
     fin_fail) en="Finished with %s failures (see the rows above)." pt="Terminou com %s falhas (veja as linhas acima)." ;;
     un_keep) en="Something failed above, so %s was kept. Fix it and run --uninstall again." pt="Algo falhou acima, então %s foi mantido. Corrija e rode --uninstall de novo." ;;
@@ -63,7 +66,6 @@ msg() {
     st_skip) en="skipped" pt="pulado" ;;
     st_fail) en="failed" pt="falhou" ;;
     r_notfound) en="CLI not found" pt="CLI não encontrado" ;;
-    r_declined) en="declined" pt="recusado" ;;
     r_nonode) en="Node.js missing" pt="falta o Node.js" ;;
     r_noimage) en="rea is not installed, so there is no image to build" pt="o rea não está instalado, então não há imagem para construir" ;;
     r_see) en="see the output above" pt="veja a saída acima" ;;
@@ -72,7 +74,6 @@ msg() {
   esac
   if [ "$L" = pt-BR ]; then printf '%s' "$pt"; else printf '%s' "$en"; fi
 }
-# shellcheck disable=SC2059  # the format comes from the message table above, never from input
 say() { local f; f=$(msg "$1"); shift; printf -- "$f\n" "$@"; }
 die() { local code=$1; shift; say "$@" >&2; exit "$code"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -80,15 +81,11 @@ restore_tty() { if [ -n "$STTY_SAVED" ]; then stty "$STTY_SAVED" </dev/tty 2>/de
 cleanup() { restore_tty; if [ -n "$TMP" ]; then rm -rf "$TMP"; fi; }
 usage() {
   cat <<'EOF'
-Usage: bash install.sh [flags]
-  --yes                      answer yes; no JEV unless --jev, no system packages, uninstall keeps the config dir
-  --lang en|pt-BR            message language (default: from LANG)
-  --harness LIST             claude,codex,gemini,opencode (default: the ones found)
-  --jev | --no-jev           use JEV (asks for the key) or not (default: ask)
-  --rea-mode isolated|direct how rea runs (default: isolated when docker is found)
-  --source DIR               use DIR/bin/wev instead of downloading the latest release
-  --uninstall [--purge]      remove what the installer put in place (--purge: config too)
-  --help                     show this text
+Usage: bash install.sh [--yes] [--lang en|pt-BR] [--harness LIST] [--jev | --no-jev]
+  [--rea-mode isolated|direct] [--source DIR] [--uninstall [--purge]] [--help]
+  --yes: answer yes (no JEV unless --jev, no system packages; uninstall keeps the config dir)
+  --harness: claude,codex,gemini,opencode (default: the ones found; '' for none)
+  --source DIR: use DIR/bin/wev instead of downloading; --purge: also remove the config dir
 EOF
 }
 opt() { [ "$#" -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }; }
@@ -114,9 +111,7 @@ parse() {
   local names='(claude|codex|gemini|opencode|none)'
   [[ -z $HARNESS_ARG || $HARNESS_ARG =~ ^$names(,$names)*$ ]] || { usage >&2; exit 2; }
 }
-# One question: the prompt goes to the terminal and the answer comes from it, never from stdin.
-ask_line() {
-  # shellcheck disable=SC2059
+ask_line() { # the prompt and the answer both use the terminal, never stdin
   { printf -- "$(msg "$1")" "${@:2}" >/dev/tty; IFS= read -r ANS </dev/tty; } 2>/dev/null || die 2 no_tty
 }
 confirm() { # confirm KEY y|n [args]: --yes answers yes
@@ -125,9 +120,7 @@ confirm() { # confirm KEY y|n [args]: --yes answers yes
   case "$ANS" in [yYsS]*) return 0 ;; "") [ "$2" = y ] ;; *) return 1 ;; esac
 }
 row() { # row STATUS-KEY NAME [DETAIL-KEY]
-  local detail=""
-  if [ -n "${3:-}" ]; then detail=$(msg "$3"); fi
-  ROWS="$ROWS$(printf '  %-9s %-14s %s' "$(msg "$1")" "$2" "$detail")"$'\n'
+  ROWS="$ROWS$(printf '  %-9s %-14s %s' "$(msg "$1")" "$2" "$([ -z "${3:-}" ] || msg "$3")")"$'\n'
 }
 row_rc() { # a row for the last wev call: done, or failed with its output shown
   if [ "$RC" -eq 0 ]; then row st_ok "$1"; else printf '%s\n' "$OUT" >&2; row st_fail "$1" r_see; FAILED=$((FAILED + 1)); fi
@@ -194,7 +187,7 @@ pick_harnesses() {
   for h in claude codex gemini opencode; do
     case ",$wanted," in *",$h,"*) ;; *) continue ;; esac
     if ! have "$h"; then row st_skip "$h" r_notfound; continue; fi
-    if [ -z "$HARNESS_ARG" ] && ! confirm harness_ask y "$h"; then row st_skip "$h" r_declined; continue; fi
+    if [ -z "$HARNESS_ARG" ] && ! confirm harness_ask y "$h"; then row st_skip "$h"; continue; fi
     CHOSEN="$CHOSEN $h "
   done
 }
@@ -219,7 +212,6 @@ store_key() {
   local key
   set +x # a trace would print the key
   STTY_SAVED=$(stty -g </dev/tty 2>/dev/null) || STTY_SAVED=""
-  # shellcheck disable=SC2059
   { printf -- "$(msg key_prompt)" >/dev/tty; IFS= read -rs key </dev/tty; } 2>/dev/null || die 2 no_tty
   restore_tty; printf '\n' >/dev/tty 2>/dev/null || true
   [ -n "$key" ] || die 1 empty_key
@@ -233,34 +225,43 @@ store_key() {
 }
 probe_jev() {
   printf '%s\n' '{"q": {"type": "noul", "instructions": "Is this a connectivity probe?"}}' >"$TMP/q.json"
-  RC=0
-  OUT=$(env -u TYPESAFE_API_KEY "$PY" "$WEV" --lang "$L" jev ask --questions "$TMP/q.json" --state "installer probe" </dev/null) || RC=$?
+  RC=0; OUT=$(env -u TYPESAFE_API_KEY "$PY" "$WEV" --lang "$L" jev ask --questions "$TMP/q.json" --state "installer probe" </dev/null) || RC=$?
   if [ "$RC" -ne 0 ]; then printf '%s\n' "$OUT" >&2; return 1; fi
 }
 write_user_config() { # $1 = 1 when JEV is on; touches language and decision.provider only
-  local file="$CONF/wev.config.json"
+  local file="$CONF/wev.config.json" ex="" p
+  for p in npx docker; do if have "$p"; then ex="$ex$(dirname "$(command -v "$p")")"$'\n'; fi; done
   ( umask 077; mkdir -p "$CONF"; trap 'rm -f "$file.tmp"' EXIT
     "$PY" -I -c 'import json, os, sys
-path, lang, jev = sys.argv[1:4]
+path, lang, jev, src, tmp, source, extra, *msgs = sys.argv[1:]
+sys.path.insert(0, src)
+from wev_skills.config import DEFAULT_EXEC_PATH
 c = json.load(open(path)) if os.path.isfile(path) else {}
 c["language"] = lang
 d = c.pop("decision", None)
-d = d if isinstance(d, dict) else {}
-d.pop("provider", None)
-if jev == "1":
-    d["provider"] = "jev"
-if d:
-    c["decision"] = d
-print(json.dumps(c, indent=2))' "$file" "$L" "$1" >"$file.tmp"
+d = {k: v for k, v in (d if isinstance(d, dict) else {}).items() if k != "provider"}
+if jev == "1": d["provider"] = "jev"
+if d: c["decision"] = d
+cur = c.get("permissions", {}).get("exec_path", list(DEFAULT_EXEC_PATH))
+have, notes = list(cur), []
+inside = lambda x: any(x == s or x.startswith(s + "/") for s in (tmp, source) if s)
+for x in filter(None, extra.split("\n")):
+    why = 0 if x in have else 1 if inside(x) else 2 if os.stat(x).st_mode & 2 else 3
+    if why:
+        notes.append(msgs[why % 3] % x)
+        have += [x] if why == 3 else []
+if have != cur:
+    c["permissions"] = {**c.get("permissions", {}), "exec_path": have}
+open(tmp + "/exec.note", "w").write("\n".join(notes))
+print(json.dumps(c, indent=2))' "$file" "$L" "$1" "${WEV%/bin/wev}/src" "$TMP" "$SOURCE" "$ex" \
+      "$(msg exec_added)" "$(msg exec_ref_tree)" "$(msg exec_ref_ww)" >"$file.tmp"
     mv "$file.tmp" "$file"; chmod 600 "$file" )
   wevx config validate "$file"
 }
 setup_jev() {
   local on=0 tries=0
-  case "$JEV_FLAG" in
-    yes) on=1 ;;
-    ask) if [ "$YES" = 0 ] && confirm jev_ask n; then on=1; fi ;;
-  esac
+  if [ "$JEV_FLAG" = yes ]; then on=1
+  elif [ "$JEV_FLAG" = ask ] && [ "$YES" = 0 ] && confirm jev_ask n; then on=1; fi
   if [ "$on" = 1 ]; then
     on=0
     while [ "$tries" -lt 2 ]; do
@@ -285,12 +286,11 @@ setup_rea() {
   local mode=$REA_ARG
   if [ "$SKIP_REA" = 1 ]; then return; fi
   if [ -z "$mode" ]; then if have docker; then mode=isolated; else mode=direct; fi; fi
-  wevx rea mode "$mode"
-  row st_ok "rea-$mode"
+  wevx rea mode "$mode"; row st_ok "rea-$mode"
   if [ "$mode" = direct ]; then return; fi
   wevx rea status
   if [ -z "$(printf '%s' "$OUT" | jval version)" ]; then row st_skip rea-image r_noimage; return; fi
-  if confirm build_ask y; then wevx rea build-image; row st_ok rea-image; else row st_skip rea-image r_declined; fi
+  if confirm build_ask y; then wevx rea build-image; row st_ok rea-image; else row st_skip rea-image; fi
 }
 register_claude() {
   RC=0; OUT=$(claude plugin marketplace add "$MKT_DIR" </dev/null 2>&1 \
@@ -333,6 +333,7 @@ print(", ".join("%s %s" % (s["name"], s["active"]) for s in json.load(sys.stdin)
   printf '%s' "$ROWS"
   if [ -n "$NEXT" ]; then say sum_next; printf '%s' "$NEXT"; fi
   if [ -n "$SOURCE" ]; then say sum_source; fi
+  if [ -s "$TMP/exec.note" ]; then cat "$TMP/exec.note"; echo; fi
   if [ "$OLD_PY" = 1 ]; then say old_python; fi
   if [ "$SHADOWED" = 1 ]; then say shadowed; fi
   if [ "$FAILED" -gt 0 ]; then say fin_fail "$FAILED"; fi
@@ -395,5 +396,4 @@ main() {
   summary
   if [ "$FAILED" -gt 0 ]; then return 1; fi
 }
-
 main "$@"
