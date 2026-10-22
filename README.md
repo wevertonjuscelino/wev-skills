@@ -78,7 +78,7 @@ bash install.sh
 | Uninstall | `bash install.sh --uninstall` (asks before removing your key file; `--purge` removes it too) |
 | See every option | `bash install.sh --help` |
 
-Status: implemented and tested with fake harness CLIs and a local source, and end to end on macOS with an isolated `HOME` from a local source (13 of 13 checks). The download route, Linux and the real harnesses (Claude Code, Codex, Gemini CLI, OpenCode) have not been run yet. Details, flags and what the installer writes: [installation guide](docs/guides/installation.md#quick-install).
+Status, v6.0.0: the one-line command above was run for real on macOS with an isolated `HOME` (it downloaded and installed 6.0.0, and the uninstall removed what it wrote); the end-to-end scenario passed 13 of 13 checks on macOS with an isolated `HOME` (not a clean machine) and in a blank Linux container. The real harnesses (Claude Code, Codex, Gemini CLI, OpenCode) have not been run yet. The uninstall leaves npm's own cache in `~/.npm`, which `npx` creates when rea runs in direct mode. Details, flags and what the installer writes: [installation guide](docs/guides/installation.md#quick-install).
 
 ## Quick start
 

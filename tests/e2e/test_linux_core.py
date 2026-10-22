@@ -32,7 +32,7 @@ class LinuxCore(_core.CoreChecks):
     def test_01b_dependency_check_passes(self) -> None:
         self.need_install()
         out = type(self).last_install
-        ok = "Cannot continue" not in out and "Summary" in out
+        ok = "Cannot continue" not in out and "wev-skills: " in out  # the summary line
         self.record("bash install.sh (dependency check)", None, ok, out)
 
 
