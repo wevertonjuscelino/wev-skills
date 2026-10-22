@@ -207,6 +207,35 @@ wev skills decline agent-skills
 - **Aprovações.** O Claude Code pergunta antes de `skills install|update|rollback|freeze|activate|deactivate`; `list`, `check`, `decline` e `show` não são perguntados. No Codex, Gemini CLI e OpenCode esses seis são negados: rode-os no seu terminal.
 - **Limites.** A autoatualização do wev instala e verifica apenas a nova pasta; uma atualização do wev-skills não troca o plugin em execução: quem troca é o instalador, não o `skills update`. `check` e `update` releem o estado logo antes de salvar e juntam só o que a verificação viu, então um `freeze` ou uma atualização salvos nesse meio-tempo são mantidos. O filho da verificação de saúde mantém do seu ambiente só `PATH`, `HOME`, `LANG`, `LC_*`, `XDG_*`, `npm_config_*` e `NODE_*`. Com `HOME` mantido, o npm lê `~/.npmrc`, `npm_config_*` pode carregar tokens do npm e `NODE_OPTIONS` pode injetar código no filho. Uma fonte recusada ainda faz a chamada ao registro antes de ser pulada. Os registros reais, os downloads e o servidor rea real não são executados nesta alteração (parte e2e). Veja [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md#atualizações-de-skills-de-terceiros).
 
+## rea: modos, imagem e registro
+
+O `rea` (npm `rea-agents`, instalado por `wev skills install rea`) é um servidor MCP de ferramentas de engenharia reversa. O wev o inicia para o harness por `wev rea serve`, em um de dois modos. Situação: implementado e testado com executáveis `npx` e `docker` falsos (testes unitários); o servidor rea real, o build real do contêiner e os carregadores reais dos harnesses não são executados nesta alteração (parte e2e). A skill `wev-reverse`, que usa as ferramentas, está apenas documentada.
+
+```sh
+bin/wev rea status
+bin/wev rea mode isolated
+bin/wev rea build-image
+bin/wev rea serve --dry-run
+```
+
+- **`status`** mostra o modo (e se é o padrão ou veio de uma escolha sua), a versão fixada, a tag da imagem, se o Docker foi encontrado e se a imagem existe, com avisos.
+- **`mode isolated|direct`** grava sua escolha em `rea.json` em `~/.config/wev-skills` (`$XDG_CONFIG_HOME` é respeitado). Sem escolha gravada, o modo é `isolated` quando o Docker é encontrado e `direct` caso contrário.
+- **Modo isolated** roda `docker run` na imagem `wev-rea:<versão>`, com o seu uid:gid, rede ligada, o diretório de trabalho montado somente leitura no próprio caminho e um diretório gravável do wev montado em `/opt/rea-home` (a home do rea). A análise estática e de bundles web funciona; as ferramentas de tempo de execução (Frida, adb, captura de navegador e de Electron, depuradores) não estão disponíveis no contêiner.
+- **Modo direct** roda `npx -y rea-agents@<versão> mcp` na máquina, com as suas permissões e sem contêiner.
+- **`build-image [--version V]`** constrói `wev-rea:<versão>` a partir de `docker/rea/Dockerfile` (imagem base `node:24-slim`, depois `npm install -g rea-agents@<versão>`). Precisa de Docker e de rede. A versão fixada é a que o `wev skills` ativou; rode antes `wev skills install rea`.
+- **`serve --dry-run`** imprime o comando que iniciaria o servidor, como JSON, sem iniciá-lo.
+
+Registro, por harness:
+
+| Harness | Como o `rea` é registrado |
+|---|---|
+| Claude Code | O `.mcp.json` do plugin roda `${CLAUDE_PLUGIN_ROOT}/bin/wev rea serve`; nada a fazer |
+| Gemini CLI | `wev harness install --target gemini` grava `mcpServers.rea` no `gemini-extension.json` da extensão |
+| OpenCode | `wev harness install --target opencode` grava `mcp.rea` no `opencode.json` do diretório de configuração do OpenCode. Recusa quando existe uma entrada `mcp.rea` que o wev não escreveu, ou quando `opencode.json` é um link simbólico; mantém todas as outras chaves, reindenta o arquivo com 2 espaços e mantém o modo do arquivo |
+| Codex | O wev não registra. Rode você mesmo: `codex mcp add rea -- <python> <caminho de bin/wev> rea serve` |
+
+Limites: `rea mode` e `rea build-image` geram um pedido de confirmação no Claude Code e são negados nos outros harnesses; rode-os no seu terminal. Veja [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa) antes de apontar o rea para um binário em que você não confia.
+
 ## O que precisa de acesso à rede
 
 | Passo | Rede |

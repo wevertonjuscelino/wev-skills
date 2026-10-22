@@ -57,7 +57,7 @@ SKILLS_COMMANDS = frozenset(
 )
 """``skills check|list|decline|show`` write only the state file; the others fetch code, switch
 the version in use or link files into the harnesses' skill directories."""
-REA_COMMANDS = frozenset({("rea", "mode"), ("rea", "build-image"), ("rea", "install")})
+REA_COMMANDS = frozenset({("rea", "mode"), ("rea", "build-image")})
 """``rea serve`` is launched by the harness itself and ``rea status`` only reads."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"

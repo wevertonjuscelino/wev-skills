@@ -35,6 +35,8 @@ Os adaptadores de harness para Codex, Gemini CLI e OpenCode (`wev harness export
 
 As atualizações de skills de terceiros (`wev skills ...`, o hook da verificação diária) foram acrescentadas depois. Situação: implementado e testado com um registro local falso, um npx falso e tarballs locais; os registros reais, os downloads e o servidor rea real não são executados nesta alteração (parte e2e). Elas não acrescentam linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#atualizações-de-skills-de-terceiros).
 
+A integração com o rea (`wev rea serve|status|mode|build-image`, a imagem de contêiner `wev-rea`, o registro no Claude Code, Gemini CLI e OpenCode) foi acrescentada depois. Situação: implementado e testado com executáveis `npx` e `docker` falsos (testes unitários); o servidor rea real, o build real do contêiner e os carregadores reais dos harnesses não são executados nesta alteração (parte e2e). A skill `wev-reverse` está apenas documentada. Ela não acrescenta linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa).
+
 ## Resumo
 
 | # | Critério | Situação |

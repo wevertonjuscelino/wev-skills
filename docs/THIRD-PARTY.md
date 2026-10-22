@@ -38,10 +38,14 @@ Not vendored: no file of these projects is in this repository. `wev skills insta
 
 | Source | Version | License | Use |
 |---|---|---|---|
-| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases at https://github.com/morluto/rea) | Resolved at install time (`dist-tags.latest`) | MIT | `wev skills show rea` prints the argv that starts its MCP server; wev starts it itself only for the health check |
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases at https://github.com/morluto/rea) | Resolved at install time (`dist-tags.latest`) | MIT | `wev skills show rea` prints the argv that starts its MCP server; wev starts it for the health check and through `wev rea serve` (see the [installation guide](guides/installation.md#rea-modes-image-registration)) |
 | addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolved at install time (latest release) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills linked into the user's skill directories by `wev skills activate` |
 
 Both `rea` (`morluto/rea`) and `agent-skills` (`addyosmani/agent-skills`) are MIT per the GitHub API `license.spdx_id`, checked on 2026-10-20 and 2026-10-22. That is the repository's license, not the npm package metadata. The agent-skills copyright line is "Copyright (c) 2025 Addy Osmani". No affiliation with or endorsement by the authors of these projects is implied.
+
+rea ships a `DISCLAIMER.md` (lawful use only; the person carries authorization and legal responsibility). wev reproduces none of it; the summary is in [SECURITY.md](../SECURITY.md#rea-reverse-engineering-server), and `docs/research/rea-integration.md` records what was read.
+
+Base image: `docker/rea/Dockerfile` starts from `node:24-slim`, the official `node` image on Docker Hub. The image is pulled by `wev rea build-image` at the user's request; no layer of it is stored in this repository. Its license terms were not checked for this entry.
 
 ## Rule for adding third-party files
 

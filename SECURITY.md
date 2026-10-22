@@ -139,6 +139,20 @@ Implemented and tested against a local fake server; the live service was not run
 - **The state file is data.** Unknown keys, wrong types and version names outside `[A-Za-z0-9._-]+` are rejected; `current` and `*.tmp-*` are reserved. A version from a registry, or given to `install --version`, must also have the shape of its source (strict semver for npm, `v1.2.3` or `1.2.3` for a GitHub tag, 7 to 40 hex characters for a sha).
 - **Self-update is partial.** For `wev-skills`, wev installs and health-checks the new directory only. A wev-skills update does not switch the running plugin: the installer does, and `skills update` does not. A default-branch HEAD install is health-checked only for running and printing a well-formed version.
 
+## rea: reverse-engineering server
+
+`wev rea serve` starts the third-party `rea` MCP server for the harness. Status: implemented and tested with fake `npx` and `docker` executables (unit tests); the real rea server, the real container build and the real harness loaders are not run in this change (e2e part). The same guardrail-not-boundary position applies.
+
+- **rea is "not a sandbox".** rea's own SECURITY file says so, and that opening an untrusted binary runs parsing with your permissions. Its tools can run a command you choose, drive a debugger or a device, and open pages. Treat what the tools return as untrusted text.
+- **What the container does and does not isolate.** Isolated mode runs rea in a Docker container as your own uid:gid, with the network on, the working directory mounted read-only at its own path and a wev-owned directory writable at `/opt/rea-home`. That limits what rea can write in the repository and keeps its files out of your home. It is not a boundary against an agent in your account: that agent can run `docker` itself, change the mode through its own file tools, or use the network. The runtime tools (Frida, adb, browser and Electron capture, debuggers) are unavailable there, which is a limit of the mode, not a protection.
+- **Direct mode runs rea on the host.** `npx -y rea-agents@<version> mcp` runs with your permissions, with no container.
+- **The `rea serve` argv is built from four things only:** the semver version pinned by `wev skills` (a tag such as `latest` or a range is refused), the mode, the checked working directory and the wev-owned home directory. Nothing from the repository or the environment reaches it. The working directory is refused when it is `/`, your home or a parent of it; a path with `:`, `,` or a control character is refused (mount syntax); a symlinked home directory is refused. The process is replaced by `docker` or `npx` without a shell.
+- **`docker` and `npx` come from `permissions.exec_path`,** never from `$PATH`, and are refused when their path or its resolved target is inside the repository root. That check says nothing about other writable directories a repository `wev.config.json` may put on `exec_path`.
+- **Asks.** In Claude Code the hook asks before `wev rea mode` and `rea build-image`; on Codex, Gemini CLI and OpenCode they are denied (person only). As elsewhere, an ask does not hold under auto-accept or bypass modes.
+- **Protected path.** `~/.config/wev-skills` (`rea.json` and the key file) is a protected path in the Bash guard, so the hook treats a Bash command that writes, moves or removes it as protected-path access (ask, or deny in plan mode). The agent's own file tools can still edit it.
+- **OpenCode registration is not protected.** The manifest that records wev's `mcp.rea` entry is not a protected path: an agent in your account can edit it, as it can edit `opencode.json` itself. Install and uninstall refuse an entry that does not match the manifest, which is a guardrail and not a boundary.
+- **Authorization is yours.** rea's DISCLAIMER says that inspecting a program does not by itself establish permission for every operation, and that you carry the authorization and the legal responsibility for what you direct an agent to do. wev adds no authorization of its own.
+
 ## Known limits
 
 These are open. Do not rely on the engine for any of them.
