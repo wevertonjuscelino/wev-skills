@@ -13,9 +13,10 @@ identity historically used for shell-like tools", the canonical name serialized 
 stdin), and ``codex-rs/hooks/src/events/pre_tool_use.rs`` tests build requests with
 ``tool_name: "Bash"``.
 Working directory of a shell call (fix round 1): Gemini ``dir_path`` is read in
-google-gemini/gemini-cli ``packages/core/src/tools/shell.ts`` (``dir_path?: string``, the
+google-gemini/gemini-cli v0.65.0 ``packages/core/src/tools/shell.ts`` (``dir_path?: string``, the
 spawn cwd is ``path.resolve(targetDir, dir_path)``); OpenCode ``workdir`` is read in
-anomalyco/opencode ``packages/core/src/tool/plugin/shell.ts`` (``workdir: optionalKey(String)``).
+anomalyco/opencode v1.19.3 ``packages/core/src/tool/plugin/shell.ts``
+(``workdir: optionalKey(String)``).
 Codex: the hook ``tool_input`` is built as ``{"command": ...}`` (plus ``description``) in
 ``core/src/tools/handlers/unified_exec/exec_command.rs`` and ``core/src/tools/sandboxing.rs``
 at rust-v0.160.0, so Codex never sends a ``workdir`` to the hook; the codec still honors a

@@ -139,7 +139,7 @@ bin/wev harness uninstall --target codex
 ```
 
 - `export --target codex|gemini|opencode --out DIR [--wev PATH]` escreve os arquivos do pacote e não instala nada. O resultado lista `files` e `skipped` com o motivo: os subagentes do Codex são pulados (formato desconhecido), os agentes do Gemini e do OpenCode omitem ferramentas e modelo, e o formato do wrapper de hooks do Gemini é inferido.
-- `install --target ...` escreve os arquivos, registra-os e anota cada caminho num manifesto em `$XDG_DATA_HOME/wev-skills/harness/<target>/manifest.json` (senão `~/.local/share/wev-skills/harness/<target>/manifest.json`). Os comandos dos hooks chamam o `bin/wev` deste clone por caminho absoluto (`--wev` o substitui). O resultado traz `next_steps`. Uma falha desfaz o que foi escrito, e rodar `install` duas vezes não duplica entradas.
+- `install --target ...` escreve os arquivos, registra-os e anota cada caminho num manifesto em `$XDG_DATA_HOME/wev-skills/harness/<target>/manifest.json` (senão `~/.local/share/wev-skills/harness/<target>/manifest.json`). Os comandos dos hooks chamam o `bin/wev` deste clone por caminho absoluto (`--wev` o substitui), rodado pelo interpretador que rodou o `install`; depois de atualizar o Python ou mover o interpretador ou o clone, rode `install` de novo. Uma reinstalação que falha deixa nada da instalação anterior (o erro diz `previous_removed`); rode `install` de novo. O resultado traz `next_steps`. Uma falha desfaz o que foi escrito, e rodar `install` duas vezes não duplica entradas.
 - `uninstall --target ...` remove só o que o manifesto lista. Nunca edita um arquivo que o wev não criou, exceto para retirar as entradas exatas que ele acrescentou.
 
 O que você faz por conta própria, por harness:
@@ -147,12 +147,16 @@ O que você faz por conta própria, por harness:
 | Harness | O wev faz | Você faz |
 |---|---|---|
 | Codex | `codex plugin marketplace add` e `plugin add` | Confiar nos hooks uma vez, no prompt de confiança do próprio Codex. O wev não contorna essa trava |
-| Gemini CLI | Só `gemini extensions validate` | Rodar `gemini extensions link <caminho do pacote>` você mesmo (ele mostra um aviso de segurança que o wev nunca aceita por você) e conferir com `gemini extensions list -o json`. Um `uninstall` estrito sai com 8 e mantém os arquivos e o manifesto se você nunca fez o link |
+| Gemini CLI | `gemini extensions list -o json` (primeira instalação: recusa quando existe uma extensão `wev-skills` que o wev não instalou) e `gemini extensions validate` | Rodar `gemini extensions link <caminho do pacote>` você mesmo (ele mostra um aviso de segurança que o wev nunca aceita por você) e conferir com `gemini extensions list -o json`. Um `uninstall` estrito sai com 8 e mantém os arquivos e o manifesto se você nunca fez o link |
 | OpenCode | Escreve `plugins/wev-guard.js`, `skills/wev-*` e `agents/wev-*.md` em `$XDG_CONFIG_HOME/opencode` (senão `~/.config/opencode`) | Nada, não há CLI para chamar. O wev se recusa a sobrescrever um arquivo que não criou |
 
 Limites que você deve conhecer antes de confiar nisso (detalhes em [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md#outros-harnesses)):
 
-- Nesses três harnesses um `ask` de política do guarda vira allow mais aviso, então os asks do guarda são lembretes. Um `deny` continua deny, e qualquer falha interna também.
+- Nesses três harnesses um `ask` de política do guarda vira allow mais aviso (se o agente o vê não foi verificado), então os asks do guarda são lembretes. Estes rodam só com esse aviso: `git push`, `rm -rf build`, globs, palavras `$VAR`, prefixos de ambiente, `wev run start|finish`, `wev ... --config` e `wev jev ask|batch` (envia conteúdo de arquivo ao serviço JEV). Um deny pode ser contornado com variável ou glob (`D=.wev; rm -rf $D` foi permitido com aviso). Falhas internas são deny.
+- Comandos do operador humano (`approval grant|deny`, `approval request --reopen-denied`, `guard acknowledge`, `task reopen`, `specialists accept|retire`, `run adopt`) e `harness install|uninstall` são negados ali: rode-os no seu próprio terminal. As skills exportadas dizem isso no primeiro parágrafo.
+- Se o hook não consegue rodar, o Gemini CLI avisa e a ação segue, o Codex relata um erro de hook e o OpenCode nega.
+- O OpenCode não recebe contexto de sessão: o resumo da run não é injetado ali.
+- No Codex, um plugin seu chamado `wev-skills` não é detectado e o `uninstall` o removeria.
 - O Codex não passa ao hook o workdir escolhido pelo modelo, então os comandos do Codex são julgados sob o diretório da sessão.
 - O plugin do OpenCode foi testado sob node com um `wev` falso; nunca rodou dentro do OpenCode.
 

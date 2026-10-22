@@ -46,7 +46,7 @@ Fonte: docs/hooks/index.md, docs/hooks/reference.md (v0.65.0). O Gemini CLI TEM 
 - Saída (saída 0, somente JSON no stdout): `decision` allow|deny (alias block), `reason` (enviado ao agente como erro da ferramenta), `continue:false` + `stopReason` (encerra o loop), `systemMessage`, `suppressOutput`, `hookSpecificOutput.tool_input` (sobrescreve os argumentos por mesclagem). Saída 2 = bloqueio, o stderr é o motivo, o turno continua. Outros códigos de saída = aviso, a ação prossegue. Stdout que não é JSON é tratado como allow mais uma systemMessage.
 - ASK: um hook não consegue perguntar. Os valores de decisão do hook são apenas allow/deny. O motor de políticas tem `decision = "ask_user"` (exemplo de policies/*.toml de extensão), mas o `allow` de extensão é ignorado. Mapear o "approval needed" do wev (saída 4) para o Gemini significa deny com um motivo, ou uma regra de política com ask_user. Não verificado por execução.
 - Variáveis para os processos de hook: `GEMINI_PROJECT_DIR`, `GEMINI_PLANS_DIR`, `GEMINI_SESSION_ID`, `GEMINI_CWD`, alias `CLAUDE_PROJECT_DIR`.
-- Workdir por chamada (fonte do codec do wev): a ferramenta de shell aceita o argumento opcional `dir_path`, em gemini-cli `packages/core/src/tools/shell.ts`. Lido no código-fonte; não executado contra um Gemini CLI real.
+- Workdir por chamada (fonte do codec do wev): a ferramenta de shell aceita o argumento opcional `dir_path`, em gemini-cli `packages/core/src/tools/shell.ts` (v0.65.0). Lido no código-fonte; não executado contra um Gemini CLI real.
 - Gerenciamento: `/hooks panel|enable-all|disable-all|enable <name>|disable <name>`.
 
 ## 5. Servidores MCP

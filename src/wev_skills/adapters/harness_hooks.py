@@ -24,7 +24,9 @@ Mapping of the guard's answer:
 - no opinion: empty stdout, exit 0.
 
 Working directory: a shell call may name its own directory (Gemini ``dir_path`` in
-``tool_input``, OpenCode ``workdir`` in ``args``, Codex ``workdir``); it is resolved against
+``tool_input``, OpenCode ``workdir`` in ``args``). Codex sends no workdir to the hook
+(verified at rust-v0.160.0); its ``workdir`` key is kept only so that one appearing in a
+later version is judged, not ignored, and a bad one denies. The directory is resolved against
 the payload ``cwd`` and passed to the guard as ``cwd``. A value that is not a string, or does
 not resolve to an existing directory, raises ``ValidationError`` (the hook then denies).
 
