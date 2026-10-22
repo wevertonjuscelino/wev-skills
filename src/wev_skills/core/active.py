@@ -19,6 +19,7 @@ from wev_skills.config import (
     explicit_language,
     find_repo_root,
     parse_config,
+    user_config_path,
 )
 from wev_skills.core import run_registry
 from wev_skills.core.contracts import Mode, RiskLevel, TaskStatus, higher_risk
@@ -317,7 +318,9 @@ def ambient_language(cwd: Path, config_path: str | None = None) -> str | None:
         return found.language
     if config_path is not None:
         return explicit_language(config_path)
-    return explicit_language(str(find_repo_root(cwd) / CONFIG_FILE_NAME))
+    repo = explicit_language(str(find_repo_root(cwd) / CONFIG_FILE_NAME))
+    user = user_config_path()
+    return repo or (None if user.is_symlink() else explicit_language(str(user)))
 
 
 def _still_active(entry: RegistryEntry) -> bool:
