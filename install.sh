@@ -3,7 +3,6 @@
 # Thin on purpose: it asks, then calls the wev CLI, which holds the rules.
 # Questions are read from /dev/tty because under `curl | bash` stdin is this script.
 set -euo pipefail
-
 REPO="wevertonjuscelino/wev-skills"
 API_URL="https://api.github.com/repos/$REPO/releases/latest"
 GIT_URL="https://github.com/$REPO.git"
@@ -17,9 +16,7 @@ YES=0 PURGE=0 UNINSTALL=0 SOURCE="" HARNESS_ARG="" JEV_FLAG=ask REA_ARG="" L_ARG
 TMP="" PY="" WEV="" MKT_DIR="" OUT="" RC=0 ANS="" ROWS="" NEXT="" FAILED=0 SKIP_REA=0 CHOSEN=""
 OLD_PY=0 SHADOWED=0 STTY_SAVED=""
 case "${LANG:-}" in pt*) L="pt-BR" ;; *) L="en" ;; esac
-
-# The message table: one line per key, English (en) and Brazilian Portuguese (pt) side by side.
-# bash 3.2 has no associative arrays; a case keeps the two key sets identical by construction.
+# Message table, one line per key, en and pt side by side (bash 3.2: no associative arrays).
 msg() {
   local en pt
   case "$1" in
@@ -45,6 +42,7 @@ msg() {
     o_harness) en="the harness decides" pt="o harness decide" ;;
     o_jev) en="JEV decides" pt="o JEV decide" ;;
     offer) en="%s is missing. I can run this command for you: %s" pt="Falta %s. Posso rodar este comando para você: %s" ;;
+    no_installer) en="No known installer for %s was found on this machine: install it yourself, then run this again." pt="Nenhum instalador conhecido para %s foi encontrado nesta máquina: instale você mesmo e rode de novo." ;;
     offer_ask) en="Run it? [y/N] " pt="Rodar? [s/N] " ;;
     stop_cmd) en="%s is missing. With --yes I do not install system packages; run this, then run the installer again: %s"
               pt="Falta %s. Com --yes eu não instalo pacotes do sistema; rode isto e depois rode o instalador de novo: %s" ;;
@@ -55,7 +53,6 @@ msg() {
     wev_fail) en="A wev command failed: wev %s" pt="Um comando do wev falhou: wev %s" ;;
     build_ask) en="Build the rea container image now? It can take minutes. [Y/n] " pt="Construir a imagem de contêiner do rea agora? Pode levar minutos. [S/n] " ;;
     codex_mcp) en="Register rea in Codex yourself: codex mcp add rea -- %s %s rea serve" pt="Registre o rea no Codex você mesmo: codex mcp add rea -- %s %s rea serve" ;;
-    sum_head) en="Summary" pt="Resumo" ;;
     sum_line) en="%s: %s" pt="%s: %s" ;;
     sum_next) en="Next steps for you:" pt="Próximos passos, com você:" ;;
     sum_source) en="Installed from a local source, not self-updating." pt="Instalado de uma fonte local, sem autoatualização." ;;
@@ -81,7 +78,6 @@ die() { local code=$1; shift; say "$@" >&2; exit "$code"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 restore_tty() { if [ -n "$STTY_SAVED" ]; then stty "$STTY_SAVED" </dev/tty 2>/dev/null || true; fi; }
 cleanup() { restore_tty; if [ -n "$TMP" ]; then rm -rf "$TMP"; fi; }
-
 usage() {
   cat <<'EOF'
 Usage: bash install.sh [flags]
@@ -95,7 +91,6 @@ Usage: bash install.sh [flags]
   --help                     show this text
 EOF
 }
-
 opt() { [ "$#" -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }; }
 parse() {
   while [ $# -gt 0 ]; do
@@ -106,7 +101,7 @@ parse() {
       --uninstall) UNINSTALL=1 ;;
       --purge) PURGE=1 ;;
       --lang) opt "$@"; L_ARG=$2; shift ;;
-      --harness) opt "$@"; HARNESS_ARG=$2; shift ;;
+      --harness) [ "$#" -ge 2 ] || opt "$@"; HARNESS_ARG=${2:-none}; shift ;; # '' means none
       --rea-mode) opt "$@"; REA_ARG=$2; shift ;;
       --source) opt "$@"; SOURCE=$2; shift ;;
       --help | -h) usage; exit 0 ;;
@@ -116,10 +111,9 @@ parse() {
   done
   case "$L_ARG" in "" | en | pt-BR) ;; *) usage >&2; exit 2 ;; esac
   case "$REA_ARG" in "" | isolated | direct) ;; *) usage >&2; exit 2 ;; esac
-  local names='(claude|codex|gemini|opencode)'
+  local names='(claude|codex|gemini|opencode|none)'
   [[ -z $HARNESS_ARG || $HARNESS_ARG =~ ^$names(,$names)*$ ]] || { usage >&2; exit 2; }
 }
-
 # One question: the prompt goes to the terminal and the answer comes from it, never from stdin.
 ask_line() {
   # shellcheck disable=SC2059
@@ -178,7 +172,7 @@ run_installer() { # only these literal commands can run
 offer_install() { # 0 when it installed; --yes stops and names the command
   local cmd
   cmd=$(installer_cmd "$1")
-  if [ -z "$cmd" ]; then return 1; fi
+  if [ -z "$cmd" ]; then say no_installer "$1" >&2; return 1; fi
   if [ "$YES" = 1 ]; then die 1 stop_cmd "$1" "$cmd"; fi
   say offer "$1" "$cmd"
   confirm offer_ask n && run_installer "$cmd"
@@ -299,13 +293,21 @@ setup_rea() {
   if confirm build_ask y; then wevx rea build-image; row st_ok rea-image; else row st_skip rea-image r_declined; fi
 }
 register_claude() {
-  RC=0; OUT=$(claude plugin marketplace add "$MKT_DIR" </dev/null 2>&1) || RC=$?
+  RC=0; OUT=$(claude plugin marketplace add "$MKT_DIR" </dev/null 2>&1 \
+    && claude plugin install "$PLUGIN" </dev/null 2>&1) || RC=$?
   printf '%s\n' "$OUT"
-  if [ "$RC" -eq 0 ]; then
-    OUT=$(claude plugin install "$PLUGIN" </dev/null 2>&1) || RC=$?
-    printf '%s\n' "$OUT"
-  fi
-  row_rc claude
+  row_rc claude; if [ "$RC" -eq 0 ]; then record claude; fi
+}
+record() { # remember what this installer registered, so --uninstall touches only that
+  mkdir -p "$DATA"
+  "$PY" -I -c 'import json, os, sys
+p, n = sys.argv[1:3]
+d = json.load(open(p)) if os.path.isfile(p) else {}
+if n == "claude":
+    d["claude"] = True
+else:
+    d["harnesses"] = sorted({*d.get("harnesses", []), n})
+open(p, "w").write(json.dumps(d))' "$DATA/installer.json" "$1"
 }
 register_harnesses() {
   local h
@@ -314,14 +316,12 @@ register_harnesses() {
     if [ "$h" = claude ]; then register_claude; continue; fi
     wevc harness install --target "$h" --wev "$WEV"; row_rc "$h"
     if [ "$RC" -ne 0 ]; then continue; fi
-    note_steps
+    record "$h"; note_steps
     if [ "$h" = codex ]; then NEXT="$NEXT  - $(say codex_mcp "$PY" "$WEV")"$'\n'; fi
   done
 }
-
 summary() {
   local o
-  say sum_head
   wevx version; say sum_line wev-skills "$(printf '%s' "$OUT" | jval version)"
   wevx jev status; o=$(printf '%s' "$OUT" | jval orchestration)
   case "$o" in harness) o=$(msg o_harness) ;; jev) o=$(msg o_jev) ;; esac
@@ -338,13 +338,14 @@ print(", ".join("%s %s" % (s["name"], s["active"]) for s in json.load(sys.stdin)
   if [ "$FAILED" -gt 0 ]; then say fin_fail "$FAILED"; fi
   say licence "$LICENCE_TITLE" "$LICENCE_URL"
 }
-
 do_uninstall() {
-  local t bad=0
+  local t bad=0 rec="$DATA/installer.json" cl="" targets="codex gemini opencode"
   find_python || true
+  if [ -n "$PY" ] && [ -f "$rec" ]; then cl=$(jval claude <"$rec"); targets=$(jval harnesses <"$rec"); fi
   if [ -n "$SOURCE" ]; then WEV="$SOURCE/bin/wev"; else WEV="$DATA/third-party/wev-skills/current/bin/wev"; fi
   if [ -x "$WEV" ] && [ -n "$PY" ]; then
     for t in codex gemini opencode; do
+      case " $targets " in *[[:space:]]"$t"[[:space:]]*) ;; *) continue ;; esac
       if [ ! -f "$DATA/harness/$t/manifest.json" ]; then continue; fi
       wevc harness uninstall --target "$t"
       if [ "$RC" -eq 0 ]; then say un_removed "harness $t"; else printf '%s\n' "$OUT" >&2; bad=1; fi
@@ -356,7 +357,7 @@ do_uninstall() {
   elif [ -d "$DATA" ]; then
     say un_nowev "$DATA" >&2; return 1
   fi
-  if have claude; then
+  if [ "$cl" = True ] && have claude; then
     claude plugin uninstall wev-skills </dev/null || bad=1
     claude plugin marketplace remove "$MARKET" </dev/null || bad=1
   fi
@@ -369,7 +370,6 @@ do_uninstall() {
     say un_kept "$CONF"
   fi
 }
-
 main() {
   parse "$@"
   if [ -n "$SOURCE" ]; then SOURCE=$(CDPATH='' cd -- "$SOURCE" >/dev/null && pwd) || die 1 no_source "$SOURCE"; fi

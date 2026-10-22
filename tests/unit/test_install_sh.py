@@ -249,7 +249,6 @@ class FlagsTest(InstallCase):
             ["--lang", "fr"],
             ["--rea-mode", "x"],
             ["--harness", "vim"],
-            ["--harness", ""],
         ):
             done = self.run_script(*args)
             self.assertEqual(done.returncode, 2, args)
@@ -291,8 +290,13 @@ class InstallTest(InstallCase):
         done = self.run_script("--yes", "--lang", "pt-BR", "--no-jev", "--source", str(ROOT))
         self.assertEqual(done.returncode, 1, done.stderr)  # the offline third-party failures
         self.assertIn("Somente uso não comercial", done.stdout)
-        self.assertIn("Resumo", done.stdout)
         self.assertIn("Terminou com 3 falhas", done.stdout)
+
+    def test_an_empty_harness_list_registers_nothing(self) -> None:
+        self.assertInstalled(self.install("--harness", "", "--rea-mode", "direct"))
+        self.assertNotIn("claude ", self.logged())
+        self.assertFalse((self.dir / "data" / "wev-skills" / "harness").exists())
+        self.assertFalse((self.dir / "data" / "wev-skills" / "installer.json").exists())
 
     def test_python_code_run_by_the_installer_ignores_the_working_directory(self) -> None:
         marker = self.dir / "marker"
@@ -423,17 +427,32 @@ class SystemChecksTest(InstallCase):
         self.assertIn("brew install python", done.stderr)
         self.assertEqual(self.logged(), "")
 
-    def test_missing_node_with_yes_names_the_installer(self) -> None:
-        tools = self.dir / "nonode"
-        tools.mkdir()
-        for name in ("bash", "brew", *COREUTILS):
+    def no_node_path(self, package_manager: str | None) -> str:
+        """fake_bin plus only the tools the script needs, so a preinstalled node is invisible."""
+        tools = Path(tempfile.mkdtemp(dir=self.dir))
+        for name in ("bash", *COREUTILS):
             os.symlink(shutil.which(name) or "/bin/" + name, tools / name)
         os.symlink(sys.executable, tools / "python3")
-        done = self.run_script(
-            "--yes", "--lang", "en", "--source", str(ROOT), PATH=f"{FAKE_BIN}:{tools}"
-        )
+        if package_manager:
+            (tools / package_manager).write_text("#!/bin/sh\nexit 0\n")
+            (tools / package_manager).chmod(0o755)
+        return f"{FAKE_BIN}:{tools}"
+
+    def test_missing_node_with_yes_stops_and_names_the_installer(self) -> None:
+        path = self.no_node_path("brew")  # a fake brew: the same command on macOS and Linux
+        done = self.run_script("--yes", "--lang", "en", "--source", str(ROOT), PATH=path)
         self.assertEqual(done.returncode, 1)
         self.assertIn("brew install node", done.stderr)
+        self.assertNotIn("skills update", done.stdout + done.stderr)
+
+    def test_missing_node_without_a_package_manager_says_to_install_it_and_skips_rea(self) -> None:
+        path = self.no_node_path(None)
+        done = self.run_script(
+            "--yes", "--lang", "en", "--no-jev", "--source", str(ROOT), PATH=path
+        )
+        self.assertIn("install it yourself", done.stderr)
+        self.assertRegex(done.stdout, r"skipped\s+rea\s+Node.js missing")
+        self.assertNotIn("brew install", done.stderr)
 
 
 class JevTest(InstallCase):
@@ -523,6 +542,23 @@ class UninstallTest(InstallCase):
         self.assertIn("claude plugin uninstall wev-skills", log)
         self.assertIn("claude plugin marketplace remove wev-skills-marketplace", log)
         self.assertIn("codex plugin remove", log)
+
+    def test_uninstall_calls_claude_only_when_the_install_recorded_it(self) -> None:
+        record = json.loads((self.data / "installer.json").read_text())
+        self.assertEqual(record, {"claude": True, "harnesses": ["codex", "opencode"]})
+        self.assertEqual(self.uninstall().returncode, 0)
+        self.assertIn("claude plugin uninstall wev-skills", self.logged())
+
+    def test_uninstall_without_a_record_leaves_claude_alone_and_still_removes_manifests(
+        self,
+    ) -> None:
+        (self.data / "installer.json").unlink()
+        done = self.uninstall()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("plugin uninstall", self.logged())
+        self.assertNotIn("claude plugin marketplace remove", self.logged())
+        self.assertIn("codex plugin remove", self.logged())
+        self.assertFalse(self.data.exists())
 
     def test_uninstall_with_purge_removes_the_config_dir_too(self) -> None:
         done = self.uninstall("--purge")
