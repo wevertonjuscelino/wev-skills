@@ -4,7 +4,7 @@ Versão em inglês: [evaluation.md](evaluation.md).
 
 O harness de avaliação reproduz trajetórias fixas e roteirizadas contra os componentes reais do motor (o gerenciador de contexto, a guarda de execução, o roteador de modelos e a política de decisão local). **Nenhum modelo é chamado.** Tem o próprio laço de tentativas e escalonador e não chama o motor de orquestração (`wev run`, `wev task`), portanto linhas de base, aprovações, a política de permissões e o motor de verificação não são exercitados pelos seus resultados. É uma bancada de testes para a mecânica do harness: mostra que limites, guardas, roteamento, novas tentativas e agendamento se comportam como projetado em trajetórias construídas para exercitá-los.
 
-Status: o harness está implementado e testado; todo resultado que ele produz é **simulado com mocks (simulated with mocks)**. O roteiro decide cada resultado, uma configuração "passa" numa tarefa porque a tarefa foi escrita para isso, e custo e duração são unidades simuladas, não dinheiro nem tempo. Os resultados não dizem nada sobre a qualidade de nenhum modelo e não são evidência de que alguma configuração melhore algo. **Não existe avaliação com modelo real neste projeto.** A referência completa é [evals/README.pt-BR.md](../../evals/README.pt-BR.md); este guia é o caminho curto por ela.
+Status: o harness está implementado e testado; todo resultado que ele produz é **simulado com mocks (simulated with mocks)**. O roteiro decide cada resultado, uma configuração "passa" numa tarefa porque a tarefa foi escrita para isso, e custo e duração são unidades simuladas, não dinheiro nem tempo. Os resultados não dizem nada sobre a qualidade de nenhum modelo e não são evidência de que alguma configuração melhore algo. **Não existe avaliação com modelo real neste projeto** (os casos pontuados abaixo são o mais próximo disso, e a execução real deles não foi testada). A referência completa é [evals/README.pt-BR.md](../../evals/README.pt-BR.md); este guia é o caminho curto por ela.
 
 Neste guia, `wev` significa `"$WEV_HOME/bin/wev"`. Tudo roda sem rede e sem instalação.
 
@@ -119,6 +119,24 @@ Tipos de passo: `tool_output`, `note`, `requirement`, `decision` (acrescentam ao
 
 Escreva fixtures que exercitem um mecanismo, diga em `description` o que elas exercitam e mantenha os textos dos passos como enchimento. Uma tarefa acrescentada a `evals/tasks/` altera o relatório-base versionado, então gere-o de novo como mostrado acima, ou o teste que o compara vai falhar.
 
+## Casos pontuados
+
+À parte do harness roteirizado acima, `evals/cases/<id>.json` (mais uma pasta opcional `evals/cases/<id>/` com arquivos guardados) guarda situações reais tiradas do histórico deste repositório: um objetivo, o commit-base, os agentes a que se aplica, uma verificação (argv) que falha no commit-base e passa com uma mudança correta, e os arquivos de que a verificação precisa. O id é o nome do arquivo sem extensão. Existem três: `health-large-tools-list`, `tarball-confined-dotdot-link` e `exec-path-owned-dirs`. Status: o lado do motor está implementado e testado com falsos (`tests/unit/`, sem modelo e sem rede); a execução real de `claude -p` está implementada mas não testada até o dono rodá-la.
+
+```sh
+"$WEV_HOME/bin/wev" cases list                  # os casos e o digest que fixa o conjunto
+"$WEV_HOME/bin/wev" cases validate              # só o esquema
+"$WEV_HOME/bin/wev" cases validate --at-base    # cada verificação deve falhar no commit-base
+"$WEV_HOME/bin/wev" specialists score project-engineer   # só humano; roda o claude sem assistência
+"$WEV_HOME/bin/wev" specialists scores [project-engineer]   # histórico em .wev/scores.jsonl
+```
+
+- `validate --at-base` roda cada verificação em um checkout temporário do commit-base (fora de `.wev`) com timeout de `specialists.score_timeout_seconds`, e recusa com `case_passes_at_base` ou `case_check_broken`.
+- `specialists score` exige os casos commitados e limpos (`cases_uncommitted`, `cases_status_failed`, `cases_changed`), ao menos um caso para o agente (`score_no_cases`) e uma linha de base que caiba em `score_max_runs` (`score_over_cap`, saída 6). Outras recusas: `git_config_changed` (saída 5) e `score_agent_failed` (saída 8; uma execução de agente que falha não decide nada, enquanto um timeout conta como falha). Imprime um relatório com o id da nota, o digest dos casos, a linha de base, as lições aceitas e aposentadas, as execuções usadas e planejadas e o que foi pulado ou adiado.
+- A catraca: uma lição candidata entra quando nenhum caso perde um passe e o total sobe; empate fica `proposed`; a ablação aposenta uma lição ativa aceita por nota do mesmo modo. Cada caso roda `score_samples` vezes. Uma correlação entre uma lição e um passe não prova que a lição o causou.
+- Com `specialists.score_on_finish` verdadeiro (padrão false), `run finish` pontua cada especialista do projeto que encerrou uma tarefa, uma vez, na chamada que leva uma execução registrada a done. Uma falha vai para `score_errors` e nunca desfaz o fim.
+- As verificações dos casos passam pela política de comandos do motor sem concessões e com ambiente limpo. A execução não assistida, o filtro de lições e a impressão digital do diretório git estão em [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md), "Execução não assistida da nota". **Confirme no primeiro `wev specialists score` real que os hooks do wev disparam sob `--restricted`, `-p` e `dontAsk`**; nada verificou isso ainda. Um caso aprovado também pode ser burlado editando código que o teste guardado importa (risco residual no SECURITY.pt-BR.md).
+
 ## Os limites da avaliação roteirizada
 
 - O roteiro decide cada resultado. As tabelas mostram que um mecanismo disparou, não que ele é útil.
@@ -135,4 +153,4 @@ Mudanças de instrução nas skills (por exemplo o passo de plano mais profundo 
 
 ## Avaliando com um modelo real
 
-Trabalho futuro; não implementado. Exige um provedor de modelo, que este repositório não chama (os testes unitários e o CI rodam sem provedor pago), um agente que implemente a interface de agente do harness chamando um modelo, tarefas apoiadas em repositórios e verificações reais, execuções repetidas por tarefa e configuração, e um registro dos identificadores de modelo, datas e saídas brutas. Enquanto uma execução assim não for feita e registrada, as hipóteses seguem não testadas.
+Para o harness roteirizado isto é trabalho futuro; não implementado. (Os casos pontuados acima chamam um `claude` real, mas só para pontuar especialistas, não para comparar configurações.) Exige um provedor de modelo, que este repositório não chama (os testes unitários e o CI rodam sem provedor pago), um agente que implemente a interface de agente do harness chamando um modelo, tarefas apoiadas em repositórios e verificações reais, execuções repetidas por tarefa e configuração, e um registro dos identificadores de modelo, datas e saídas brutas. Enquanto uma execução assim não for feita e registrada, as hipóteses seguem não testadas.

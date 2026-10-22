@@ -4,7 +4,7 @@ Portuguese version: [evaluation.pt-BR.md](evaluation.pt-BR.md).
 
 The evaluation harness replays fixed, scripted trajectories against the real engine components (the context manager, the execution guard, the model router and the local decision policy). **No model is called.** It has its own attempt loop and scheduler and does not call the orchestration engine (`wev run`, `wev task`), so baselines, approvals, the permission policy and the verification engine are not exercised by its results. It is a test bench for harness mechanics: it shows that thresholds, guards, routing, retries and scheduling behave as designed on trajectories built to exercise them.
 
-Status: the harness is implemented and tested; every result it produces is **simulated with mocks**. The script decides every outcome, a configuration "passes" a task because the task was written so that it would, and cost and duration are simulated units, not money and not time. The results say nothing about the quality of any model and are not evidence that any setting improves anything. **No real-model evaluation exists for this project.** The full reference is [evals/README.md](../../evals/README.md); this guide is the short path through it.
+Status: the harness is implemented and tested; every result it produces is **simulated with mocks**. The script decides every outcome, a configuration "passes" a task because the task was written so that it would, and cost and duration are simulated units, not money and not time. The results say nothing about the quality of any model and are not evidence that any setting improves anything. **No real-model evaluation exists for this project** (the scored cases below are the nearest thing, and their real run is untested). The full reference is [evals/README.md](../../evals/README.md); this guide is the short path through it.
 
 In this guide `wev` stands for `"$WEV_HOME/bin/wev"`. Everything runs with no network and no installation.
 
@@ -119,6 +119,24 @@ Step kinds: `tool_output`, `note`, `requirement`, `decision` (add an item of `to
 
 Write fixtures that exercise one mechanism, say in `description` what it exercises, and keep step texts as filler. A task added to `evals/tasks/` changes the committed baseline report, so regenerate it as shown above or the test that compares it will fail.
 
+## Scored cases
+
+Separate from the scripted harness above, `evals/cases/<id>.json` (plus an optional `evals/cases/<id>/` folder of stored files) holds real situations taken from this repository's history: an objective, the base commit, the agents it applies to, a check (argv) that fails at the base commit and passes with a correct change, and the files the check needs. The id is the file stem. Three exist: `health-large-tools-list`, `tarball-confined-dotdot-link` and `exec-path-owned-dirs`. Status: the engine side is implemented and tested with fakes (`tests/unit/`, no model, no network); the real `claude -p` run is implemented but untested until the owner runs it.
+
+```sh
+"$WEV_HOME/bin/wev" cases list                  # the cases and the digest that pins the set
+"$WEV_HOME/bin/wev" cases validate              # schema only
+"$WEV_HOME/bin/wev" cases validate --at-base    # each check must fail at its base commit
+"$WEV_HOME/bin/wev" specialists score project-engineer   # person-only; runs claude unattended
+"$WEV_HOME/bin/wev" specialists scores [project-engineer]   # history in .wev/scores.jsonl
+```
+
+- `validate --at-base` runs each check in a scratch checkout of its base commit (outside `.wev`) with a timeout of `specialists.score_timeout_seconds`, and refuses with `case_passes_at_base` or `case_check_broken`.
+- `specialists score` needs the cases committed and clean (`cases_uncommitted`, `cases_status_failed`, `cases_changed`), at least one case for the agent (`score_no_cases`) and a baseline that fits `score_max_runs` (`score_over_cap`, exit 6). Other refusals: `git_config_changed` (exit 5) and `score_agent_failed` (exit 8; a failed agent run decides nothing, while a timeout counts as a fail). It prints a report with the score id, the case digest, the baseline, the lessons accepted and retired, the runs used and planned, and what was skipped or deferred.
+- The ratchet: a candidate lesson enters when no case loses a pass and the total rises; a tie stays `proposed`; ablation retires a score-accepted active lesson the same way. Each case runs `score_samples` times. A correlation between a lesson and a pass is not proof that the lesson caused it.
+- With `specialists.score_on_finish` true (default false), `run finish` scores each project specialist that ended a task, once, on the call that moves a registered run to done. A failure goes into `score_errors` and never undoes the finish.
+- Case checks go through the engine's command policy with no grants and a scrubbed environment. The unattended run, the lesson filter and the git-directory fingerprint are described in [SECURITY.md](../../SECURITY.md), "Unattended scoring". **Confirm on the first real `wev specialists score` that the wev hooks fire under `--restricted`, `-p` and `dontAsk`**; nothing has verified that yet. A passing case can also be gamed by editing code the stored test imports (a residual risk in SECURITY.md).
+
 ## The limits of scripted evaluation
 
 - The script decides every outcome. The tables show that a mechanism fired, not that it is useful.
@@ -135,4 +153,4 @@ Instruction changes in the skills (for example the deeper-plan step of `wev-orch
 
 ## Evaluating with a real model
 
-Future work; not implemented. It needs a model provider, which this repository does not call (unit tests and CI run without a paid provider), an agent that implements the harness agent interface by calling a model, tasks backed by real repositories and real checks, repeated runs per task and configuration, and a record of model identifiers, dates and raw outputs. Until such a run is made and recorded, the hypotheses stay untested.
+For the scripted harness this is future work; not implemented. (Scored cases above call a real `claude`, but only to score specialists, not to compare configurations.) It needs a model provider, which this repository does not call (unit tests and CI run without a paid provider), an agent that implements the harness agent interface by calling a model, tasks backed by real repositories and real checks, repeated runs per task and configuration, and a record of model identifiers, dates and raw outputs. Until such a run is made and recorded, the hypotheses stay untested.

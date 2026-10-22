@@ -72,6 +72,7 @@ Status: **implementado e testado** com CLIs de harness falsas e uma fonte local 
 | macOS ou Linux | O armazenamento de estado | Usa travas de arquivo POSIX. Windows não é suportado |
 | `git` | `wev run start`, `wev run resume`, `wev state drift` | O motor tira um instantâneo do estado do repositório. Fora de um repositório git as execuções ainda funcionam, com menos coisa a comparar |
 | Claude Code | O plugin: skills, subagentes, hooks | Só para os passos do plugin. A CLI funciona sem ele. Testado com o Claude Code 2.1.296 apenas no `claude plugin validate`; nada mais foi executado pelo Claude Code |
+| CLI `claude` | Só `wev specialists score` e `score_on_finish` | Inicia `claude -p` sem assistência e gasta tokens. Implementado mas não testado até o dono rodá-lo; confirme na primeira execução real que os hooks do wev disparam (veja [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md), "Execução não assistida da nota") |
 | `ssh` e `tmux` no host | O módulo remoto opcional | Ver o [guia de operações remotas](remote-ops.pt-BR.md) |
 | `ruff`, `mypy` (ou `uvx`) | Só o `make lint` | Opcional; ver [Rodando os testes e o lint](#rodando-os-testes-e-o-lint) |
 
@@ -211,7 +212,7 @@ O que você faz por conta própria, por harness:
 Limites que você deve conhecer antes de confiar nisso (detalhes em [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md#outros-harnesses)):
 
 - Nesses três harnesses um `ask` de política do guarda vira allow mais aviso (se o agente o vê não foi verificado), então os asks do guarda são lembretes. Estes rodam só com esse aviso: `git push`, `rm -rf build`, globs, palavras `$VAR`, prefixos de ambiente, `wev run start|finish`, `wev ... --config` e `wev jev ask|batch` (envia conteúdo de arquivo ao serviço JEV). Um deny pode ser contornado com variável ou glob (`D=.wev; rm -rf $D` foi permitido com aviso). Falhas internas são deny.
-- Comandos do operador humano (`approval grant|deny`, `approval request --reopen-denied`, `guard acknowledge`, `task reopen`, `specialists accept|retire`, `run adopt`) e `harness install|uninstall` são negados ali: rode-os no seu próprio terminal. As skills exportadas dizem isso no primeiro parágrafo.
+- Comandos do operador humano (`approval grant|deny`, `approval request --reopen-denied`, `guard acknowledge`, `task reopen`, `specialists accept|retire|score`, `run adopt`) e `harness install|uninstall` são negados ali: rode-os no seu próprio terminal. As skills exportadas dizem isso no primeiro parágrafo.
 - Se o hook não consegue rodar, o Gemini CLI avisa e a ação segue, o Codex relata um erro de hook e o OpenCode nega.
 - O OpenCode não recebe contexto de sessão: o resumo da run não é injetado ali.
 - No Codex, um plugin seu chamado `wev-skills` não é detectado e o `uninstall` o removeria.
@@ -303,6 +304,7 @@ Limites: `rea mode` e `rea build-image` geram um pedido de confirmação no Clau
 | `uvx ruff` e `uvx mypy` (o que o `make lint` usa sem as ferramentas instaladas) | Sim, na primeira vez, para baixar as ferramentas. Depois ficam em cache |
 | `pip install` | Sim, se você optar por ele |
 | O próprio Claude Code e os modelos que ele usa | Sim, fora deste projeto |
+| `wev specialists score` (execuções `claude -p` sem assistência) | Sim: a CLI `claude` chama o provedor do modelo |
 | O provedor de decisão JEV, se você habilitar | Sim: envia o objetivo da tarefa (classificação) ou o título, o objetivo e os critérios de aceitação de uma tarefa (seleção de ferramentas) a um terceiro (ver o [guia de configuração](configuration-and-providers.pt-BR.md)) |
 | `wev skills check`, `install`, `update` (e a verificação diária no início da sessão) | Sim: requisições a registro ou GitHub (5 s por operação de socket), downloads de tarball (120 s para o download inteiro), uma verificação de saúde (60 s); uma requisição a registro de `check`, `install` ou `update` para em 30 s de relógio, e a verificação diária para em 10 s no total |
 | O módulo remoto | SSH para os hosts que você configurou |

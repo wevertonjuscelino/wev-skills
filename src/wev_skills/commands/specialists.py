@@ -2,6 +2,9 @@
 
 ``accept`` and ``retire`` are the human operator's decisions on a proposed lesson: they need
 a terminal and a typed word (``commands._human``), and an agent never runs them.
+``score`` is person-only too, but by the hook (asked on Claude Code, denied on harnesses that
+cannot ask) and not by a typed word: it runs the ``claude`` CLI unattended. Its decisions are
+recorded as ``accepted_by`` ``score`` and need no person.
 """
 
 from __future__ import annotations

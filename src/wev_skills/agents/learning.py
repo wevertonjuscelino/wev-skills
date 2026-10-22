@@ -1,4 +1,7 @@
-"""Deterministic observations from engine records, never from an agent's prose."""
+"""Deterministic observations from engine records, never from an agent's prose.
+
+A lesson that score retired comes back here as ``proposed``; a person's decision is not undone.
+"""
 
 from __future__ import annotations
 

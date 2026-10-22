@@ -2,10 +2,11 @@
 
 A lesson is derived from the engine's own records of a run (``learning.derive``) and
 stored in the specialist's spec by an explicit learning command, as ``proposed``; it is shown
-only after the person at a terminal accepts it. It is text the agent reads:
-nothing in
-this module, in the factory or in the exporter lets a lesson change tools, permissions or
-any other field of the spec, and experience is not inherited through ``extends``.
+only after the person at a terminal accepts it, or after a score run accepts it
+(``accepted_by`` ``score``, see ``evaluation.scoring``); a person's decision is final against
+score. It is text the agent reads: nothing in this module, in the factory or in the exporter
+lets a lesson change tools, permissions or any other field of the spec, and experience is
+not inherited through ``extends``.
 
 The lesson's own text is built from structured fields and shown as one cleaned line. Text a
 person or an agent wrote (a criterion, a review summary, the optional note) is kept apart in

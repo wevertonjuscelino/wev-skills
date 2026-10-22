@@ -134,7 +134,7 @@ How `planning: auto` decides: economy plans anything above trivial; standard and
 | `score_timeout_seconds` | `900.0` (0.1 to 3600) | Time one scored run may take |
 | `score_on_finish` | `false` | Whether a run's finish also scores the specialists it used |
 
-The first four keys are explained in the [specialists guide](specialists.md). The `score_*` keys bound a scoring pass; a run pinned before they existed reads their defaults (`implemented and tested`; see `tests/unit/test_config_specialists.py`). The scoring loop that reads them is not part of this change (`documented only`).
+The first four keys are explained in the [specialists guide](specialists.md). The `score_*` keys bound a scoring pass; a run pinned before they existed reads their defaults (`implemented and tested`; see `tests/unit/test_config_specialists.py`). The scoring loop that reads them (`wev specialists score`, and `run finish` when `score_on_finish` is true) is implemented and tested with fake runners and agents; the real `claude -p` path is implemented but untested until the owner runs it. See "Scored cases" in the [evaluation guide](evaluation.md).
 
 ## Model tiers and routing
 

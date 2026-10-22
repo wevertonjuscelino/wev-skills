@@ -136,7 +136,7 @@ Como `planning: auto` decide: economy planeja tudo acima de trivial; standard e 
 | `score_timeout_seconds` | `900.0` (0,1 a 3600) | Tempo que uma execução pontuada pode levar |
 | `score_on_finish` | `false` | Se o fim de uma execução também pontua os especialistas que ela usou |
 
-As quatro primeiras chaves estão explicadas no [guia de especialistas](specialists.pt-BR.md). As chaves `score_*` limitam uma rodada de pontuação; uma execução fixada antes de elas existirem lê os padrões (implementado e testado; veja `tests/unit/test_config_specialists.py`). O laço de pontuação que as lê não faz parte desta mudança (somente documentado).
+As quatro primeiras chaves estão explicadas no [guia de especialistas](specialists.pt-BR.md). As chaves `score_*` limitam uma rodada de pontuação; uma execução fixada antes de elas existirem lê os padrões (implementado e testado; veja `tests/unit/test_config_specialists.py`). O laço de pontuação que as lê (`wev specialists score`, e `run finish` quando `score_on_finish` é true) está implementado e testado com executores e agentes falsos; o caminho real de `claude -p` está implementado mas não testado até o dono rodá-lo. Veja "Casos pontuados" no [guia de avaliação](evaluation.pt-BR.md).
 
 ## Níveis de modelo e roteamento
 
