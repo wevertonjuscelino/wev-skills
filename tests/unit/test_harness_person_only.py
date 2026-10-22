@@ -34,8 +34,22 @@ PERSON_ONLY = (
     "wev run start && wev approval grant a1",
     "wev --config x.json run adopt r1",
     "python3 -m wev_skills approval grant a1",
+    # lines the guard cannot tokenize: the marker comes from the raw words
+    "(wev approval grant a1)",
+    "{ wev approval grant a1; }",
+    "if true; then wev approval grant a1; fi",
+    "echo $(wev approval grant a1)",
+    "echo `wev approval grant a1`",
+    "wev approval grant a1 <<EOF\nx\nEOF",
+    "wev approval grant a1 <<< x",
+    "wev approval grant a1 " + "x " * 10_001,
 )
-POLICY_ASKS = ("git push", "wev run start --request x")
+POLICY_ASKS = (
+    "git push",
+    "wev run start --request x",
+    "echo $(date)",
+    "echo $(date) " + "x " * 3000,
+)
 DENIED = "this is a human-operator command; this harness cannot ask, so it was denied"
 
 

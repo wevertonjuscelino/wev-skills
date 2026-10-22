@@ -34,7 +34,7 @@
   "harness.error.opencode_conflict": "Recusando sobrescrever {path}: o wev não o criou. Mova ou renomeie o arquivo e tente de novo.",
   "harness.next.opencode_restart": "O OpenCode carrega plugins, skills e agentes ao iniciar: abra o opencode de novo.",
   "harness.next.opencode_check": "Confira as skills pela ferramenta skill do opencode e se plugins/wev-guard.js está no diretório de configuração do OpenCode. O plugin da guarda ainda não rodou dentro de um OpenCode real.",
-  "harness.skill_notice": "Neste harness o guarda do wev não consegue perguntar a uma pessoa: um comando sobre o qual ele perguntaria roda com um aviso, e comandos do operador humano são negados. Nunca rode `approval grant|deny`, `guard acknowledge`, `task reopen`, `specialists accept|retire` ou `run adopt`; pare e peça à pessoa que os rode no terminal dela.",
+  "harness.skill_notice": "Neste harness o guarda do wev não consegue perguntar a uma pessoa: um comando sobre o qual ele perguntaria roda com um aviso, e comandos do operador humano são negados. Nunca rode `approval grant|deny`, `approval request --reopen-denied`, `guard acknowledge`, `task reopen`, `specialists accept|retire`, `run adopt` ou `harness install|uninstall`; pare e peça à pessoa que os rode no terminal dela.",
   "harness.skipped.opencode_session_context": "contexto de sessão do opencode: o plugin liga apenas tool.execute.before, então o resumo da run que Claude Code, Codex e Gemini CLI recebem no início da sessão não é injetado no OpenCode",
   "harness.error.gemini_foreign": "Recusando instalar: o gemini já lista uma extensão chamada {name} que o wev não instalou (sem manifesto do wev), e um uninstall posterior a removeria. Desinstale-a ou renomeie-a e tente de novo."
 }

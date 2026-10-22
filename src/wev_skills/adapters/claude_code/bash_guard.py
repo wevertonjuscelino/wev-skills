@@ -42,6 +42,8 @@ ENVIRONMENT_COMMANDS = frozenset(
 )
 """Shell words that change variables or lookup for what runs after them, plus ``env``."""
 GIT_DIRECTORY_OPTION = "-C"
+RAW_SEPARATORS = ("$(", "<<<", "<<", "(", ")", "{", "}", ";", "`")
+"""Shell syntax dropped from a line the splitter refused, before its words are read."""
 OUTCOME_DECISIONS = {
     PermissionOutcome.ALLOW: NO_OPINION,
     PermissionOutcome.NEEDS_APPROVAL: ASK,
@@ -252,12 +254,24 @@ def _needs_shell(part: SimpleCommand, cwd: str | None) -> bool:
     return bool(part.redirects) or not engine
 
 
+def _raw_person_only(command: str, cwd: str) -> bool:
+    """A line the splitter refused still names an operator command in its plain words.
+    Words hidden behind a variable or built at runtime are not seen. Past ``MAX_WORDS`` the
+    scan would outlast the hook, so any mention of ``wev`` counts (fail closed)."""
+    for token in RAW_SEPARATORS:
+        command = command.replace(token, " ")
+    words = command.split()
+    if len(words) > MAX_WORDS:
+        return engine_cli.BARE_NAME in command
+    return bool(engine_cli.mentioned_codes(words, cwd) & engine_cli.PERSON_ONLY_REASONS)
+
+
 def decide_command(command: str, context: GuardContext) -> HookVerdict:
     """Judge a Bash command line; the most restrictive verdict over its parts wins."""
     parts = split_bounded(command)
     if parts is None:
         key = "too_large" if len(command) > MAX_COMMAND_CHARS else "untokenizable"
-        return _ask(key)
+        return replace(_ask(key), person_only=_raw_person_only(command, context.cwd))
     compound = len(parts) > 1 or any(part.redirects for part in parts)
     verdicts: list[HookVerdict] = []
     cwd: str | None = context.cwd

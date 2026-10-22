@@ -122,6 +122,8 @@ class LayoutTests(unittest.TestCase):
             "runs with a warning, and human-operator commands are denied."
         )
         self.assertTrue(SKILL_NOTICE.startswith(notice))
+        for command in ("approval request --reopen-denied", "harness install|uninstall"):
+            self.assertIn(command, SKILL_NOTICE)
         for target in ("codex", "gemini", "opencode"):
             out, _ = self._build(target)
             for name in sorted((out / "skills").glob("*/SKILL.md")):
