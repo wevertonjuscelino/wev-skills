@@ -13,7 +13,7 @@
   "harness.error.not_empty": "O diretório de exportação {path} não está vazio; use um diretório vazio ou novo.",
   "harness.skipped.gemini_hooks_shape": "gemini hooks/hooks.json: o wrapper {\"hooks\": ...} no topo é inferido da forma do settings.json (a única que a nota documenta), e se os hooks de extensão exigem confiança na pasta é desconhecido; nenhum suporte é afirmado até a execução ponta a ponta",
   "harness.skipped.opencode_guard": "guarda do opencode: plugins/wev-guard.js é um // wev-placeholder sem guarda; não instale até uma tarefa posterior entregá-lo",
-  "harness.install.help": "Instala o pacote wev em um harness (somente codex) e registra o que foi escrito em um manifesto.",
+  "harness.install.help": "Instala o pacote wev em um harness (codex, gemini) e registra o que foi escrito em um manifesto.",
   "harness.uninstall.help": "Desfaz o harness install: cancela o registro e remove apenas os arquivos listados no manifesto.",
   "harness.install.target": "Harness onde instalar (codex, gemini).",
   "harness.install.wev": "Caminho absoluto do launcher wev que os hooks e as skills chamam (padrão: bin/wev deste clone).",
@@ -30,5 +30,6 @@
   "harness.error.undo_previous": "Não foi possível desfazer a instalação anterior (falhou: {command}); ela foi mantida. Rode uninstall de novo quando o comando do harness voltar a funcionar.",
   "harness.error.copy_failed": "Não foi possível copiar {path} para o pacote ({error}); os arquivos copiados até aqui foram removidos.",
   "harness.next.gemini_restart": "O Gemini só carrega a extensão após reiniciar: abra o gemini de novo. O link continua apontando para este pacote, então não o mova.",
-  "harness.next.gemini_check": "Confira se a extensão está registrada com: gemini extensions list -o json"
+  "harness.next.gemini_check": "Confira se a extensão está registrada com: gemini extensions list -o json",
+  "harness.next.gemini_link": "Faça o link da extensão você mesmo, no seu terminal, para ver e responder o aviso de segurança (o wev não o aceita por você): {command}"
 }

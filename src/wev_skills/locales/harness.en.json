@@ -13,7 +13,7 @@
   "harness.error.not_empty": "The export directory {path} is not empty; use an empty or new directory.",
   "harness.skipped.gemini_hooks_shape": "gemini hooks/hooks.json: the top-level {\"hooks\": ...} wrapper is inferred from the settings.json form (the only form the note documents), and whether extension hooks need folder trust is unknown; no support is claimed until the end-to-end run",
   "harness.skipped.opencode_guard": "opencode guard: plugins/wev-guard.js is a // wev-placeholder with no guard; do not install until a later task ships it",
-  "harness.install.help": "Install the wev package into a harness (codex only) and record what was written in a manifest.",
+  "harness.install.help": "Install the wev package into a harness (codex, gemini) and record what was written in a manifest.",
   "harness.uninstall.help": "Undo harness install: unregister and remove only the files the manifest lists.",
   "harness.install.target": "Harness to install into (codex, gemini).",
   "harness.install.wev": "Absolute path of the wev launcher the hooks and skills call (default: this clone's bin/wev).",
@@ -30,5 +30,6 @@
   "harness.error.undo_previous": "Could not undo the previous install ({command} failed); it was left in place. Run uninstall again once the harness command works.",
   "harness.error.copy_failed": "Could not copy {path} into the package ({error}); the files copied so far were removed.",
   "harness.next.gemini_restart": "Gemini loads the extension only after a restart: start gemini again. The link keeps pointing at this package, so do not move it.",
-  "harness.next.gemini_check": "Check the extension is registered with: gemini extensions list -o json"
+  "harness.next.gemini_check": "Check the extension is registered with: gemini extensions list -o json",
+  "harness.next.gemini_link": "Link the extension yourself, in your terminal, so you see and answer its security warning (wev does not accept it for you): {command}"
 }

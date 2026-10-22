@@ -2,11 +2,12 @@
 
 Codex and Gemini CLI have an installer. The package is built under
 ``<data_home>/wev-skills/harness/<target>/package`` and registered with the harness CLI
-(Codex: ``plugin marketplace add`` then ``plugin add``; Gemini: ``extensions validate``,
-then ``extensions link``; docs/research/harness-{codex,gemini}.md section 1). The CLI runs
-through the injected ``Runner``, never a shell. The manifest next to the package lists every
-file written and every registration with its inverse, so ``uninstall`` removes those entries
-and nothing else. Hook trust is the person's step.
+(Codex: ``plugin marketplace add`` then ``plugin add``; Gemini: ``extensions validate``;
+the ``extensions link`` step is the person's, because it asks them to accept a security
+warning, so the manifest lists it only to name its inverse; docs/research/harness-*.md
+section 1). The CLI runs through the injected ``Runner``, never a shell. The manifest next
+to the package lists every file written and every registration with its
+inverse, so ``uninstall`` removes those entries and nothing else. Hook trust is the person's step.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ PLACEHOLDER_MARK = "// wev-placeholder"
 MARKETPLACE_FILE = ".agents/plugins/marketplace.json"
 CODEX = "codex"
 GEMINI = "gemini"
+PERSON_LINKS = (GEMINI,)  # targets whose registration the person runs in a terminal
 CLI_TIMEOUT_SECONDS = 60.0
 
 
@@ -70,7 +72,7 @@ def _confined(name: object, package: Path) -> bool:
     return Path(os.path.realpath(lexical)) == package.resolve() / relative
 
 
-def _read(root: Path) -> Manifest | None:
+def _read(root: Path, expected: str) -> Manifest | None:
     """The manifest, checked: it is data, so what it holds is compared, never obeyed."""
     path = root / "manifest.json"
     if not path.is_file():
@@ -83,7 +85,7 @@ def _read(root: Path) -> Manifest | None:
         stored = tuple(tuple(r) for r in regs)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise _invalid(path, type(exc).__name__) from exc
-    if target not in INSTALLABLE or not isinstance(files, list):
+    if target != expected or not isinstance(files, list):
         raise _invalid(path, "target or files")
     if stored != _registrations(target, package):
         raise _invalid(path, "registrations")
@@ -189,10 +191,18 @@ def _copy(source: Path, destination: Path) -> None:
         raise RemoteError("harness_copy_failed", message, {"path": str(destination)}) from exc
 
 
-def _build(target: str, root: Path, wev_path: Path, written: list[str]) -> None:
-    """Build in a staging directory, then copy into the package, so a file of the person
-    already in the package never blocks the build. ``written`` records each copied file as
-    it is copied, so a failure part-way can still be rolled back."""
+def _populate(
+    target: str,
+    runner: Runner,
+    root: Path,
+    wev_path: Path,
+    previous: Manifest | None,
+    written: list[str],
+) -> None:
+    """Build in a staging directory and check it, then undo the previous install and copy
+    into the package, so a file of the person already in the package never blocks the build
+    and a failed check leaves the previous install intact. ``written`` records each copied
+    file as it is copied, so a failure part-way can still be rolled back."""
     package = root / "package"
     ensure_private_dir(root)
     staging = Path(tempfile.mkdtemp(dir=root, prefix=".staging-"))
@@ -203,6 +213,9 @@ def _build(target: str, root: Path, wev_path: Path, written: list[str]) -> None:
             atomic_write_text(market, _marketplace_text())
             built = [*built, market]
         _check_placeholders(built)
+        _check_package(runner, target, staging)
+        if previous is not None:
+            _undo_previous(runner, previous, root)
         targets = [package / source.relative_to(staging) for source in built]
         for destination in targets:
             _refuse_symlinks(destination, package)
@@ -264,7 +277,9 @@ def _rollback_failures(
 
 
 def _undo_previous(runner: Runner, previous: Manifest, root: Path) -> None:
-    failed = _undo(runner, previous.registrations, strict=False)
+    # a person's link points at the package directory, which stays: reinstall keeps it
+    registrations = () if previous.target in PERSON_LINKS else previous.registrations
+    failed = _undo(runner, registrations, strict=False)
     if failed:  # keep the old manifest and files: the person can retry the uninstall
         message = i18n.t("harness.error.undo_previous", command=" ".join(failed[0]))
         raise RemoteError("harness_undo_failed", message, {"undo_failed": failed})
@@ -278,15 +293,13 @@ def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Man
     root = _root(data_home, target)
     base = data_home / PACKAGE_NAME
     created_base = None if base.exists() else base
-    previous = _read(root)
-    if previous is not None:
-        _undo_previous(runner, previous, root)
+    previous = _read(root, target)
     files: list[str] = []
     try:
-        _build(target, root, wev_path, files)
+        _populate(target, runner, root, wev_path, previous, files)
         registrations = _registrations(target, root / "package")
-        _check_package(runner, target, root / "package")
-        _register(runner, registrations)
+        performed = () if target in PERSON_LINKS else registrations
+        _register(runner, performed)
     except BaseException:
         _remove_files(tuple(files), root, created_base)
         raise
@@ -294,7 +307,7 @@ def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Man
     try:
         _write(root, manifest)
     except OSError as exc:
-        wrapped = _rollback_failures(runner, registrations, exc)
+        wrapped = _rollback_failures(runner, performed, exc)
         _remove_files(tuple(files), root, created_base)
         raise wrapped from exc
     except BaseException:
@@ -307,7 +320,7 @@ def uninstall(target: str, runner: Runner, data_home: Path) -> Manifest:
     """Undo the registrations and remove the files the manifest lists, and only those."""
     _check_target(target)
     root = _root(data_home, target)
-    manifest = _read(root)
+    manifest = _read(root, target)
     if manifest is None:
         message = i18n.t("harness.error.not_installed", target=target)
         raise NotFound("harness_not_installed", message)

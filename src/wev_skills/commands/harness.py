@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -29,12 +30,14 @@ def _data_home() -> Path:
     return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
 
 
-def _next_steps(target: str) -> list[str]:
-    keys = {
-        "codex": ["harness.next.codex_trust", "harness.next.codex_check"],
-        "gemini": ["harness.next.gemini_restart", "harness.next.gemini_check"],
-    }[target]
-    return [i18n.t(key) for key in keys]
+def _next_steps(target: str, link: tuple[str, ...]) -> list[str]:
+    if target == "gemini":  # the person runs the link: it shows a security warning to accept
+        return [
+            i18n.t("harness.next.gemini_link", command=shlex.join(link)),
+            i18n.t("harness.next.gemini_check"),
+            i18n.t("harness.next.gemini_restart"),
+        ]
+    return [i18n.t(key) for key in ("harness.next.codex_trust", "harness.next.codex_check")]
 
 
 def _install(args: argparse.Namespace) -> dict[str, Any]:
@@ -45,7 +48,7 @@ def _install(args: argparse.Namespace) -> dict[str, Any]:
         "target": manifest.target,
         "files": list(manifest.files),
         "registrations": [list(r) for r in manifest.registrations[0::2]],
-        "next_steps": _next_steps(args.target),
+        "next_steps": _next_steps(args.target, manifest.registrations[0]),
     }
 
 
