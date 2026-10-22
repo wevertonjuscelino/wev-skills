@@ -63,7 +63,7 @@ Um caso é um arquivo JSON em `evals/cases/<id>.json`, validado por um schema em
 - `check`: o argv que a engine roda depois que o especialista termina, no workspace do caso. Passar significa que o especialista não reproduziu a falha. No caso de 1 MiB, a checagem é um teste que entrega ao probe uma resposta gravada de 3,1 MB de `tools/list`.
 - `files`: os caminhos de que a checagem precisa e que não existiam no `base_commit` (o teste que reproduz e sua fixture), copiados para o workspace antes da checagem e nunca mostrados ao especialista.
 
-Os primeiros casos do wev-skills são os bugs em Python encontrados em 2026-10-22: o health probe que lia no máximo 1 MiB (`06fc92c`), a checagem de tarball que rejeitava um symlink `..` confinado (`06fc92c`) e o exec path que confiava em diretórios que não são do usuário (`e3d7b2b`). O bug do uninstall vive no `install.sh` e fica para um caso posterior.
+Os primeiros casos do wev-skills são três bugs encontrados em 2026-10-22 cujo teste de reprodução é um teste unitário offline: o health probe que lia no máximo 1 MiB (`06fc92c`), a checagem de tarball que rejeitava um symlink `..` confinado (`06fc92c`) e o exec path do `install.sh` que confiava em diretórios que não são do usuário (`e3d7b2b`, reproduzido via `tests/unit/test_install_sh.py`). O bug do uninstall fica para um caso posterior.
 
 `wev cases list` e `wev cases validate` leem e conferem o conjunto; `wev cases validate --at-base` também confirma, localmente, que cada `check` falha no seu `base_commit`. Adicionar um caso é escrever o arquivo e commitá-lo; o dono o vê no PR como qualquer outra mudança.
 
@@ -144,7 +144,7 @@ O aceite automático contradiz afirmações de que lições precisam de uma pess
 - O histórico das notas fica local em `.wev/`.
 - Um recurso do produto para todo projeto, com o wev-skills como primeiro usuário; casos na raiz do projeto, opcionalmente marcados por especialista.
 - No caso, o especialista constrói o código a partir de antes de ele existir, para poder repetir a falha ou evitá-la.
-- Os primeiros casos são os três bugs em Python de 2026-10-22; o bug do uninstall no `install.sh` fica para depois.
+- Os primeiros casos são os três bugs de 2026-10-22 que têm teste unitário offline; o bug do uninstall fica para depois.
 - Uma lição que a nota aposentou pode ser pontuada de novo; só a aposentadoria feita por uma pessoa é definitiva.
 - O teste unitário só confere que cada caso passa na árvore atual; falhar na base é uma checagem local.
 - Lições são geradas só a partir de casos que falharam durante uma pontuação, não de toda checagem que falhou em runs comuns, porque um caso tem um estado conhecido que passa para pontuar contra.

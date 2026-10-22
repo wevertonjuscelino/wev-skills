@@ -63,7 +63,7 @@ A case is one JSON file under `evals/cases/<id>.json`, validated by a schema in 
 - `check`: the argv the engine runs after the specialist finishes, in the case's workspace. Passing means the specialist did not reproduce the failure. For the 1 MiB case, the check is a test that feeds a recorded 3.1 MB `tools/list` answer to the health probe.
 - `files`: the paths the check needs that did not exist at `base_commit` (the reproducing test and its fixture), copied into the workspace before the check runs and never shown to the specialist.
 
-The first cases in wev-skills are the Python bugs found on 2026-10-22: the health probe that read at most 1 MiB (`06fc92c`), the tarball check that rejected a confined `..` symlink (`06fc92c`) and the exec path that trusted directories the user does not own (`e3d7b2b`). The uninstall bug lives in `install.sh` and waits for a later case.
+The first cases in wev-skills are three bugs found on 2026-10-22 whose reproducing test is an offline unit test: the health probe that read at most 1 MiB (`06fc92c`), the tarball check that rejected a confined `..` symlink (`06fc92c`) and the exec path in `install.sh` that trusted directories the user does not own (`e3d7b2b`, reproduced through `tests/unit/test_install_sh.py`). The uninstall bug waits for a later case.
 
 `wev cases list` and `wev cases validate` read and check the set; `wev cases validate --at-base` also confirms, locally, that each `check` fails at its `base_commit`. Adding a case is writing the file and committing it; the owner sees it in the PR like any other change.
 
@@ -144,7 +144,7 @@ Auto-accept contradicts statements that lessons need a person. Each must be upda
 - Score history stays local in `.wev/`.
 - A product feature for every project, with wev-skills as the first user; cases at the project root, optionally tagged by specialist.
 - In a case the specialist builds the code from before it existed, so it can repeat the failure or avoid it.
-- The first cases are the three Python bugs of 2026-10-22; the `install.sh` uninstall bug waits.
+- The first cases are the three bugs of 2026-10-22 that have an offline unit test; the uninstall bug waits.
 - A lesson the score retired can be scored again; only a person's retirement is final.
 - The unit test checks only that each case passes on the current tree; failing at the base is a local check.
 - Lessons are generated only from failed cases during a score run, not from every failed check of ordinary runs, because a case has a known passing state to score against.
