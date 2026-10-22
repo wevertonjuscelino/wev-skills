@@ -123,7 +123,14 @@ class ReaConfigProtectionTests(RegistryCase):
 
     def test_the_rea_config_is_protected(self) -> None:
         path = rea_config.rea_config_path()
-        for line in (f'echo \'{{"mode": "direct"}}\' > {path}', f"rm {path}"):
+        lines = (
+            f'echo \'{{"mode": "direct"}}\' > {path}',
+            f"rm {path}",
+            f"cp /tmp/forged.json {path}",
+            f"mv {path.parent} {path.parent}.old",
+            f"ln -s /tmp/forged {path.parent}",
+        )
+        for line in lines:
             with self.subTest(line=line):
                 self.assertEqual(self.without_run(line), DENY)
 
