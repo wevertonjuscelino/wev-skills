@@ -253,4 +253,5 @@ class NoRunTests(HookCase):
         words = " ".join(f"d/{index}" for index in range(1900))
         started = time.monotonic()
         self.assertIsNone(self.bash(f"nohup ls {words}"))
-        self.assertLess(time.monotonic() - started, 5.0)
+        # Guards against quadratic matching (that takes minutes), not against a slow CI runner.
+        self.assertLess(time.monotonic() - started, 15.0)
