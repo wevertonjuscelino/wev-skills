@@ -112,5 +112,9 @@
   "evaluation.cases.path_escape": "o caminho {path!r} sai da pasta do caso",
   "evaluation.cases.file_missing": "o arquivo listado {path!r} não está na pasta do caso",
   "evaluation.cases.uncommitted": "O conjunto de casos em evals/cases tem alterações não commitadas ou não rastreadas; faça o commit antes.",
-  "evaluation.cases.status_failed": "Não foi possível conferir o conjunto de casos com o git (não é um repositório, git ausente, tempo esgotado ou erro); o pin não é confiável."
+  "evaluation.cases.status_failed": "Não foi possível conferir o conjunto de casos com o git (não é um repositório, git ausente, tempo esgotado ou erro); o pin não é confiável.",
+  "evaluation.workspace.base_missing": "Caso {id}: o commit base {commit} não existe neste repositório.",
+  "evaluation.workspace.add_failed": "Caso {id}: não foi possível criar o workspace: {error}",
+  "evaluation.cases.at_base": "Executa também cada verificação no commit base; todas devem falhar ali.",
+  "evaluation.cases.passes_at_base": "Estes casos passam no commit base, então não provam nada: {ids}"
 }

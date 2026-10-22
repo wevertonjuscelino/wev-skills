@@ -112,5 +112,9 @@
   "evaluation.cases.path_escape": "the path {path!r} leaves the case folder",
   "evaluation.cases.file_missing": "the listed file {path!r} is missing from the case folder",
   "evaluation.cases.uncommitted": "The case set under evals/cases has uncommitted or untracked changes; commit them first.",
-  "evaluation.cases.status_failed": "Could not check the case set with git (not a repository, git missing, timeout or error); the pin cannot be trusted."
+  "evaluation.cases.status_failed": "Could not check the case set with git (not a repository, git missing, timeout or error); the pin cannot be trusted.",
+  "evaluation.workspace.base_missing": "Case {id}: the base commit {commit} does not exist in this repository.",
+  "evaluation.workspace.add_failed": "Case {id}: could not create the workspace: {error}",
+  "evaluation.cases.at_base": "Also run each check at its base commit; every check must fail there.",
+  "evaluation.cases.passes_at_base": "These cases pass at their base commit, so they prove nothing: {ids}"
 }
