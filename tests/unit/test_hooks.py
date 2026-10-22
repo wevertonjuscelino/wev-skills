@@ -414,6 +414,8 @@ class PreToolUseTests(HookCase):
             f"{WEV} skills check",
             f"{WEV} skills decline rea",
             f"{WEV} skills list",
+            f"{WEV} rea serve",
+            f"{WEV} rea status",
         ):
             with self.subTest(command=command):
                 self.assertIsNone(self.bash(command))
