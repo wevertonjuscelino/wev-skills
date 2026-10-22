@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from wev_skills import i18n
@@ -20,7 +23,21 @@ AT_BASE_TIMEOUT_SECONDS = 600.0
 def _check_at_base(scope: Any, loaded: tuple[cases.Case, ...]) -> list[dict[str, Any]]:
     runner = SubprocessRunner()
     policy = wiring.build_grantless_policy(scope.config, scope.root)
-    scratch = scope.state_dir / "scoring"
+    scratch = Path(tempfile.mkdtemp(prefix="wev-scoring-"))
+    try:
+        results = _run_all(runner, policy, scope, loaded, scratch)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    return _verdict(results)
+
+
+def _run_all(
+    runner: SubprocessRunner,
+    policy: Any,
+    scope: Any,
+    loaded: tuple[cases.Case, ...],
+    scratch: Path,
+) -> list[dict[str, Any]]:
     results = []
     for case in loaded:
         with workspace.case_workspace(runner, scope.root, case, scratch) as path:
@@ -35,6 +52,10 @@ def _check_at_base(scope: Any, loaded: tuple[cases.Case, ...]) -> list[dict[str,
                 "broken": workspace.not_started(result),
             }
         )
+    return results
+
+
+def _verdict(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for key, code, text in (
         ("broken", "case_check_broken", "evaluation.cases.check_broken"),
         ("fails_at_base", "case_passes_at_base", "evaluation.cases.passes_at_base"),

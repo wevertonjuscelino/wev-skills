@@ -65,9 +65,7 @@ def run_check(
     timeout: float,
 ) -> RawCommandResult:
     """Gate the check, copy the case's stored files into ``workspace`` and run it there."""
-    # cwd is the root, not the workspace: the workspace sits under the protected state
-    # directory, where the policy would call every relative token (even "python3") protected.
-    policy.enforce_command(case.check, str(root), Mode.EXECUTE, RiskLevel.LOW, consume=False)
+    policy.enforce_command(case.check, str(workspace), Mode.EXECUTE, RiskLevel.LOW, consume=False)
     store = root / CASES_DIR / case.id
     for name in case.files:
         target = _refuse_symlinks(workspace, name, case)

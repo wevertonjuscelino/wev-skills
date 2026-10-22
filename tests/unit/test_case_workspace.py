@@ -5,14 +5,16 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
+from wev_skills.commands import cases as cases_command
 from wev_skills.config import Config
 from wev_skills.core import wiring
 from wev_skills.core.contracts import RawCommandResult
 from wev_skills.core.errors import NotFound, PermissionDenied, ValidationError
 from wev_skills.core.ports import SubprocessRunner
-from wev_skills.evaluation.cases import CASES_DIR, Case
+from wev_skills.evaluation.cases import CASES_DIR, Case, load_cases
 from wev_skills.evaluation.workspace import case_workspace, not_started, passed, run_check
 
 
@@ -147,6 +149,55 @@ class CaseWorkspaceTest(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 run_check(self.runner, self.allow, case, self.root, path, 5)
         self.assertEqual(list(outside.iterdir()), [])
+
+    def _at_base_scratch(self, check: list[str]) -> tuple[Path, bool]:
+        """Run _check_at_base in-process; return the scratch dir used and whether it raised."""
+        data = {
+            "id": "c1",
+            "title": "t",
+            "source": "e2e",
+            "ref": "r",
+            "agents": [],
+            "base_commit": self.base,
+            "objective": "o",
+            "files": [],
+            "check": check,
+        }
+        folder = self.root / "evals" / "cases"
+        folder.mkdir(parents=True)
+        (folder / "c1.json").write_text(json.dumps(data))
+        made: list[Path] = []
+        real = tempfile.mkdtemp
+
+        def spy(*a: object, **k: object) -> str:
+            made.append(Path(real(*a, **k)))
+            return str(made[-1])
+
+        scope = SimpleNamespace(config=Config(), root=self.root)
+        raised = False
+        with mock.patch.object(tempfile, "mkdtemp", spy):
+            try:
+                cases_command._check_at_base(scope, load_cases(self.root))
+            except ValidationError:
+                raised = True
+        return made[0], raised
+
+    def test_at_base_scratch_is_removed_on_success(self) -> None:
+        scratch, raised = self._at_base_scratch(["python3", "-m", "unittest", "no_such_mod_xyz"])
+        self.assertFalse(raised)
+        self.assertFalse(scratch.exists())
+        self.assertTrue(scratch.name.startswith("wev-scoring-"))
+
+    def test_at_base_scratch_is_removed_on_failure(self) -> None:
+        scratch, raised = self._at_base_scratch(["true"])
+        self.assertTrue(raised)
+        self.assertFalse(scratch.exists())
+
+    def test_unittest_check_passes_the_grantless_policy_in_the_workspace(self) -> None:
+        case = make_case(self.base, ("python3", "-m", "unittest", "no_such_mod_xyz"))
+        with case_workspace(self.runner, self.root, case, self.scratch) as path:
+            result = run_check(self.runner, self.policy, case, self.root, path, 60)
+        self.assertEqual(result.exit_code, 1)
 
     def test_dotdot_destination_is_refused(self) -> None:
         case = make_case(self.base, ("true",), ("../evil.txt",))
