@@ -46,6 +46,9 @@ class PersonOnlyTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    def harness_hook(self, harness: str, command: str) -> tuple[int, str, str]:
+        return self.run_hook(self.shell(harness, command), "--harness", harness)
+
     def run_hook(self, payload: dict[str, Any], *argv: str) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()
         with (
@@ -66,11 +69,12 @@ class PersonOnlyTests(unittest.TestCase):
         for harness in H3:
             for command in PERSON_ONLY:
                 with self.subTest(harness=harness, command=command):
-                    code, out, err = self.run_hook(self.shell(harness, command), "--harness", harness)
+                    code, out, err = self.harness_hook(harness, command)
                     data = json.loads(out)
                     if harness == "codex":
                         data = data["hookSpecificOutput"]
-                        decision, reason = data["permissionDecision"], data["permissionDecisionReason"]
+                        decision = data["permissionDecision"]
+                        reason = data["permissionDecisionReason"]
                     else:
                         decision, reason = data["decision"], data["reason"]
                     self.assertEqual((code, decision, err), (0, "deny", ""))
@@ -80,7 +84,7 @@ class PersonOnlyTests(unittest.TestCase):
         for harness in H3:
             for command in POLICY_ASKS:
                 with self.subTest(harness=harness, command=command):
-                    code, out, err = self.run_hook(self.shell(harness, command), "--harness", harness)
+                    code, out, err = self.harness_hook(harness, command)
                     self.assertEqual(code, 0)
                     self.assertNotIn('"deny"', out)
                     self.assertIn("this harness cannot ask, so it was allowed", out + err)

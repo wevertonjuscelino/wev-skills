@@ -1,5 +1,5 @@
 {
-  "harness.help": "Build packages of the skills and agents for other harnesses (Codex, Gemini CLI, OpenCode).",
+  "harness.help": "Build, install and uninstall packages of the skills, agents and guard hooks for other harnesses (Codex, Gemini CLI, OpenCode).",
   "harness.export.help": "Write the package files of one harness into a directory (nothing is installed).",
   "harness.export.target": "Harness to build the package for.",
   "harness.export.out": "Directory to write the package into.",
@@ -33,5 +33,7 @@
   "harness.next.gemini_link": "Link the extension yourself, in your terminal, so you see and answer its security warning (wev does not accept it for you): {command}",
   "harness.error.opencode_conflict": "Refusing to overwrite {path}: wev did not create it. Move or rename it, then retry.",
   "harness.next.opencode_restart": "OpenCode loads plugins, skills and agents at startup: start opencode again.",
-  "harness.next.opencode_check": "Check the skills with the opencode skill tool, and that plugins/wev-guard.js is in your OpenCode config directory. The guard plugin has not been run inside a real OpenCode yet."
+  "harness.next.opencode_check": "Check the skills with the opencode skill tool, and that plugins/wev-guard.js is in your OpenCode config directory. The guard plugin has not been run inside a real OpenCode yet.",
+  "harness.skill_notice": "On this harness the wev guard cannot ask a person: a command it would ask about runs with a warning, and human-operator commands are denied. Never run `approval grant|deny`, `guard acknowledge`, `task reopen`, `specialists accept|retire` or `run adopt`; stop and ask the person to run them in their terminal.",
+  "harness.skipped.opencode_session_context": "opencode session context: the plugin wires only tool.execute.before, so the run brief that Claude Code, Codex and Gemini CLI get at session start is not injected on OpenCode"
 }

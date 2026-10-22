@@ -2,12 +2,20 @@ import contextlib
 import io
 import json
 import shlex
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from wev_skills import cli
-from wev_skills.adapters.harness_package import build_package, render_skill_text, skipped_notes
+from wev_skills.adapters import harness_package
+from wev_skills.adapters.harness_package import (
+    SKILL_NOTICE,
+    build_package,
+    render_skill_text,
+    skipped_notes,
+)
 from wev_skills.core.errors import StateConflict, ValidationError
 from wev_skills.core.wiring import REPO_ROOT
 
@@ -95,15 +103,51 @@ class LayoutTests(unittest.TestCase):
         self.assertIn("mode: subagent", agent.split("---")[1])
         self.assertIn("spawnSync", (out / "plugins/wev-guard.js").read_text())
 
-    def test_hook_commands_use_absolute_wev(self) -> None:
-        for target, path in (("codex", "hooks.json"), ("gemini", "hooks/hooks.json")):
-            out, _ = self._build(target, SPACED)
-            commands = _hook_commands(out / path)
-            self.assertEqual(len(commands), 2)
-            for command in commands:
-                argv = shlex.split(command)
-                self.assertEqual(argv[0], str(SPACED))
-                self.assertEqual(argv[-2:], ["--harness", target])
+    def test_hook_commands_use_the_export_interpreter_and_absolute_wev(self) -> None:
+        for python in (sys.executable, "/opt/my py's/python3"):
+            for target, path in (("codex", "hooks.json"), ("gemini", "hooks/hooks.json")):
+                with self.subTest(python=python, target=target):
+                    with mock.patch.object(sys, "executable", python):
+                        out, _ = self._build(target, SPACED)
+                    commands = _hook_commands(out / path)
+                    self.assertEqual(len(commands), 2)
+                    for command in commands:
+                        argv = shlex.split(command)
+                        self.assertEqual(argv[:2], [python, str(SPACED)])
+                        self.assertEqual(argv[-2:], ["--harness", target])
+
+    def test_exported_skills_start_with_the_harness_notice(self) -> None:
+        notice = (
+            "On this harness the wev guard cannot ask a person: a command it would ask about "
+            "runs with a warning, and human-operator commands are denied."
+        )
+        self.assertTrue(SKILL_NOTICE.startswith(notice))
+        for target in ("codex", "gemini", "opencode"):
+            out, _ = self._build(target)
+            for name in sorted((out / "skills").glob("*/SKILL.md")):
+                with self.subTest(target=target, skill=name.parent.name):
+                    text = name.read_text(encoding="utf-8")
+                    end = text.index("\n---\n", 3) + len("\n---\n")
+                    self.assertEqual(text.count(SKILL_NOTICE), 1)
+                    self.assertTrue(text[end:].startswith(f"\n{SKILL_NOTICE}\n"))
+            reference = next((out / "skills").glob("*/references/*"))
+            self.assertNotIn(SKILL_NOTICE, reference.read_text(encoding="utf-8"))
+        for source in (REPO_ROOT / "skills").glob("*/SKILL.md"):
+            self.assertNotIn(SKILL_NOTICE, source.read_text(encoding="utf-8"))
+
+    def test_dotfiles_and_caches_in_skills_are_not_exported(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "skills" / "wev-x"
+            (skill / "__pycache__").mkdir(parents=True)
+            (skill / "SKILL.md").write_text("---\nname: wev-x\n---\n\n# X\n")
+            (skill / ".DS_Store").write_bytes(b"\x00\x87\xff")
+            (skill / "__pycache__" / "m.pyc").write_bytes(b"\xff")
+            written: list[Path] = []
+            with mock.patch.object(harness_package, "REPO_ROOT", root):
+                harness_package._write_skills(root / "out", WEV, written)
+            self.assertEqual([p.relative_to(root / "out").as_posix() for p in written],
+                             ["skills/wev-x/SKILL.md"])  # fmt: skip
 
     def test_export_is_deterministic(self) -> None:
         for target in ("codex", "gemini", "opencode"):
@@ -114,6 +158,7 @@ class LayoutTests(unittest.TestCase):
     def test_skipped_notes_state_the_limits(self) -> None:
         self.assertFalse(any("placeholder" in n for n in skipped_notes("opencode")))
         self.assertTrue(any("inferred" in n for n in skipped_notes("gemini")))
+        self.assertTrue(any("not injected on OpenCode" in n for n in skipped_notes("opencode")))
 
     def test_non_empty_out_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

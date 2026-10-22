@@ -1,4 +1,5 @@
-"""``wev harness export``: build the package files of one harness into a directory."""
+"""``wev harness export|install|uninstall``: build the package files of one harness into a
+directory, install them into the harness (recorded in a manifest), or undo that install."""
 
 from __future__ import annotations
 
@@ -56,6 +57,7 @@ def _install_opencode(args: argparse.Namespace) -> dict[str, Any]:
         "files": list(manifest.files),
         "registrations": [],
         "next_steps": _next_steps("opencode", ()),
+        "skipped": skipped_notes("opencode"),
     }
 
 

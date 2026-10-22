@@ -2,7 +2,10 @@
 
 Layouts and field names come from docs/research/harness-{codex,gemini,opencode}.md. A detail
 the notes mark unknown is left out and reported by ``skipped_notes``. The hook commands call
-``<wev> hook ... --harness X`` with ``wev`` the absolute launcher path, shell-quoted.
+``<python> <wev> hook ... --harness X``, both shell-quoted: ``python`` is the interpreter that
+ran the export (``bin/wev`` under an older ``python3`` exits 0, which these harnesses read as
+allow) and ``wev`` the absolute launcher path. Every exported ``SKILL.md`` starts, after its
+frontmatter, with ``SKILL_NOTICE``: these harnesses have no permission prompt.
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import sys
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -29,6 +33,8 @@ _PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}"
 _QUOTED_WEV = re.compile(r'"\$\{CLAUDE_PLUGIN_ROOT\}/bin/wev"|\$\{CLAUDE_PLUGIN_ROOT\}/bin/wev')
 HOOK_TIMEOUT_SECONDS = 10
 _SHELL_MATCHER = {"codex": "Bash", "gemini": "run_shell_command"}
+SKILL_NOTICE = i18n.t("harness.skill_notice", "en")  # the skills are written in English
+_FENCE = "\n---\n"
 _EVENTS = {
     "codex": ("SessionStart", "PreToolUse"),
     "gemini": ("SessionStart", "BeforeTool"),
@@ -36,7 +42,10 @@ _EVENTS = {
 
 
 def render_skill_text(text: str, wev_path: Path) -> str:
-    """``text`` with the Claude Code plugin root replaced by this clone's absolute paths."""
+    """``text`` with the Claude Code plugin root replaced by this clone's absolute paths.
+
+    The root is taken as two levels above ``wev_path``: a ``--wev`` that is not
+    ``<clone>/bin/wev`` leaves the paths of ``examples/`` in the prose wrong."""
     quoted = shlex.quote(str(wev_path))
     text = _QUOTED_WEV.sub(lambda _: quoted, text)
     return text.replace(_PLACEHOLDER, shlex.quote(str(wev_path.parent.parent)))
@@ -52,7 +61,8 @@ def _json(data: dict[str, Any]) -> str:
 
 
 def _hook_command(wev_path: Path, hook: str, harness: str) -> str:
-    return f"{shlex.quote(str(wev_path))} hook {hook} --harness {harness}"
+    program = f"{shlex.quote(sys.executable)} {shlex.quote(str(wev_path))}"
+    return f"{program} hook {hook} --harness {harness}"
 
 
 def _hook_entry(command: str, harness: str) -> dict[str, Any]:
@@ -95,10 +105,23 @@ def _write(out: Path, relative: str, text: str, written: list[Path]) -> None:
     written.append(path)
 
 
+def _shipped(path: Path, skills: Path) -> bool:
+    """A file of the skills tree, not a dotfile (``.DS_Store``) or a ``__pycache__`` entry."""
+    parts = path.relative_to(skills).parts
+    return path.is_file() and not any(p.startswith(".") or p == "__pycache__" for p in parts)
+
+
+def _with_notice(text: str) -> str:
+    """``text`` with ``SKILL_NOTICE`` as the first paragraph after the frontmatter."""
+    cut = text.index(_FENCE, len(_FENCE) - 1) + len(_FENCE)
+    return f"{text[:cut]}\n{SKILL_NOTICE}\n{text[cut:]}"
+
+
 def _write_skills(out: Path, wev_path: Path, written: list[Path]) -> None:
     skills = REPO_ROOT / "skills"
-    for source in sorted(p for p in skills.rglob("*") if p.is_file()):
+    for source in sorted(p for p in skills.rglob("*") if _shipped(p, skills)):
         text = render_skill_text(source.read_text(encoding="utf-8"), wev_path)
+        text = _with_notice(text) if source.name == "SKILL.md" else text
         _write(out, f"skills/{source.relative_to(skills).as_posix()}", text, written)
 
 
@@ -168,6 +191,6 @@ def skipped_notes(target: str) -> list[str]:
     keys = {
         "codex": ["codex_agents", "codex_trust"],
         "gemini": ["agent_tools", "gemini_context", "gemini_hooks_shape"],
-        "opencode": ["agent_tools"],
+        "opencode": ["agent_tools", "opencode_session_context"],
     }.get(target, [])
     return [i18n.t(f"harness.skipped.{key}", target=target) for key in keys]

@@ -2,9 +2,11 @@ import json
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from wev_skills.adapters.opencode_plugin import render_plugin
 
@@ -36,6 +38,13 @@ class PluginTextTests(unittest.TestCase):
         self.assertNotIn("wev-placeholder", text)
         self.assertIn('"--harness", "opencode"', text)
 
+    def test_plugin_runs_wev_with_the_install_interpreter(self) -> None:
+        python = "/opt/my py/python3"
+        with mock.patch.object(sys, "executable", python):
+            text = render_plugin(Path("/w/bin/wev"))
+        self.assertIn(f"const PYTHON = {json.dumps(python)};", text)
+        self.assertIn('spawnSync(PYTHON, [WEV, "hook", "pre-tool-use"', text)
+
 
 @unittest.skipUnless(HAS_NODE, "node is not on PATH")
 class PluginNodeTests(unittest.TestCase):
@@ -53,7 +62,8 @@ class PluginNodeTests(unittest.TestCase):
 
     def run_plugin(self, wev: Path, tool: str = "bash") -> dict[str, object]:
         plugin = self.tmp / "guard.mjs"
-        plugin.write_text(render_plugin(wev))
+        with mock.patch.object(sys, "executable", "/bin/sh"):  # the fake wev is a sh script
+            plugin.write_text(render_plugin(wev))
         done = subprocess.run(
             ["node", str(self.tmp / "driver.mjs"), str(plugin), str(self.tmp), tool],
             capture_output=True, text=True, check=True, timeout=30,

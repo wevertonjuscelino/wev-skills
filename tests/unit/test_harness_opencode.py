@@ -190,6 +190,7 @@ class CommandTests(OpenCodeBase):
         self.assertEqual(code, 0, payload)
         self.assertIn("plugins/wev-guard.js", self.tree())
         self.assertIn("opencode", json.dumps(payload["next_steps"]))
+        self.assertTrue(any("run brief" in note for note in payload["skipped"]))
         code, _ = self.run_cli("uninstall", "--target", "opencode")
         self.assertEqual(code, 0)
         self.assertEqual(self.tree(), set())
