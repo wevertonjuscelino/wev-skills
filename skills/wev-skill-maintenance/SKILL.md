@@ -48,11 +48,14 @@ The session context may name available updates of the third-party sources (`rea`
 2. On yes, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills update X`. The version becomes active
    only after its health check passes. Report the `health` text of the result as it is,
    in the person's language (for Portuguese, put `--lang pt-BR` before the command).
+   Updating `wev-skills` does not switch the running plugin: the installer does.
+   If the result has an `activation` with `ok: false`, give its message as it is.
 3. On no, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills decline X`, and do not ask again for
    that version.
 4. If the update fails, say that the previous version stays active and give the reason from
    the result. To go back after a successful update, the person asks for
-   `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills rollback X`.
+   `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills rollback X`, which also declines the version
+   it leaves.
 5. A frozen source is left alone: do not offer, update or mention it. The person freezes it
    with `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills freeze X` and thaws it with `--off`.
 6. `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills show X` prints the state of one source, and
