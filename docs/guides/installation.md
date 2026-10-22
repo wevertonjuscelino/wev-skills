@@ -6,6 +6,64 @@ wev-skills was first published on 2026-10-13 (v1.0.0, announced then as 0.1.0 an
 
 Status labels used here follow the project convention: implemented and tested, implemented but untested, simulated with mocks, documented only, blocked. See the [glossary](../glossary.md).
 
+## Quick install
+
+`install.sh` at the repository root asks a few questions and then calls the `wev` CLI for everything that has rules. From a clone:
+
+```sh
+git clone https://github.com/wevertonjuscelino/wev-skills.git
+cd wev-skills
+bash install.sh
+```
+
+To keep using that clone as the installed copy (a developer route; the install is then "from a local source, not self-updating"):
+
+```sh
+bash install.sh --source "$WEV_HOME"
+```
+
+The one-line form, **after the owner publishes it (documented only)**:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh | bash
+```
+
+Under `curl | bash` stdin is the script itself, so every question is read from the terminal (`/dev/tty`). Without a terminal and without `--yes` the script stops and names the flags. Read the script before you pipe it into a shell; it is one file of fewer than 400 lines.
+
+**What it asks, in order:** the language (`en` or `pt-BR`, default from `LANG`); the licence (PolyForm Noncommercial 1.0.0, noncommercial use only) and whether to install under it; which of the harnesses it found (`claude`, `codex`, `gemini`, `opencode`) to install into; whether to use JEV and, if yes, the API key (typed hidden); whether to build the rea container image now.
+
+**What it does, in order:** system checks (macOS or Linux; `git` and `curl` unless `--source`; Python 3.14 or newer; Node and npm for rea) → licence → language → harness detection → bootstrap (the latest release tag from the GitHub releases API, a shallow clone of that tag in a temporary directory, then `wev skills update wev-skills`, which installs the release under `$XDG_DATA_HOME/wev-skills/third-party/` and points `current` at it; the temporary clone is deleted on exit) → JEV → third parties (`wev skills update rea`, `update agent-skills`, `activate`) → rea mode and image → harnesses → a summary.
+
+| Flag | Effect |
+|---|---|
+| `--yes` | Answer yes to every question. Never installs system packages: when Python or Node is missing it stops and names the command |
+| `--lang en\|pt-BR` | Message language (default: from `LANG`); passed to every `wev` call |
+| `--harness LIST` | Comma list of `claude,codex,gemini,opencode` (default: the ones found, each confirmed) |
+| `--jev` / `--no-jev` | Use JEV (asks for the key) or not (default: ask; `--yes` alone means no) |
+| `--rea-mode isolated\|direct` | How rea runs (default: `isolated` when `docker` is found, else `direct`) |
+| `--source DIR` | Use `DIR/bin/wev` instead of downloading the latest release |
+| `--uninstall` | Remove what the installer put in place (below) |
+| `--purge` | With `--uninstall`: also remove the configuration directory |
+| `--help` | Print the flags |
+
+**What it writes, and where:** the data directory `$XDG_DATA_HOME/wev-skills` (else `~/.local/share/wev-skills`: third-party versions, harness manifests); the configuration directory `$XDG_CONFIG_HOME/wev-skills` (else `~/.config/wev-skills`) with the key file `.env` (mode 0600, written by `wev jev key set`) and the user configuration `wev.config.json` (mode 0600; it sets `language`, and `decision.provider` `jev` only when the JEV probe succeeded); `rea.json` through `wev rea mode`; and, through the CLI, the harness directories (`wev harness install --target codex|gemini|opencode`; for Claude Code, `claude plugin marketplace add` of the `current` directory and `claude plugin install wev-skills@wev-skills-marketplace`). Nothing else.
+
+**The JEV key.** `wev jev key set` reads the key from stdin (one line; it refuses a terminal on stdin), writes it to the key file and prints the path, `key_source` and `usable`, never the key. The installer reads the key with a hidden prompt on the terminal and pipes it to that command, so it is in no argument, no environment variable and no log. If an environment variable `TYPESAFE_API_KEY` is set, it shadows the file and the answer carries `shadowed_by_env`. `wev jev key set` is a person-only command: the Claude Code hook asks about it and the other harnesses deny it. You can run it yourself from a terminal: `wev jev key set < keyfile` or `pbpaste | wev jev key set`. After the key, the installer runs `wev jev ask` once as a probe; on failure it shows the error, offers one retry and otherwise continues with JEV off.
+
+**What continues and what stops.** A failed `wev skills update rea|agent-skills|activate` or a failed harness registration is shown, marked `failed` in the summary and the script goes on; the summary then ends with "Finished with N failures" and the script exits 1. Only a run with zero failures exits 0. A failed bootstrap, `jev key set`, `rea mode`, `config validate` or a missing mandatory tool stops the script with that call's output. Declining the licence installs nothing.
+
+**Re-run.** Run it again with other answers to reconfigure: `skills update` is a no-op at the newest version, `harness install` replaces wev's own files, `jev key set` replaces only the `TYPESAFE_API_KEY` line, `rea mode` rewrites one file, and the user configuration keeps its other keys. `--no-jev` on a later run turns JEV off (the `decision.provider` line is removed).
+
+**Uninstall.** `bash install.sh --uninstall` runs `wev harness uninstall --target ...` for each manifest present, `claude plugin uninstall wev-skills` and `claude plugin marketplace remove wev-skills-marketplace` when `claude` exists, `wev skills deactivate`, then removes the data directory. It asks before removing the configuration directory (the key file and the user configuration); with `--yes` it keeps that directory unless `--purge` is also given. It prints what it removed and what it kept. If any `harness uninstall`, `claude plugin uninstall`, `marketplace remove` or `skills deactivate` fails, the data directory is kept (so the manifests remain for a retry) and the script exits 1; it also keeps the data directory and exits 1 when Python 3.14 or `current/bin/wev` is missing.
+
+**Working directory and Python.** The script changes into its own temporary directory before any `wev` call, so a `wev.config.json` in the directory you ran it from has no effect; the user-level configuration applies. Every `python3 -c` it runs uses `-I`. wev is run as `<python3.14> <bin/wev>`, but the harness hooks use `#!/usr/bin/env python3`: when the `python3` first on `PATH` is older than 3.14 the summary says the hooks need a 3.14 first on `PATH` (a limit; the installer does not fix it).
+
+**The JEV probe** runs with `TYPESAFE_API_KEY` unset, so it validates the key you typed. If that variable is exported in your shell, the summary says the exported value will win over the stored key.
+
+**What it never does.** It never pipes a remote script into a shell to install a dependency. It never installs a system package under `--yes`; without `--yes` it shows one known command (`uv python install 3.14`, `brew install python`, `brew install node`, `sudo apt-get install -y ...`, `sudo dnf install -y ...`) and runs it only after you say yes. It does not trust Codex hooks, run `gemini extensions link` or `codex mcp add` for you: those are printed as next steps in the summary.
+
+Status: **implemented and tested** with fake harness CLIs and a local source (unit tests, offline: `tests/unit/test_install_sh.py`, `tests/unit/test_jev_key_set.py`, `tests/unit/test_config_user_tier.py`). **Not run in this change (e2e part):** the download route (releases API, `git clone` of the tag), a real `claude plugin install`, real Codex, Gemini CLI and OpenCode, a real JEV probe, and the interactive dependency-install path. Also unverified until then: whether a real `claude plugin marketplace add` accepts a re-run, and whether it records the `current` link or its resolved target. The `curl | bash` line is documented only. `shellcheck` is not a dependency. See [SECURITY.md](../../SECURITY.md#installer).
+
 ## Requirements
 
 | Requirement | Needed for | Notes |

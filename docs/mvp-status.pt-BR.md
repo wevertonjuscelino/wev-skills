@@ -37,6 +37,8 @@ As atualizações de skills de terceiros (`wev skills ...`, o hook da verificaç
 
 A integração com o rea (`wev rea serve|status|mode|build-image`, a imagem de contêiner `wev-rea`, o registro no Claude Code, Gemini CLI e OpenCode) foi acrescentada depois. Situação: implementado e testado com executáveis `npx` e `docker` falsos (testes unitários); o servidor rea real, o build real do contêiner e os carregadores reais dos harnesses não são executados nesta alteração (parte e2e). A skill `wev-reverse` está apenas documentada. Ela não acrescenta linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa).
 
+O instalador (`install.sh`), o nível de configuração do usuário (`~/.config/wev-skills/wev.config.json` lido abaixo do arquivo do repositório) e o `wev jev key set` foram acrescentados depois. Situação: implementado e testado com CLIs de harness falsas e uma fonte local (testes unitários, offline). A rota de download (API de releases e `git clone` da tag), um `claude plugin install` real, Codex, Gemini CLI e OpenCode reais, um teste real do JEV e o caminho interativo de instalação de dependências não são executados nesta mudança (parte e2e); a linha `curl | bash` é apenas documentada até o dono publicar o script. Veja o [guia de instalação](guides/installation.pt-BR.md#instalação-rápida) e o [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#instalador).
+
 ## Resumo
 
 | # | Critério | Situação |
