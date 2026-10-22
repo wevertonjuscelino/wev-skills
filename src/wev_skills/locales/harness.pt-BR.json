@@ -40,5 +40,8 @@
   "harness.error.opencode_mcp_foreign": "Recusando instalar: {path} já tem uma entrada mcp.{name} que o wev não escreveu, e o wev não sobrescreve uma entrada que não escreveu. Renomeie ou remova a entrada e tente de novo.",
   "harness.error.opencode_config_symlink": "Recusando alterar {path}: é um link simbólico, e reescrevê-lo trocaria o link por um arquivo comum. Aponte o wev para o arquivo real ou remova o link e tente de novo.",
   "harness.error.opencode_config_invalid": "Recusando alterar {path}: não é um objeto JSON simples (opencode.jsonc e comentários não são tratados). Corrija o arquivo e tente de novo.",
-  "harness.error.gemini_foreign": "Recusando instalar: o gemini já lista uma extensão chamada {name} que o wev não instalou (sem manifesto do wev), e um uninstall posterior a removeria. Desinstale-a ou renomeie-a e tente de novo."
+  "harness.error.gemini_foreign": "Recusando instalar: o gemini já lista uma extensão chamada {name} que o wev não instalou (sem manifesto do wev), e um uninstall posterior a removeria. Desinstale-a ou renomeie-a e tente de novo.",
+  "agent_runner.timed_out": "A execução do agente expirou.",
+  "agent_runner.bad_output": "O agente não imprimiu um resultado JSON (código de saída {code}).",
+  "agent_runner.plugin_missing": "O arquivo do plugin {path} não existe; nenhum agente sem supervisão foi iniciado."
 }

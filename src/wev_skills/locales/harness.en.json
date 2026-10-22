@@ -40,5 +40,8 @@
   "harness.error.opencode_mcp_foreign": "Refusing to install: {path} already has an mcp.{name} entry that wev did not write, and wev does not overwrite an entry it did not write. Rename or remove the entry, then retry.",
   "harness.error.opencode_config_symlink": "Refusing to change {path}: it is a symbolic link, and rewriting it would replace the link with a regular file. Point wev at the real file or remove the link, then retry.",
   "harness.error.opencode_config_invalid": "Refusing to change {path}: it is not a plain JSON object (opencode.jsonc and comments are not handled). Fix the file, then retry.",
-  "harness.error.gemini_foreign": "Refusing to install: gemini already lists an extension named {name} that wev did not install (no wev manifest), and a later uninstall would remove it. Uninstall or rename it, then retry."
+  "harness.error.gemini_foreign": "Refusing to install: gemini already lists an extension named {name} that wev did not install (no wev manifest), and a later uninstall would remove it. Uninstall or rename it, then retry.",
+  "agent_runner.timed_out": "The agent run timed out.",
+  "agent_runner.bad_output": "The agent printed no JSON result (exit code {code}).",
+  "agent_runner.plugin_missing": "The plugin file {path} is missing; no unattended agent was started."
 }

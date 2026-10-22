@@ -5,14 +5,19 @@ from __future__ import annotations
 import subprocess
 import time
 from collections.abc import Mapping, Sequence
-from typing import Protocol, runtime_checkable
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from wev_skills.core.contracts import (
+    AgentRunResult,
     Mode,
     PermissionDecision,
     RawCommandResult,
     RiskLevel,
 )
+
+if TYPE_CHECKING:
+    from wev_skills.agents.spec import AgentSpec
 
 
 class Runner(Protocol):
@@ -23,6 +28,14 @@ class Runner(Protocol):
         timeout: float | None,
         env: Mapping[str, str] | None,
     ) -> RawCommandResult: ...
+
+
+class AgentRunner(Protocol):
+    def run_agent(
+        self, workspace: Path, spec: AgentSpec, objective: str, timeout: float
+    ) -> AgentRunResult: ...
+
+    def ask(self, prompt: str, timeout: float) -> AgentRunResult: ...
 
 
 class CommandGate(Protocol):
