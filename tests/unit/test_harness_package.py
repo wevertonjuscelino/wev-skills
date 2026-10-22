@@ -93,7 +93,7 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(_files(out), {"plugins/wev-guard.js"} | self._skills() | agents)
         agent = (out / "agents/architect.md").read_text()
         self.assertIn("mode: subagent", agent.split("---")[1])
-        self.assertTrue((out / "plugins/wev-guard.js").read_text().startswith("// wev-placeholder"))
+        self.assertIn("spawnSync", (out / "plugins/wev-guard.js").read_text())
 
     def test_hook_commands_use_absolute_wev(self) -> None:
         for target, path in (("codex", "hooks.json"), ("gemini", "hooks/hooks.json")):
@@ -112,7 +112,7 @@ class LayoutTests(unittest.TestCase):
             self.assertEqual(_tree(first), _tree(second))
 
     def test_skipped_notes_state_the_limits(self) -> None:
-        self.assertTrue(any("wev-placeholder" in n for n in skipped_notes("opencode")))
+        self.assertFalse(any("placeholder" in n for n in skipped_notes("opencode")))
         self.assertTrue(any("inferred" in n for n in skipped_notes("gemini")))
 
     def test_non_empty_out_is_refused(self) -> None:

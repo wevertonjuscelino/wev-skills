@@ -12,12 +12,11 @@
   "harness.skipped.gemini_context": "gemini contextFileName: no context file is shipped, so it is left out",
   "harness.error.not_empty": "The export directory {path} is not empty; use an empty or new directory.",
   "harness.skipped.gemini_hooks_shape": "gemini hooks/hooks.json: the top-level {\"hooks\": ...} wrapper is inferred from the settings.json form (the only form the note documents), and whether extension hooks need folder trust is unknown; no support is claimed until the end-to-end run",
-  "harness.skipped.opencode_guard": "opencode guard: plugins/wev-guard.js is a // wev-placeholder with no guard; do not install until a later task ships it",
-  "harness.install.help": "Install the wev package into a harness (codex, gemini) and record what was written in a manifest.",
+  "harness.install.help": "Install the wev package into a harness (codex, gemini, opencode) and record what was written in a manifest.",
   "harness.uninstall.help": "Undo harness install: unregister and remove only the files the manifest lists.",
-  "harness.install.target": "Harness to install into (codex, gemini).",
+  "harness.install.target": "Harness to install into (codex, gemini, opencode).",
   "harness.install.wev": "Absolute path of the wev launcher the hooks and skills call (default: this clone's bin/wev).",
-  "harness.uninstall.target": "Harness to uninstall from (codex, gemini).",
+  "harness.uninstall.target": "Harness to uninstall from (codex, gemini, opencode).",
   "harness.error.not_installable": "Cannot install into {target}: only codex and gemini have an installer.",
   "harness.error.cli_failed": "The harness command failed: {command} ({detail})",
   "harness.error.placeholder": "Refusing to install {path}: it is a placeholder (first line // wev-placeholder), not a shipped feature.",
@@ -31,5 +30,8 @@
   "harness.error.copy_failed": "Could not copy {path} into the package ({error}); the files copied so far were removed.",
   "harness.next.gemini_restart": "Gemini loads the extension only after a restart: start gemini again. The link keeps pointing at this package, so do not move it.",
   "harness.next.gemini_check": "Check the extension is registered with: gemini extensions list -o json",
-  "harness.next.gemini_link": "Link the extension yourself, in your terminal, so you see and answer its security warning (wev does not accept it for you): {command}"
+  "harness.next.gemini_link": "Link the extension yourself, in your terminal, so you see and answer its security warning (wev does not accept it for you): {command}",
+  "harness.error.opencode_conflict": "Refusing to overwrite {path}: wev did not create it. Move or rename it, then retry.",
+  "harness.next.opencode_restart": "OpenCode loads plugins, skills and agents at startup: start opencode again.",
+  "harness.next.opencode_check": "Check the skills with the opencode skill tool, and that plugins/wev-guard.js is in your OpenCode config directory. The guard plugin has not been run inside a real OpenCode yet."
 }

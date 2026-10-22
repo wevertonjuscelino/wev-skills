@@ -380,10 +380,10 @@ class CliTests(InstallBase):
         self.assertEqual(code, 0)
         self.assertEqual(self.files(), set())
 
-    def test_only_codex_and_gemini_install(self) -> None:
+    def test_an_unknown_target_does_not_install(self) -> None:
         env = mock.patch.dict(os.environ, {"XDG_DATA_HOME": str(self.data)})
         with contextlib.redirect_stderr(io.StringIO()), env:
-            code = cli.main(["harness", "install", "--target", "opencode"])
+            code = cli.main(["harness", "install", "--target", "emacs"])
         self.assertEqual(code, 2)
         self.assertEqual(self.calls(), [])
 

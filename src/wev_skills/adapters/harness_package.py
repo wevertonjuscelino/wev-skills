@@ -168,6 +168,6 @@ def skipped_notes(target: str) -> list[str]:
     keys = {
         "codex": ["codex_agents", "codex_trust"],
         "gemini": ["agent_tools", "gemini_context", "gemini_hooks_shape"],
-        "opencode": ["agent_tools", "opencode_guard"],
+        "opencode": ["agent_tools"],
     }.get(target, [])
     return [i18n.t(f"harness.skipped.{key}", target=target) for key in keys]
