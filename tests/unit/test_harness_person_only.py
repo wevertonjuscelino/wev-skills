@@ -21,7 +21,6 @@ from unittest import mock
 from tests.unit.test_harness_hooks import FakeStdin, fixture
 from wev_skills import cli
 from wev_skills.adapters.claude_code import hooks
-from wev_skills.core.wiring import REPO_ROOT
 
 H3 = ("codex", "gemini", "opencode")
 KEY = {"codex": "tool_input", "gemini": "tool_input", "opencode": "args"}
@@ -35,7 +34,9 @@ PERSON_ONLY = (
     "wev run start && wev approval grant a1",
     "wev --config x.json run adopt r1",
     "python3 -m wev_skills approval grant a1",
-    # lines the guard cannot tokenize: the marker comes from the raw words
+)
+UNREADABLE = (
+    # lines the guard cannot tokenize: denied whatever they name (fail safe)
     "(wev approval grant a1)",
     "{ wev approval grant a1; }",
     "if true; then wev approval grant a1; fi",
@@ -44,22 +45,17 @@ PERSON_ONLY = (
     "wev approval grant a1 <<EOF\nx\nEOF",
     "wev approval grant a1 <<< x",
     "wev approval grant a1 " + "x " * 10_001,
-    # quoted or escaped engine words in a line the guard cannot tokenize
     '("wev" approval grant a1)',
-    "('wev' approval grant a1)",
     "(w\\ev approval grant a1)",
-    '("wev" approval grant a1 ' + "y" * 20_001 + ")",
-    # past the word cap any unreadable line is denied, whatever it names
-    "(./x approval grant a1 " + "y " * 2100 + ")",
-    "(echo hi " + "y " * 2100 + ")",
+    "(echo hi)",
+    "echo $(date)",
 )
 POLICY_ASKS = (
     "git push",
     "wev run start --request x",
-    "echo $(date)",
-    "(echo hi)",
 )
 DENIED = "this is a human-operator command; this harness cannot ask, so it was denied"
+UNJUDGED = "the guard could not judge this command safely"
 
 
 class PersonOnlyTests(unittest.TestCase):
@@ -73,7 +69,6 @@ class PersonOnlyTests(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, {"HOME": tmp.name, **env})
         patcher.start()
         self.addCleanup(patcher.stop)
-        (self.work / "x").symlink_to(REPO_ROOT / "bin" / "wev")  # a launcher under another name
 
     def harness_hook(self, harness: str, command: str) -> tuple[int, str, str]:
         return self.run_hook(self.shell(harness, command), "--harness", harness)
@@ -94,9 +89,9 @@ class PersonOnlyTests(unittest.TestCase):
         payload[KEY[harness]] = {"command": command}
         return payload
 
-    def test_operator_and_harness_commands_are_denied(self) -> None:
+    def assert_denied(self, commands: tuple[str, ...], expected: str) -> None:
         for harness in H3:
-            for command in PERSON_ONLY:
+            for command in commands:
                 with self.subTest(harness=harness, command=command):
                     code, out, err = self.harness_hook(harness, command)
                     data = json.loads(out)
@@ -107,7 +102,13 @@ class PersonOnlyTests(unittest.TestCase):
                     else:
                         decision, reason = data["decision"], data["reason"]
                     self.assertEqual((code, decision, err), (0, "deny", ""))
-                    self.assertIn(DENIED, reason)
+                    self.assertIn(expected, reason)
+
+    def test_operator_and_harness_commands_are_denied(self) -> None:
+        self.assert_denied(PERSON_ONLY, DENIED)
+
+    def test_lines_the_guard_cannot_tokenize_are_denied(self) -> None:
+        self.assert_denied(UNREADABLE, UNJUDGED)
 
     def test_policy_asks_stay_allow_with_warning(self) -> None:
         for harness in H3:
@@ -119,7 +120,7 @@ class PersonOnlyTests(unittest.TestCase):
                     self.assertIn("this harness cannot ask, so it was allowed", out + err)
 
     def test_claude_still_asks_with_the_same_answer(self) -> None:
-        for command in PERSON_ONLY:
+        for command in PERSON_ONLY + UNREADABLE:
             with self.subTest(command=command):
                 payload = {"cwd": str(self.work), "tool_name": "Bash",
                            "tool_input": {"command": command}}  # fmt: skip

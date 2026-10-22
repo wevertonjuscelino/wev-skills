@@ -18,8 +18,9 @@ Mapping of the guard's answer:
   OpenCode: ``{"decision": "allow", "reason": <warning>}``.
 - ``ask`` marked ``person_only`` (a human-operator command, ``harness install|uninstall``):
   deny, same formats as ``deny``, reason ``hooks.reason.person_only_denied``.
-- ``ask`` marked ``fail_safe`` (the guard could not judge: unreadable input, internal error,
-  untrusted registry, unknown target, an answer the codec cannot parse): deny, same formats
+- ``ask`` marked ``fail_safe`` (the guard could not judge: unreadable input, a line it cannot
+  tokenize, internal error, untrusted registry, unknown target, an answer the codec cannot
+  parse): deny, same formats
   as ``deny`` with the reason ``hooks.reason.fail_safe_denied``.
 - no opinion: empty stdout, exit 0.
 
