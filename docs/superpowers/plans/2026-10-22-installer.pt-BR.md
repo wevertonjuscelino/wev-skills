@@ -29,7 +29,7 @@ Versão em inglês: [2026-10-22-installer.md](2026-10-22-installer.md).
 
 ## Foco da Revisão
 
-1. Segredos: a chave nunca chega ao argv, ao ambiente, a um arquivo temporário, a um log nem ao resumo; o arquivo da chave é 0600 em um diretório 0700; um `jev key set` interrompido não deixa arquivo parcial (grava em um arquivo temporário no mesmo diretório, `chmod`, depois `rename`). Testado na Tarefa 2 e na Tarefa 4.
+1. Segredos: a chave nunca chega ao argv, ao ambiente, a um log nem ao resumo (a gravação passa por um arquivo temporário 0600 no mesmo diretório, renomeado para o lugar); o arquivo da chave é 0600 em um diretório 0700; um `jev key set` interrompido não deixa arquivo parcial (grava em um arquivo temporário no mesmo diretório, `chmod`, depois `rename`). Testado na Tarefa 2 e na Tarefa 4.
 2. Segurança do `curl | bash`: todos os prompts leem `/dev/tty`; sem tty o script recusa, a menos que haja `--yes`; `set -e` mais `trap` remove o clone temporário em todo caminho de saída; uma chamada `wev` que falha para o script mostrando o erro JSON dessa chamada, nunca um sucesso silencioso com instalação pela metade. Testado na Tarefa 4.
 3. Cadeia de confiança: o script roda código somente do clone da tag fixada e de `current`; `--source` é a única forma de rodar código de outro lugar e o resumo diz isso; sem `eval`, sem `sh -c "$var"`. Testado na Tarefa 4 (verificações no nível do grep no script mais verificações de comportamento).
 4. A camada de configuração de nível de usuário não pode afrouxar as regras de um repositório: o arquivo do repositório sobrepõe o do usuário, `--config` sobrepõe os dois, `trust_errors` vale para o resultado combinado, uma execução fixa o resultado combinado e `config show` nomeia as duas fontes. Testado na Tarefa 1.

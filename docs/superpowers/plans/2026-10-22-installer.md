@@ -29,7 +29,7 @@ Portuguese version: [2026-10-22-installer.pt-BR.md](2026-10-22-installer.pt-BR.m
 
 ## Review Focus
 
-1. Secrets: the key never reaches argv, the environment, a temp file, a log or the summary; the key file is 0600 in a 0700 directory; an interrupted `jev key set` leaves no partial file (write to a temp file in the same directory, `chmod`, then `rename`). Tested in Task 2 and Task 4.
+1. Secrets: the key never reaches argv, the environment, a log or the summary (the write goes through a 0600 temp file in the same directory, renamed into place); the key file is 0600 in a 0700 directory; an interrupted `jev key set` leaves no partial file (write to a temp file in the same directory, `chmod`, then `rename`). Tested in Task 2 and Task 4.
 2. `curl | bash` safety: all prompts read `/dev/tty`; without a tty the script refuses unless `--yes`; `set -e` plus `trap` removes the temp clone on every exit path; a failed `wev` call stops the script with that call's JSON error shown, never a half-installed silent success. Tested in Task 4.
 3. Trust chain: the script runs code only from the pinned tag clone and from `current`; `--source` is the only way to run code from elsewhere and the summary says so; no `eval`, no `sh -c "$var"`. Tested in Task 4 (grep-level checks on the script plus behaviour checks).
 4. The user-level configuration tier cannot lower a repository's rules: the repository file overrides the user file, `--config` overrides both, `trust_errors` applies to the merged result, a run pins the merged result and `config show` names both sources. Tested in Task 1.
