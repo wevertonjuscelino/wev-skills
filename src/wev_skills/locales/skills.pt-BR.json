@@ -12,5 +12,13 @@
   "skills.install.help": "Baixa uma versão de uma fonte e a instala ao lado das outras, sem torná-la ativa.",
   "skills.install.version": "A versão a instalar (padrão: a mais nova).",
   "skills.error.bad_version": "Versão inválida: {version}.",
-  "skills.error.install_failed": "Não foi possível instalar {name} ({code}); nada foi deixado para trás."
+  "skills.error.install_failed": "Não foi possível instalar {name} ({code}); nada foi deixado para trás.",
+  "skills.health.ok": "Verificação de saúde aprovada.",
+  "skills.health.spawn_failed": "A verificação não conseguiu executar o programa (saída {exit}).",
+  "skills.health.timeout": "A verificação não terminou a tempo.",
+  "skills.health.bad_jsonrpc": "O servidor respondeu algo que não é MCP válido.",
+  "skills.health.no_tools": "O servidor iniciou, mas não lista nenhuma ferramenta.",
+  "skills.health.no_skills": "Nenhum arquivo de skill foi encontrado nesta versão.",
+  "skills.health.bad_skill": "A skill no diretório {dir} é inválida (nome ou descrição).",
+  "skills.health.version_mismatch": "O programa instalado informa outra versão ({got})."
 }

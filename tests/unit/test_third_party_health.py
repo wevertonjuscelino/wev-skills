@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
 
+from wev_skills import i18n
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.third_party import health as health_mod
 from wev_skills.third_party import sources
@@ -21,7 +23,7 @@ WEV = sources.source("wev-skills")
 
 
 def mcp(mode: str, npx: str = FAKE_NPX) -> health_mod.HealthReport:
-    with mock.patch.dict(os.environ, {"FAKE_MCP_MODE": mode}):
+    with mock.patch.dict(os.environ, {"NODE_FAKE_MCP_MODE": mode}):
         return health(REA, "1.0.0", Path("/nonexistent"), RUNNER, npx=npx)
 
 
@@ -47,8 +49,41 @@ class McpTests(unittest.TestCase):
     def test_garbage_fails(self) -> None:
         self.assertEqual(mcp("garbage").code, "bad_jsonrpc")
 
-    def test_exit_non_zero_fails(self) -> None:
-        self.assertEqual(mcp("exit-non-zero").code, "bad_jsonrpc")
+    def test_exit_non_zero_reports_the_exit_code(self) -> None:
+        report = mcp("exit-non-zero")
+        self.assertEqual((report.code, dict(report.params)), ("spawn_failed", {"exit": 3}))
+
+    def test_notification_flood_times_out(self) -> None:
+        started = time.monotonic()
+        with mock.patch.object(health_mod, "HEALTH_TIMEOUT", 2.0):
+            report = mcp("flood")
+        self.assertEqual(report.code, "timeout")
+        self.assertLess(time.monotonic() - started, 6)
+
+    def test_deeply_nested_json_is_bad_jsonrpc(self) -> None:
+        self.assertEqual(mcp("nested").code, "bad_jsonrpc")
+
+    def test_grandchild_holding_stdout_does_not_hang_and_dies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pidfile = Path(tmp) / "pid"
+            started = time.monotonic()
+            with (
+                mock.patch.object(health_mod, "HEALTH_TIMEOUT", 5.0),
+                mock.patch.dict(os.environ, {"NODE_FAKE_MCP_PIDFILE": str(pidfile)}),
+            ):
+                report = mcp("grandchild")
+            self.assertTrue(report.ok, report)
+            self.assertLess(time.monotonic() - started, 5)
+            pid = int(pidfile.read_text())
+            time.sleep(0.3)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid, 0)
+
+    def test_child_gets_a_minimal_environment(self) -> None:
+        env = health_mod.child_env(
+            {"PATH": "/bin", "AWS_SECRET_ACCESS_KEY": "x", "NODE_OPTIONS": "o"}
+        )
+        self.assertEqual(env, {"PATH": "/bin", "NODE_OPTIONS": "o"})
 
     def test_missing_npx_fails(self) -> None:
         self.assertEqual(mcp("ok", npx="/nonexistent/npx").code, "spawn_failed")
@@ -75,12 +110,19 @@ class SkillsTests(unittest.TestCase):
     def test_skill_name_mismatch_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             write_skill(Path(tmp), "a", "name: b\ndescription: x")
-            self.assertEqual(self.check(Path(tmp)).code, "bad_skill:a")
+            self.assertEqual(self.check(Path(tmp)).code, "bad_skill")
 
     def test_empty_description_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             write_skill(Path(tmp), "a", "name: a\ndescription:")
-            self.assertEqual(self.check(Path(tmp)).code, "bad_skill:a")
+            self.assertEqual(self.check(Path(tmp)).code, "bad_skill")
+
+    def test_bad_skill_dir_is_sanitized(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            write_skill(Path(tmp), "a b\x1b[31m" + "z" * 100, "name: x\ndescription: x")
+            report = self.check(Path(tmp))
+            dirname = str(report.params["dir"])
+            self.assertRegex(dirname, r"^[A-Za-z0-9._-]{1,64}$")
 
     def test_symlinked_skill_outside_version_dir_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -91,7 +133,7 @@ class SkillsTests(unittest.TestCase):
             link = root / "agent-skills" / "v1" / "skills" / "a"
             link.parent.mkdir(parents=True)
             link.symlink_to(outside)
-            self.assertEqual(self.check(root).code, "bad_skill:a")
+            self.assertEqual(self.check(root).code, "bad_skill")
 
 
 class WevTests(unittest.TestCase):
@@ -106,10 +148,49 @@ class WevTests(unittest.TestCase):
             report = health(WEV, "v5.0.0", Path(tmp), RUNNER)
             self.assertEqual(report.code, "version_mismatch")
 
+    def test_deeply_nested_version_output_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "wev-skills" / "v5.0.0" / "bin" / "wev"
+            script.parent.mkdir(parents=True)
+            script.write_text("print('[' * 500000)\n")
+            report = health(WEV, "v5.0.0", Path(tmp), RUNNER)
+            self.assertEqual(report.code, "version_mismatch")
+
+    def test_mismatch_does_not_echo_child_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            write_wev(Path(tmp), "SECRETVALUE")
+            report = health(WEV, "v5.0.0", Path(tmp), RUNNER)
+            self.assertNotIn("SECRETVALUE", repr(report))
+
     def test_missing_binary_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "wev-skills" / "v5.0.0").mkdir(parents=True)
             self.assertEqual(health(WEV, "v5.0.0", Path(tmp), RUNNER).code, "spawn_failed")
+
+
+class RenderTests(unittest.TestCase):
+    CODES = (
+        "ok",
+        "spawn_failed",
+        "timeout",
+        "bad_jsonrpc",
+        "no_tools",
+        "no_skills",
+        "bad_skill",
+        "version_mismatch",
+    )
+
+    def test_every_code_has_a_key_in_both_languages(self) -> None:
+        for lang in ("en", "pt-BR"):
+            for code in self.CODES:
+                with self.subTest(lang=lang, code=code):
+                    key = f"skills.health.{code}"
+                    self.assertNotEqual(i18n.t(key, lang), key)
+
+    def test_render_fills_params(self) -> None:
+        report = health_mod.HealthReport(False, "bad_skill", {"dir": "abc"})
+        self.assertIn("abc", health_mod.render(report, "en"))
+        self.assertIn("abc", health_mod.render(report, "pt-BR"))
 
 
 if __name__ == "__main__":

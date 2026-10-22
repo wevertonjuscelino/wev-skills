@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
+import re
+import signal
 import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any
 
-from wev_skills import __version__
+from wev_skills import __version__, i18n
 from wev_skills.core.ports import Runner
 from wev_skills.third_party.fetch import mcp_argv
 from wev_skills.third_party.sources import Source
@@ -27,11 +31,26 @@ PROTOCOL = "2025-06-18"
 class HealthReport:
     ok: bool
     code: str
-    detail: str
+    params: Mapping[str, str | int] = field(default_factory=dict)
 
 
-def _fail(code: str, detail: str = "") -> HealthReport:
-    return HealthReport(False, code, detail)
+def render(report: HealthReport, lang: str | None = None) -> str:
+    return i18n.t(f"skills.health.{report.code}", lang, **report.params)
+
+
+def _fail(code: str, **params: str | int) -> HealthReport:
+    return HealthReport(False, code, params)
+
+
+_ENV_KEEP = re.compile(r"(PATH|HOME|LANG|LC_.*|XDG_.*|npm_config_.*|NODE_.*)")
+
+
+def child_env(source: Mapping[str, str] | None = None) -> dict[str, str]:
+    return {
+        k: v
+        for k, v in (os.environ if source is None else source).items()
+        if _ENV_KEEP.fullmatch(k)
+    }
 
 
 def _reader(stream: IO[str], lines: queue.Queue[str | None]) -> None:
@@ -55,6 +74,8 @@ class _Timeout(Exception):
 
 def _read_reply(lines: queue.Queue[str | None], request_id: int, deadline: float) -> Any:
     while True:
+        if time.monotonic() >= deadline:
+            raise _Timeout
         try:
             line = lines.get(timeout=max(deadline - time.monotonic(), 0.001))
         except queue.Empty:
@@ -63,7 +84,7 @@ def _read_reply(lines: queue.Queue[str | None], request_id: int, deadline: float
             raise _BadJsonRpc
         try:
             message = json.loads(line)
-        except ValueError:
+        except ValueError, RecursionError:
             raise _BadJsonRpc from None
         if not isinstance(message, dict):
             raise _BadJsonRpc
@@ -94,10 +115,9 @@ class _NoTools(Exception):
     pass
 
 
-def _converse(proc: subprocess.Popen[str], deadline: float) -> list[str]:
-    assert proc.stdout is not None  # noqa: S101 - opened with PIPE
-    lines: queue.Queue[str | None] = queue.Queue()
-    threading.Thread(target=_reader, args=(proc.stdout, lines), daemon=True).start()
+def _converse(
+    proc: subprocess.Popen[str], lines: queue.Queue[str | None], deadline: float
+) -> list[str]:
     info = {"name": "wev-skills", "version": __version__}
     _send(
         proc,
@@ -124,24 +144,46 @@ def _health_mcp(version: str, npx: str) -> HealthReport:
             stderr=subprocess.DEVNULL,
             text=True,
             shell=False,
+            env=child_env(),
+            start_new_session=True,  # own process group, so the whole tree can be killed
         )
-    except OSError as exc:
-        return _fail("spawn_failed", type(exc).__name__)
+    except OSError:
+        return _fail("spawn_failed")
+    assert proc.stdout is not None  # noqa: S101 - opened with PIPE
+    lines: queue.Queue[str | None] = queue.Queue()
+    reader = threading.Thread(target=_reader, args=(proc.stdout, lines), daemon=True)
+    reader.start()
     try:
-        names = _converse(proc, deadline)
+        names = _converse(proc, lines, deadline)
     except _Timeout:
         return _fail("timeout")
     except _NoTools:
         return _fail("no_tools")
     except _BadJsonRpc, OSError:
-        return _fail("bad_jsonrpc")
+        return _exit_or_bad_json(proc)
     finally:
+        _kill_group(proc, reader)
+    return HealthReport(True, "ok", {"tools": len(names)})
+
+
+def _exit_or_bad_json(proc: subprocess.Popen[str]) -> HealthReport:
+    try:
+        code = proc.wait(timeout=0.5)
+    except subprocess.TimeoutExpired:
+        return _fail("bad_jsonrpc")
+    return _fail("spawn_failed", exit=code) if code else _fail("bad_jsonrpc")
+
+
+def _kill_group(proc: subprocess.Popen[str], reader: threading.Thread) -> None:
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError, PermissionError:
         proc.kill()
-        proc.wait()
-        for pipe in (proc.stdin, proc.stdout):
-            if pipe:
-                pipe.close()
-    return HealthReport(True, "ok", f"{len(names)} tools")
+    proc.wait()
+    reader.join(timeout=2)  # the group kill gives the reader EOF
+    for pipe in (proc.stdin, None if reader.is_alive() else proc.stdout):
+        if pipe:
+            pipe.close()
 
 
 def _frontmatter(path: Path) -> dict[str, str] | None:
@@ -182,23 +224,25 @@ def _health_skills(base: Path) -> HealthReport:
         except OSError:
             good = False
         if not good:
-            return _fail(f"bad_skill:{path.parent.name}")
-    return HealthReport(True, "ok", f"{len(files)} skills")
+            return _fail("bad_skill", dir=re.sub(r"[^A-Za-z0-9._-]", "_", path.parent.name)[:64])
+    return HealthReport(True, "ok", {"skills": len(files)})
 
 
 def _health_wev(base: Path, version: str, runner: Runner, python: str) -> HealthReport:
-    result = runner.run([python, str(base / "bin" / "wev"), "version"], None, HEALTH_TIMEOUT, None)
+    result = runner.run(
+        [python, str(base / "bin" / "wev"), "version"], None, HEALTH_TIMEOUT, child_env()
+    )
     if result.timed_out:
         return _fail("timeout")
     if result.exit_code != 0:
-        return _fail("spawn_failed", f"exit {result.exit_code}")
+        return _fail("spawn_failed", exit=result.exit_code if result.exit_code is not None else -1)
     try:
         printed = json.loads(result.stdout).get("version")
-    except ValueError, AttributeError:
+    except ValueError, RecursionError, AttributeError:
         printed = None
     if printed != version.removeprefix("v"):
-        return _fail("version_mismatch", f"printed {str(printed)[:40]!r}")
-    return HealthReport(True, "ok", str(printed))
+        return _fail("version_mismatch", got=type(printed).__name__)
+    return HealthReport(True, "ok", {"version": str(printed)})
 
 
 def health(
