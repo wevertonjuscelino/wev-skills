@@ -59,6 +59,8 @@ SKILLS_COMMANDS = frozenset(
 the version in use or link files into the harnesses' skill directories."""
 REA_COMMANDS = frozenset({("rea", "mode"), ("rea", "build-image")})
 """``rea serve`` is launched by the harness itself and ``rea status`` only reads."""
+JEV_KEY_COMMANDS = frozenset({("jev", "key")})
+"""``jev key set`` writes the API key file; the person runs it from the installer or a terminal."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"
 REOPEN_MIN = len("--reo")
@@ -71,7 +73,10 @@ REASON_JEV = "engine_jev"
 REASON_HARNESS = "engine_harness"
 REASON_SKILLS = "engine_skills"
 REASON_REA = "engine_rea"
-PERSON_ONLY_REASONS = frozenset({REASON_OPERATOR, REASON_HARNESS, REASON_SKILLS, REASON_REA})
+REASON_JEV_KEY = "engine_jev_key"
+PERSON_ONLY_REASONS = frozenset(
+    {REASON_OPERATOR, REASON_HARNESS, REASON_SKILLS, REASON_REA, REASON_JEV_KEY}
+)
 """Asks a harness without an ask decision denies: an agent must not grant itself approvals
 or remove its own guard. ``run``, ``--config`` and ``jev`` asks stay policy asks there."""
 
@@ -139,6 +144,8 @@ def _command_reason(args: Sequence[str]) -> str | None:
         return REASON_SKILLS
     if words in REA_COMMANDS:
         return REASON_REA
+    if words in JEV_KEY_COMMANDS:
+        return REASON_JEV_KEY
     return REASON_RUN if words in RUN_COMMANDS else None
 
 

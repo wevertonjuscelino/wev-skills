@@ -16,5 +16,8 @@
   "jev.error.item_duplicate_id": "o id {id} já foi usado em uma linha anterior",
   "jev.error.no_items": "o arquivo de itens {path} não tem itens",
   "jev.error.out_unwritable": "não foi possível gravar o arquivo de saída {path}",
-  "jev.error.item_failed": "o JEV não respondeu: {why}"
+  "jev.error.item_failed": "o JEV não respondeu: {why}",
+  "jev.key.help": "Gerencia a chave de API do JEV no seu arquivo de chave por usuário.",
+  "jev.key.set.help": "Lê a chave de API do JEV da entrada padrão (uma linha) e a guarda no seu arquivo de chave por usuário (0600); a chave nunca é exibida.",
+  "jev.error.key_stdin_tty": "a entrada padrão é um terminal; envie a chave por pipe (por exemplo, do seu gerenciador de senhas), para que ela não apareça na tela nem fique no histórico do shell"
 }

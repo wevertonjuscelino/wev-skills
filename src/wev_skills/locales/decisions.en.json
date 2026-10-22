@@ -170,5 +170,7 @@
   "decisions.jev.error.bad_type": "question \"{name}\": type must be one of {types}",
   "decisions.jev.error.no_instructions": "question \"{name}\": instructions is required",
   "decisions.jev.error.choice_options": "question \"{name}\": choice needs {low} to {high} criteria entries",
-  "decisions.jev.error.score_levels": "question \"{name}\": score needs {low} to {high} criteria levels"
+  "decisions.jev.error.score_levels": "question \"{name}\": score needs {low} to {high} criteria levels",
+  "decisions.jev.key_invalid": "the JEV key was refused: it is empty, longer than 512 bytes, or contains spaces or control characters",
+  "decisions.jev.env_file_refused": "the key file {path} was not written: it or its directory is a symbolic link, or it cannot be read as text"
 }

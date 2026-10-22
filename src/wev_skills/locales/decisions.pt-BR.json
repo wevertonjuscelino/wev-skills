@@ -170,5 +170,7 @@
   "decisions.jev.error.bad_type": "pergunta \"{name}\": type deve ser um de {types}",
   "decisions.jev.error.no_instructions": "pergunta \"{name}\": instructions é obrigatório",
   "decisions.jev.error.choice_options": "pergunta \"{name}\": choice exige de {low} a {high} entradas em criteria",
-  "decisions.jev.error.score_levels": "pergunta \"{name}\": score exige de {low} a {high} níveis em criteria"
+  "decisions.jev.error.score_levels": "pergunta \"{name}\": score exige de {low} a {high} níveis em criteria",
+  "decisions.jev.key_invalid": "a chave do JEV foi recusada: está vazia, tem mais de 512 bytes ou contém espaços ou caracteres de controle",
+  "decisions.jev.env_file_refused": "o arquivo de chave {path} não foi gravado: ele ou o diretório dele é um link simbólico, ou ele não pode ser lido como texto"
 }

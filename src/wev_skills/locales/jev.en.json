@@ -16,5 +16,8 @@
   "jev.error.item_duplicate_id": "the id {id} was already used on an earlier line",
   "jev.error.no_items": "the items file {path} has no items",
   "jev.error.out_unwritable": "cannot write the output file {path}",
-  "jev.error.item_failed": "JEV did not answer: {why}"
+  "jev.error.item_failed": "JEV did not answer: {why}",
+  "jev.key.help": "Manage the JEV API key in your per-user key file.",
+  "jev.key.set.help": "Read the JEV API key from stdin (one line) and store it in your per-user key file (0600); the key is never printed.",
+  "jev.error.key_stdin_tty": "stdin is a terminal; pipe the key in instead, for example from your password manager, so it is not echoed or kept in your shell history"
 }

@@ -1,10 +1,11 @@
-"""``wev jev status|ask|batch``: the built-in JEV client from the command line."""
+"""``wev jev status|ask|batch|key set``: the built-in JEV client from the command line."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +26,13 @@ from wev_skills.decisions.jev_http import (
     resolve_endpoint,
     validate_questions,
 )
-from wev_skills.decisions.jev_key import ApiKey, env_file_path, macos_keychain, resolve_api_key
+from wev_skills.decisions.jev_key import (
+    ApiKey,
+    env_file_path,
+    macos_keychain,
+    resolve_api_key,
+    write_env_key,
+)
 from wev_skills.decisions.jev_program import resolve_jev_program
 from wev_skills.decisions.jev_wire import JevUnavailable
 from wev_skills.security.redact import redact
@@ -109,6 +116,16 @@ def _run_status(args: argparse.Namespace) -> dict[str, Any]:
         "endpoint": facts["endpoint"],
         "orchestration": "wev" if jev and facts["usable"] else "harness",
     }
+
+
+def _run_key_set(args: argparse.Namespace) -> dict[str, Any]:
+    if sys.stdin.isatty():
+        raise ValidationError("key_stdin_tty", i18n.t("jev.error.key_stdin_tty"))
+    key = sys.stdin.readline().removesuffix("\n").removesuffix("\r")
+    path = env_file_path()
+    write_env_key(path, key)
+    usable = _builtin_status(True)["usable"]
+    return {"written": str(path), "key_source": "env_file", "usable": usable}
 
 
 def _read_questions(path: str) -> dict[str, Any]:
@@ -224,3 +241,8 @@ def register(subparsers: Subparsers) -> None:
     batch.add_argument("--items", required=True, help=i18n.t("jev.arg.items"))
     batch.add_argument("--out", required=True, help=i18n.t("jev.arg.out"))
     batch.set_defaults(handler=_run_batch)
+
+    key = commands.add_parser("key", help=i18n.t("jev.key.help"))
+    key_commands = key.add_subparsers(dest="jev_key_command", required=True)
+    key_set = key_commands.add_parser("set", help=i18n.t("jev.key.set.help"))
+    key_set.set_defaults(handler=_run_key_set)
