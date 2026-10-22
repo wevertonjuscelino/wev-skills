@@ -23,5 +23,6 @@
   "harness.error.placeholder": "Refusing to install {path}: it is a placeholder (first line // wev-placeholder), not a shipped feature.",
   "harness.error.not_installed": "Nothing to uninstall: no manifest for {target}.",
   "harness.next.codex_trust": "Codex runs an unreviewed hook only after you trust it: start codex and review and trust the wev-skills hooks when it asks. Until then the guard hooks do not run.",
-  "harness.next.codex_check": "Check the skills are visible with: codex debug prompt-input"
+  "harness.next.codex_check": "Check the skills are visible with: codex debug prompt-input",
+  "harness.error.manifest_invalid": "The manifest {path} is not valid ({why}); nothing was run or removed. Delete the file or fix it, then retry."
 }

@@ -46,9 +46,9 @@ RUN_COMMANDS = frozenset(
      ("remote", "start"), ("remote", "stop")}
 )  # fmt: skip
 JEV_COMMANDS = frozenset({("jev", "ask"), ("jev", "batch")})
+"""``jev status`` sends nothing and writes nothing, so it is left to the engine."""
 HARNESS_COMMANDS = frozenset({("harness", "install"), ("harness", "uninstall")})
 """``harness export`` only writes into a directory the person names, so it is left to the engine."""
-"""``jev status`` sends nothing and writes nothing, so it is left to the engine."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"
 REOPEN_MIN = len("--reo")

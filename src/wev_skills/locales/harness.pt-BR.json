@@ -23,5 +23,6 @@
   "harness.error.placeholder": "Recusando instalar {path}: é um placeholder (primeira linha // wev-placeholder), não um recurso entregue.",
   "harness.error.not_installed": "Nada a desinstalar: não há manifesto para {target}.",
   "harness.next.codex_trust": "O Codex só executa um hook não revisado depois que você confia nele: inicie o codex e revise e confie nos hooks do wev-skills quando ele pedir. Até lá os hooks de guarda não rodam.",
-  "harness.next.codex_check": "Confira que as skills estão visíveis com: codex debug prompt-input"
+  "harness.next.codex_check": "Confira que as skills estão visíveis com: codex debug prompt-input",
+  "harness.error.manifest_invalid": "O manifesto {path} não é válido ({why}); nada foi executado nem removido. Apague o arquivo ou corrija-o e tente de novo."
 }

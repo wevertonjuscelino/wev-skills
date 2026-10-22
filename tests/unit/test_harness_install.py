@@ -109,6 +109,7 @@ class InstallTests(InstallBase):
         )
         self.install()
         self.assertFalse(stale_in_manifest.exists())
+        self.assertTrue((self.root / "package" / "stale.txt").is_file())  # not wev's: it stays
         stored = json.loads((self.root / "manifest.json").read_text())
         self.assertEqual(len(stored["registrations"]), 4)
         self.assertEqual(len(stored["files"]), len(set(stored["files"])))
@@ -125,20 +126,26 @@ class InstallTests(InstallBase):
 
     def test_failure_rolls_back_files_and_earlier_registrations(self) -> None:
         self.fail_on("plugin add")
+        stray = self.root / "package" / "notes.txt"
+        stray.parent.mkdir(parents=True)
+        stray.write_text("mine")
         with self.assertRaises(RemoteError) as caught:
             self.install()
         self.assertEqual(caught.exception.exit_code, 8)
-        self.assertFalse((self.root / "package").exists())
+        self.assertEqual(self.files(), {"package/notes.txt"})
+        self.assertEqual(stray.read_text(), "mine")
         self.assertFalse((self.root / "manifest.json").exists())
         self.assertEqual(
             self.calls()[-1], ["plugin", "marketplace", "remove", MKT]
         )  # the marketplace that was added is removed again
 
     def test_first_command_failure_leaves_nothing(self) -> None:
+        self.data.mkdir()
         self.fail_on("plugin marketplace add")
         with self.assertRaises(RemoteError):
             self.install()
-        self.assertFalse(self.root.exists() and any(self.root.rglob("*")))
+        self.assertEqual(self.files(), set())
+        self.assertTrue(self.data.is_dir())  # data_home is not wev's to remove
         self.assertEqual(len(self.calls()), 1)
 
     def test_a_placeholder_file_is_refused(self) -> None:
@@ -157,6 +164,89 @@ class InstallTests(InstallBase):
     def test_unknown_target_is_refused(self) -> None:
         with self.assertRaises(ValidationError):
             install("nope", FakeCodexRunner(), self.data, WEV)
+
+
+class FixRoundTests(InstallBase):
+    def manifest(self) -> dict[str, object]:
+        return json.loads((self.root / "manifest.json").read_text())
+
+    def store(self, data: object) -> None:
+        (self.root / "manifest.json").write_text(json.dumps(data))
+
+    def test_a_tampered_registration_is_never_run(self) -> None:
+        self.install()
+        before = len(self.calls())
+        data = self.manifest()
+        data["registrations"][1] = ["sh", "-c", "echo pwned > /tmp/never"]  # type: ignore[index]
+        self.store(data)
+        with self.assertRaises(ValidationError):
+            uninstall("codex", FakeCodexRunner(), self.data)
+        self.assertEqual(len(self.calls()), before)
+        self.assertTrue((self.root / "package" / "hooks.json").is_file())
+
+    def test_a_path_outside_the_package_is_rejected_and_nothing_is_removed(self) -> None:
+        self.install()
+        outside = self.data / "precious.txt"
+        outside.write_text("x")
+        data = self.manifest()
+        data["files"] = [*data["files"], str(outside)]  # type: ignore[misc]
+        self.store(data)
+        with self.assertRaises(ValidationError):
+            uninstall("codex", FakeCodexRunner(), self.data)
+        self.assertTrue(outside.is_file())
+        self.assertTrue((self.root / "package" / "hooks.json").is_file())
+
+    def test_a_dotdot_or_symlinked_path_is_rejected(self) -> None:
+        self.install()
+        package = self.root / "package"
+        outside = self.data / "precious.txt"
+        outside.write_text("x")
+        link = package / "link"
+        link.symlink_to(self.data)
+        for bad in (f"{package}/../../precious.txt", str(link / "precious.txt"), str(package)):
+            data = self.manifest()
+            data["files"] = [bad]  # type: ignore[assignment]
+            self.store(data)
+            with self.subTest(bad=bad), self.assertRaises(ValidationError):
+                uninstall("codex", FakeCodexRunner(), self.data)
+        self.assertTrue(outside.is_file())
+
+    def test_a_corrupt_manifest_is_a_validation_error(self) -> None:
+        self.install()
+        for text in ("{not json", "[]", '{"target": "codex"}', '{"target": 3, "files": 1}'):
+            (self.root / "manifest.json").write_text(text)
+            with self.subTest(text=text), self.assertRaises(ValidationError) as caught:
+                uninstall("codex", FakeCodexRunner(), self.data)
+            self.assertEqual(caught.exception.exit_code, 2)
+
+    def test_failed_reinstall_leaves_no_stale_manifest(self) -> None:
+        self.install()
+        self.fail_on("plugin add")
+        with self.assertRaises(RemoteError):
+            self.install()
+        self.assertEqual(self.files(), set())
+        adds = [c for c in self.calls() if c[:2] == ["plugin", "add"]]
+        removes = [c for c in self.calls() if c[:2] == ["plugin", "remove"]]
+        self.assertEqual((len(adds), len(removes)), (2, 1))
+        marketplace = [c[3] for c in self.calls() if c[:2] == ["plugin", "marketplace"]]
+        self.assertEqual(marketplace.count("add"), marketplace.count("remove"))
+
+    def test_manifest_write_failure_undoes_both_registrations_newest_first(self) -> None:
+        (self.root / "manifest.json").mkdir(parents=True)  # cannot be replaced by a file
+        with self.assertRaises(OSError):
+            self.install()
+        self.assertEqual(
+            self.calls()[2:],
+            [["plugin", "remove", PLUGIN], ["plugin", "marketplace", "remove", MKT]],
+        )
+        self.assertFalse((self.root / "package").exists())
+
+    def test_rollback_failures_are_reported_in_the_error(self) -> None:
+        self.fail_on("plugin add|plugin marketplace remove")
+        with self.assertRaises(RemoteError) as caught:
+            self.install()
+        failed = caught.exception.details["undo_failed"]
+        self.assertEqual(failed, [["codex", "plugin", "marketplace", "remove", MKT]])
 
 
 class UninstallTests(InstallBase):
