@@ -308,6 +308,32 @@ Limits: `rea mode` and `rea build-image` are asked about in Claude Code and deni
 | The remote module | SSH to hosts you configured |
 | GitHub Actions workflows | Yes, when run on GitHub; none has completed a run |
 
+## End-to-end tests
+
+`make e2e` runs the real installer, the real network and the real third-party skills, which `make test` never does. List the scenarios and what each spends, and answer `yes` when asked:
+
+```sh
+make e2e
+WEV_E2E_CONFIRM=yes make e2e E2E="macos-core"   # no terminal: the variable answers for you
+```
+
+Without a terminal and without `WEV_E2E_CONFIRM=yes` nothing runs (exit 2). The runner uses the real network (the npm registry and GitHub releases) and never your real `HOME`: every scenario installs with `install.sh --source <this clone>` into a temporary `HOME` and `XDG_*` tree that it removes afterwards. It writes `evals/reports/e2e-<date>.md`, one section per scenario with one row per check (passed, failed, or skipped with the reason), and exits 1 if any check failed. The report is committed; the latest is [e2e-2026-10-22.md](../../evals/reports/e2e-2026-10-22.md).
+
+| Scenario | Where | Spends | Status in the latest report |
+|---|---|---|---|
+| `macos-core` | this Mac, isolated `HOME` | network only | passed, 13 of 13 checks. macOS: tested with isolated HOME, not a clean machine |
+| `linux-core` | blank container from `docker/e2e/Dockerfile` | network and one `docker build` (minutes) | skipped: Docker daemon not running. Linux: blank container, not yet run |
+| `macos-isolated` | this Mac, Docker | network and one `docker build` (minutes) | skipped: Docker daemon not running |
+| `claude` | isolated `HOME` and your Claude login | Claude Code account and tokens | not run; implemented but untested: never run against a real harness |
+| `codex` | isolated `HOME` and your Codex login | Codex account and tokens | not run; implemented but untested: never run against a real harness |
+| `gemini`, `opencode` | this Mac | you install the CLI first | not run; implemented but untested: never run against a real harness |
+| `jev` | isolated `HOME` with a key you type | one `jev ask` call | not run; implemented but untested |
+| `update-daily` | this Mac | network | not run; implemented but untested |
+
+The harness, `jev` and `update-daily` scenarios are written but have never been executed, and each prints its own cost line before the confirmation. `macos-core` covers the install, a re-run, the update path (install an older `rea`, roll back, update), a broken install that must leave the active version unchanged, `rea serve` answering `initialize` and `tools/list`, and `install.sh --uninstall --purge`. The roll back step seeds the state, because the CLI cannot make an older release active; the report says so.
+
+The documentation says "compatible with" a harness only after that harness's scenario passed. No harness scenario has run, so the harness sections keep "not run against the real harness". The first run also found three installer problems, fixed on their own branches (see the [changelog](../../CHANGELOG.md)).
+
 ## Running the tests and lint
 
 ```sh

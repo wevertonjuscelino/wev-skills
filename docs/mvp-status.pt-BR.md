@@ -39,6 +39,8 @@ A integração com o rea (`wev rea serve|status|mode|build-image`, a imagem de c
 
 O instalador (`install.sh`), o nível de configuração do usuário (`~/.config/wev-skills/wev.config.json` lido abaixo do arquivo do repositório) e o `wev jev key set` foram acrescentados depois. Situação: implementado e testado com CLIs de harness falsas e uma fonte local (testes unitários, offline). A rota de download (API de releases e `git clone` da tag), um `claude plugin install` real, Codex, Gemini CLI e OpenCode reais, um teste real do JEV e o caminho interativo de instalação de dependências não são executados nesta mudança (parte e2e); a linha `curl | bash` é apenas documentada até o dono publicar o script. Veja o [guia de instalação](guides/installation.pt-BR.md#instalação-rápida) e o [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#instalador).
 
+Execução de ponta a ponta de 2026-10-22 ([relatório](../evals/reports/e2e-2026-10-22.md)), por área. Instalador, rota de fonte local: testado de ponta a ponta no macOS com HOME isolado (não uma máquina limpa); 13 de 13 verificações passaram contra o registro npm e as releases do GitHub reais, cobrindo instalação, nova execução, atualização, reversão (estado semeado), instalação quebrada, `rea serve` em modo direto e desinstalação `--purge`. Instalador, rota de download: não executada. Linux: contêiner em branco, ainda não executado (pulado, daemon do Docker parado). Modo isolado e imagem do rea: não executados (mesmo motivo). Claude Code, Codex, Gemini CLI, OpenCode, JEV ao vivo e a verificação diária de atualização: não executados contra o harness ou serviço real (cenários implementados mas não testados). Nenhuma alegação de "compatível com" é feita para qualquer harness.
+
 ## Resumo
 
 | # | Critério | Situação |
