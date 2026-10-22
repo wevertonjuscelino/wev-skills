@@ -59,6 +59,9 @@ REASON_REQUEST = "engine_request"
 REASON_CONFIG = "engine_config"
 REASON_JEV = "engine_jev"
 REASON_HARNESS = "engine_harness"
+PERSON_ONLY_REASONS = frozenset({REASON_OPERATOR, REASON_HARNESS})
+"""Asks a harness without an ask decision denies: an agent must not grant itself approvals
+or remove its own guard. ``run``, ``--config`` and ``jev`` asks stay policy asks there."""
 
 
 def _real_program(program: str, cwd: str) -> str | None:

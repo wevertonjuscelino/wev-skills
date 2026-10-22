@@ -40,6 +40,7 @@
   "hooks.reason.unreadable_input": "The hook input could not be read (too large or not valid JSON), so the command was not checked and a person decides.",
   "hooks.reason.fail_safe_denied": "the guard could not judge this command safely; this harness has no ask decision for hooks, so it was denied: {reason}",
   "hooks.error.workdir": "The directory this command names is not a string, or is not an existing directory, so it cannot be judged.",
+  "hooks.reason.person_only_denied": "this is a human-operator command; this harness cannot ask, so it was denied: run it in your own terminal ({reason})",
   "hooks.reason.ask_as_warning": "wev would ask before this command; this harness cannot ask, so it was allowed: {reason}",
   "hooks.reason.unknown_target": "This command names a path through a variable, so its target cannot be known here, and a wev run is active in {root}. It may touch that run's tree, so a person decides.",
   "orch.budget.warning": "Run has used at least 80% of its engine budget; review the remaining scope.",

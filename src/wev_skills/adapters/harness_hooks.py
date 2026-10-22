@@ -16,6 +16,8 @@ Mapping of the guard's answer:
   warning). Codex: the
   warning on stderr, exit 0. Gemini: ``{"decision": "allow", "systemMessage": ...}``.
   OpenCode: ``{"decision": "allow", "reason": <warning>}``.
+- ``ask`` marked ``person_only`` (a human-operator command, ``harness install|uninstall``):
+  deny, same formats as ``deny``, reason ``hooks.reason.person_only_denied``.
 - ``ask`` marked ``fail_safe`` (the guard could not judge: unreadable input, internal error,
   untrusted registry, unknown target, an answer the codec cannot parse): deny, same formats
   as ``deny`` with the reason ``hooks.reason.fail_safe_denied``.
@@ -121,6 +123,9 @@ def from_verdict(harness: str, verdict: HookVerdict) -> HookOutput:
         return HookOutput("", "", 0)
     if verdict.decision == hooks.DENY:
         return HookOutput(_deny(harness, verdict.reason), "", 0)
+    if verdict.person_only:
+        reason = i18n.t("hooks.reason.person_only_denied", reason=verdict.reason)
+        return HookOutput(_deny(harness, reason), "", 0)
     if verdict.fail_safe:
         reason = i18n.t("hooks.reason.fail_safe_denied", reason=verdict.reason)
         return HookOutput(_deny(harness, reason), "", 0)

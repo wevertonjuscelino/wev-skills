@@ -40,6 +40,7 @@
   "hooks.reason.unreadable_input": "A entrada do hook não pôde ser lida (grande demais ou JSON inválido), então o comando não foi verificado e uma pessoa decide.",
   "hooks.reason.fail_safe_denied": "o guarda não conseguiu avaliar este comando com segurança; este harness não tem decisão 'ask' para hooks, então ele foi negado: {reason}",
   "hooks.error.workdir": "O diretório que este comando indica não é um texto ou não é um diretório existente, então ele não pode ser avaliado.",
+  "hooks.reason.person_only_denied": "este é um comando do operador humano; este harness não consegue perguntar, então ele foi negado: rode-o no seu próprio terminal ({reason})",
   "hooks.reason.ask_as_warning": "o wev perguntaria antes deste comando; este harness não consegue perguntar, então ele foi permitido: {reason}",
   "hooks.reason.unknown_target": "Este comando indica um caminho por meio de uma variável, então o alvo não pode ser conhecido aqui, e há uma execução wev ativa em {root}. Ele pode tocar a árvore dessa execução, então uma pessoa decide.",
   "orch.budget.warning": "A execução consumiu ao menos 80% do orçamento do motor; revise o escopo restante.",

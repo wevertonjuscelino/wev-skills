@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import shlex
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from wev_skills import i18n
@@ -56,6 +56,7 @@ class HookVerdict:
     decision: str = NO_OPINION
     reason: str = ""
     fail_safe: bool = False  # the guard could not judge (error, forged state), not a policy ask
+    person_only: bool = False  # an ask only a person may answer; a harness that cannot ask denies
 
 
 @dataclass(frozen=True)
@@ -144,7 +145,9 @@ def _engine_verdicts(argv: Sequence[str], cwd: str) -> list[HookVerdict]:
     views = _maximal(commands.expand(tuple(argv)).commands)
     codes = (engine_cli.mentioned_reason(view, cwd) for view in views)
     found = next((code for code in codes if code is not None), None)
-    return [_ask(found)] if found is not None else []
+    if found is None:
+        return []
+    return [replace(_ask(found), person_only=found in engine_cli.PERSON_ONLY_REASONS)]
 
 
 def _program_verdicts(
@@ -262,6 +265,9 @@ def decide_command(command: str, context: GuardContext) -> HookVerdict:
         cwd = next_directory(part.argv, cwd)
     if context.mode is Mode.PLAN and compound and any(_needs_shell(p, context.cwd) for p in parts):
         verdicts.append(_ask("plan_shell"))
-    return max(
+    worst = max(
         verdicts, key=lambda verdict: SEVERITY.index(verdict.decision), default=HookVerdict()
     )
+    # the shown reason stays the first worst one; the marker survives a tie of asks
+    person_only = worst.decision == ASK and any(verdict.person_only for verdict in verdicts)
+    return replace(worst, person_only=person_only) if person_only else worst

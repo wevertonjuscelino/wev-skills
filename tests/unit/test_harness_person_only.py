@@ -1,0 +1,102 @@
+"""Human-operator commands are denied on harnesses that cannot ask (final review C1).
+
+Codex, Gemini CLI and OpenCode turn a policy ``ask`` into allow plus a warning. An ask
+marked ``person_only`` (operator commands, ``harness install|uninstall``) is a deny there;
+Claude Code still renders it as the same ``ask``.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Any
+from unittest import mock
+
+from tests.unit.test_harness_hooks import FakeStdin, fixture
+from wev_skills import cli
+from wev_skills.adapters.claude_code import hooks
+
+H3 = ("codex", "gemini", "opencode")
+KEY = {"codex": "tool_input", "gemini": "tool_input", "opencode": "args"}
+PERSON_ONLY = (
+    "wev approval grant a1",
+    "wev run adopt x",
+    "wev harness uninstall --target gemini",
+    "git push && wev approval grant a1",
+)
+POLICY_ASKS = ("git push", "wev run start --request x")
+DENIED = "this is a human-operator command; this harness cannot ask, so it was denied"
+
+
+class PersonOnlyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.work = Path(tmp.name).resolve() / "repo"
+        (self.work / ".git").mkdir(parents=True)
+        env = {name: f"{tmp.name}/{name}" for name in ("XDG_DATA_HOME", "XDG_CONFIG_HOME",
+               "XDG_STATE_HOME", "XDG_CACHE_HOME")}  # fmt: skip
+        patcher = mock.patch.dict(os.environ, {"HOME": tmp.name, **env})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def run_hook(self, payload: dict[str, Any], *argv: str) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with (
+            contextlib.redirect_stdout(out),
+            contextlib.redirect_stderr(err),
+            mock.patch.object(sys, "stdin", FakeStdin(json.dumps(payload))),
+        ):
+            code = cli.main(["--lang", "en", "hook", "pre-tool-use", *argv])
+        return code, out.getvalue(), err.getvalue()
+
+    def shell(self, harness: str, command: str) -> dict[str, Any]:
+        payload = fixture(f"{harness}_shell")
+        payload["cwd"] = str(self.work)
+        payload[KEY[harness]] = {"command": command}
+        return payload
+
+    def test_operator_and_harness_commands_are_denied(self) -> None:
+        for harness in H3:
+            for command in PERSON_ONLY:
+                with self.subTest(harness=harness, command=command):
+                    code, out, err = self.run_hook(self.shell(harness, command), "--harness", harness)
+                    data = json.loads(out)
+                    if harness == "codex":
+                        data = data["hookSpecificOutput"]
+                        decision, reason = data["permissionDecision"], data["permissionDecisionReason"]
+                    else:
+                        decision, reason = data["decision"], data["reason"]
+                    self.assertEqual((code, decision, err), (0, "deny", ""))
+                    self.assertIn(DENIED, reason)
+
+    def test_policy_asks_stay_allow_with_warning(self) -> None:
+        for harness in H3:
+            for command in POLICY_ASKS:
+                with self.subTest(harness=harness, command=command):
+                    code, out, err = self.run_hook(self.shell(harness, command), "--harness", harness)
+                    self.assertEqual(code, 0)
+                    self.assertNotIn('"deny"', out)
+                    self.assertIn("this harness cannot ask, so it was allowed", out + err)
+
+    def test_claude_still_asks_with_the_same_answer(self) -> None:
+        for command in PERSON_ONLY:
+            with self.subTest(command=command):
+                payload = {"cwd": str(self.work), "tool_name": "Bash",
+                           "tool_input": {"command": command}}  # fmt: skip
+                code, out, _ = self.run_hook(payload)
+                specific = json.loads(out)["hookSpecificOutput"]
+                self.assertEqual((code, specific["permissionDecision"]), (0, "ask"))
+                reason = specific["permissionDecisionReason"]
+                self.assertEqual(out, hooks._output("ask", reason) + "\n")
+                self.assertNotIn(DENIED, out)
+
+
+if __name__ == "__main__":
+    unittest.main()
