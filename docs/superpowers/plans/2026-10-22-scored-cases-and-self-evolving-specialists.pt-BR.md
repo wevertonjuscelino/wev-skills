@@ -6,7 +6,7 @@ Versão em inglês: [2026-10-22-scored-cases-and-self-evolving-specialists.md](2
 
 **Objetivo:** Guardar falhas reais como casos, dar uma nota a um especialista contra eles com e sem cada lição por meio de um `claude -p` sem supervisão, deixar o modelo escrever lições a partir dos casos que falharam e aceitar ou aposentar lições só pela pontuação.
 
-**Arquitetura:** Os casos, o pin, a regra da catraca, o filtro de lições e o laço de pontuação ficam em `evaluation/` e dependem só de duas portas em `core/ports.py` (o `Runner` que já existe e um novo `AgentRunner`). O adaptador do Claude Code implementa `AgentRunner` com `claude -p`. As mudanças no armazenamento de lições ficam em `agents/`. Os comandos ligam o adaptador, como o `CLAUDE.md` exige.
+**Arquitetura:** Os casos, o congelamento, a regra da catraca, o filtro de lições e o laço de pontuação ficam em `evaluation/` e dependem só de duas portas em `core/ports.py` (o `Runner` que já existe e um novo `AgentRunner`). O adaptador do Claude Code implementa `AgentRunner` com `claude -p`. As mudanças no armazenamento de lições ficam em `agents/`. Os comandos ligam o adaptador, como o `CLAUDE.md` exige.
 
 **Pilha técnica:** biblioteca padrão do Python 3.14, `unittest`, o validador de esquema JSON do repositório (`wev_skills.schema.validate`), `git worktree`, flags da CLI do Claude Code 2.1.302 confirmadas com `claude --help`.
 
@@ -34,7 +34,7 @@ Versão em inglês: [2026-10-22-scored-cases-and-self-evolving-specialists.md](2
 
 ---
 
-### Tarefa 1: Formato do caso, pin e `wev cases list|validate`
+### Tarefa 1: Formato do caso, congelamento e `wev cases list|validate`
 
 **Arquivos:**
 - Criar: `src/wev_skills/schemas/case.schema.json`, `src/wev_skills/evaluation/cases.py`, `src/wev_skills/commands/cases.py`
@@ -234,7 +234,7 @@ Versão em inglês: [2026-10-22-scored-cases-and-self-evolving-specialists.md](2
 - Modificar, cada um com seu gêmeo `.pt-BR.md`: `SECURITY.md` (linhas 57, 78, 115 e um parágrafo novo sobre pontuação sem supervisão), `CLAUDE.md` (a lista de comandos de operador humano é mantida, mais uma linha dizendo que as decisões de pontuação não precisam dela, e a pontuação em `evaluation/` em Architecture), `docs/guides/specialists.md`, `docs/guides/evaluation.md` (uma seção de casos), `docs/guides/installation.md`, `docs/glossary.md`, `CHANGELOG.md`; docstrings de `commands/specialists.py`, `agents/experience.py`, `agents/learning.py`, `commands/_human.py`
 - Teste: `tests/unit/test_docs.py`, `tests/unit/test_skills.py`, `bin/wev claude-md check`, `bin/wev readme check`
 
-- [ ] **Passo 1: Escreva** o texto. O parágrafo de segurança diz o que a execução sem supervisão pode fazer (as seis ferramentas, `dontAsk`, o plugin carregado, nenhum bypass), que lições escritas pelo modelo são texto não confiável até serem pontuadas, e que o pin, o limite de execuções, o filtro de texto e a pontuação protegem contra um agente falível, não contra um agente adversário na mesma conta. Rotule cada capacidade: testada na unidade com falsos; o caminho real do `claude -p` não testado até o dono rodar.
+- [ ] **Passo 1: Escreva** o texto. O parágrafo de segurança diz o que a execução sem supervisão pode fazer (as seis ferramentas, `dontAsk`, o plugin carregado, nenhum bypass), que lições escritas pelo modelo são texto não confiável até serem pontuadas, e que o congelamento, o limite de execuções, o filtro de texto e a pontuação protegem contra um agente falível, não contra um agente adversário na mesma conta. Rotule cada capacidade: testada na unidade com falsos; o caminho real do `claude -p` não testado até o dono rodar.
 - [ ] **Passo 2: Rode** `PYTHONPATH=src python3 -m unittest tests.unit.test_docs tests.unit.test_skills -v`, `bin/wev claude-md check` e `bin/wev readme check`. Esperado: PASSA e nenhum achado.
 - [ ] **Passo 3: Faça o commit** `docs: describe scored cases and lessons decided by score`.
 
