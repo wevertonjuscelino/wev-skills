@@ -126,6 +126,19 @@ Implemented and tested against a local fake server; the live service was not run
 - **Out of scope.** A symlinked parent above the wev-owned data root is the user's own layout and is not defended against.
 - **Asks on `install` and `uninstall`.** In Claude Code the hook asks before `wev harness install` and `uninstall`; `export` is not asked.
 
+## Third-party skill updates
+
+`wev skills` downloads and installs `rea`, `agent-skills` and `wev-skills`. Status: implemented and tested with a local fake registry, a fake npx and local tarballs; the real registries, downloads and the real rea server are not run in this change (e2e part). The same guardrail-not-boundary position applies.
+
+- **Downloads are untrusted data.** Only https URLs on an allow-listed host are fetched, and every redirect is checked against the same list. The stream and the sum of member sizes are capped at 50 MiB and the archive at 10,000 members. Extraction uses `tarfile` with `filter="data"` plus explicit checks (absolute paths, `..`, devices, and links that escape the directory or carry `..` in their target; one such link refuses the whole archive), requires exactly one top-level directory and happens in a temporary directory that is removed on failure. Nothing downloaded is executed during extraction.
+- **The GitHub tarball has no checksum.** wev cannot tell a genuine release from a tampered one served over a valid connection. npm packages are fetched through `npx`, which applies its own integrity checks that wev does not verify.
+- **The health check catches a broken update, not a malicious one.** For `rea` it runs the new package's MCP server, so a hostile package would already be running code on your machine. It starts `npx` without a shell and with a minimal environment, but that environment keeps `npm_config_*`, which may carry npm tokens. The process group is killed after 60 seconds.
+- **An update runs only after your yes.** The daily check only reports. `update`, `install`, `rollback`, `freeze`, `activate` and `deactivate` are commands the Claude Code hook asks about; on Codex, Gemini CLI and OpenCode they are denied (person only). The model asking you once in the conversation is an instruction, not a control.
+- **The daily check does network at session start.** `wev skills check --daily` makes at most a few requests with a 10 second wall-clock budget, prints nothing on any error and leaves no marker. A declined source still makes its registry call before it is skipped.
+- **Activation links are tracked.** `activate` creates symlinks in `~/.claude/skills` and `~/.agents/skills` and records them in `manifest.json`. It refuses entries it did not create (including a file you put where a wev link was) and `deactivate` removes only listed links that are still symlinks. An agent in your account can still edit those directories or the manifest directly.
+- **The state file is data.** Unknown keys, wrong types and version names outside `[A-Za-z0-9._-]+` are rejected; `current` and `*.tmp-*` are reserved.
+- **Self-update is partial.** For `wev-skills`, wev installs and health-checks the new directory only. Repointing the Claude plugin directory and the harness packages is the installer's job (not part of this change).
+
 ## Known limits
 
 These are open. Do not rely on the engine for any of them.

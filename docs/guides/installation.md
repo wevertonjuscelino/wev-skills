@@ -180,6 +180,33 @@ After a real session with the plugin, `claude plugin list` shows whether it is i
 - Source tree: in your clone, check out the previous tag or commit (`git checkout v1.0.0`, for example) and update the plugin as above. Every release has a tag `vX.0.0`; `git tag --list` shows them.
 - Run state: `.wev/runs/<id>/` is plain files. A bad run can be left alone (it stops being the active run after `wev run finish`) or deleted by removing its directory. Nothing outside `.wev/` is written by the engine except the per-user run registry and the files a task changes.
 
+## Third-party skills: install, daily check, update, rollback, freeze
+
+`wev skills` manages three sources: `rea` (the npm package `rea-agents`, newest is its `dist-tags.latest`), `agent-skills` (GitHub releases of `addyosmani/agent-skills`) and `wev-skills` (GitHub releases of this repository). A source with no release uses the HEAD of its default branch. Status: implemented and tested with a local fake registry, a fake npx and local tarballs; the real registries, downloads and the real rea server are not run in this change (e2e part).
+
+```sh
+wev skills list
+wev skills check
+wev skills install agent-skills
+wev skills update agent-skills
+wev skills rollback agent-skills
+wev skills freeze agent-skills
+wev skills freeze agent-skills --off
+wev skills activate
+wev skills deactivate
+wev skills show rea
+wev skills decline agent-skills
+```
+
+- **Where things live.** `$XDG_DATA_HOME/wev-skills/third-party/` (else `~/.local/share/wev-skills/third-party/`): `state.json`, `<source>/<version>/` for every installed version, `<source>/current` (a symlink to the active one) and `manifest.json` for activation links.
+- **`install`** downloads a version (`--version` picks one) beside the others without making it active. **`update SOURCE`** installs the newest version, runs its health check and repoints `current` (atomically) only when the check passes; the previous version stays on disk. `update` without a source skips frozen, declined and never-installed sources. Version names `current` and `*.tmp-*` are refused.
+- **`rollback`** swaps the active and the previous version. **`freeze`** stops checks and updates for a source (`--off` undoes it). **`decline`** records that the newest version was refused, so it is offered again only when a newer one appears.
+- **Daily check.** The Claude Code `SessionStart` `startup` hook runs `wev skills check --daily`. It prints nothing unless a day has passed since the last check, spends at most 10 seconds on the network, fails silently, and injects one short paragraph when a newer version exists. The model then asks you once: yes runs `wev skills update SOURCE`, no runs `wev skills decline SOURCE`. Frozen sources are skipped, and a source you never installed is not offered; run `wev skills install SOURCE` for it. The daily check is wired only for Claude Code so far.
+- **Health check before the switch.** `rea`: `npx -y rea-agents@<version> mcp` is started without a shell, with a minimal environment, 60 seconds of wall clock and the whole process group killed afterwards; it must answer `initialize` and `tools/list` with at least one tool. `agent-skills`: every `skills/*/SKILL.md` has a `name` equal to its directory and a description. `wev-skills`: `bin/wev version` of the new directory prints the new version. This catches a broken update, not a malicious one.
+- **`activate`** (agent-skills only) links `<root>/<name>` to `current/skills/<name>` in `~/.claude/skills` and `~/.agents/skills` when those directories exist (Codex, OpenCode and Gemini CLI read the second one, per the notes in `docs/research/`). It refuses to replace anything it did not create, including a file you put where a wev link was. `deactivate` removes only the links the manifest lists that are still symlinks.
+- **Approvals.** Claude Code asks before `skills install|update|rollback|freeze|activate|deactivate`; `list`, `check`, `decline` and `show` are not asked. On Codex, Gemini CLI and OpenCode these six are denied: run them in your own terminal.
+- **Limits.** A wev self-update only installs and health-checks the new directory. Repointing the Claude plugin directory and the harness packages is the installer's job, and after a wev update you rerun `wev harness install`. `rea` health checks keep the `npm_config_*` variables in the child environment, which may carry npm tokens. A declined source still makes its registry call before it is skipped. See [SECURITY.md](../../SECURITY.md#third-party-skill-updates).
+
 ## What needs network access
 
 | Step | Network |
@@ -190,6 +217,7 @@ After a real session with the plugin, `claude plugin list` shows whether it is i
 | `pip install` | Yes, if you choose it |
 | Claude Code itself and the models it uses | Yes, outside this project |
 | The JEV decision provider, if you enable it | Yes: sends the task objective (classification) or a task's title, objective and acceptance criteria (tool selection) to a third party (see the [configuration guide](configuration-and-providers.md)) |
+| `wev skills check`, `install`, `update` (and the daily check at session start) | Yes: registry or GitHub requests (5 s each), downloads (120 s), a health check (60 s); the daily check stops at 10 s in total |
 | The remote module | SSH to hosts you configured |
 | GitHub Actions workflows | Yes, when run on GitHub; none has completed a run |
 

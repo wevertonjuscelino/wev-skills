@@ -126,6 +126,19 @@ Implementado e testado contra um servidor falso local; o serviço real não foi 
 - **Fora de escopo.** Um pai simbólico acima da raiz de dados do wev é o layout do próprio usuário e não é defendido.
 - **Asks em `install` e `uninstall`.** No Claude Code o hook pergunta antes de `wev harness install` e `uninstall`; `export` não pergunta.
 
+## Atualizações de skills de terceiros
+
+`wev skills` baixa e instala `rea`, `agent-skills` e `wev-skills`. Situação: implementado e testado com um registro local falso, um npx falso e tarballs locais; os registros reais, os downloads e o servidor rea real não são executados nesta alteração (parte e2e). Vale a mesma posição de barreira, não de fronteira.
+
+- **Downloads são dados não confiáveis.** Só são buscadas URLs https em hosts de uma lista permitida, e cada redirecionamento é conferido na mesma lista. O fluxo e a soma dos tamanhos dos membros têm limite de 50 MiB, e o arquivo, de 10.000 membros. A extração usa `tarfile` com `filter="data"` mais verificações explícitas (caminhos absolutos, `..`, dispositivos e links que saem do diretório ou têm `..` no destino; um único link assim recusa o arquivo inteiro), exige exatamente um diretório de topo e acontece num diretório temporário removido em caso de falha. Nada baixado é executado durante a extração.
+- **O tarball do GitHub não tem checksum.** O wev não distingue um release legítimo de um adulterado servido por uma conexão válida. Os pacotes npm são buscados pelo `npx`, que aplica suas próprias verificações de integridade, as quais o wev não confere.
+- **A verificação de saúde pega uma atualização quebrada, não uma maliciosa.** Para o `rea` ela executa o servidor MCP do novo pacote, então um pacote hostil já estaria rodando código na sua máquina. O `npx` é iniciado sem shell e com ambiente mínimo, mas esse ambiente mantém `npm_config_*`, que pode carregar tokens do npm. O grupo de processos é encerrado após 60 segundos.
+- **Uma atualização só roda depois do seu sim.** A verificação diária apenas informa. `update`, `install`, `rollback`, `freeze`, `activate` e `deactivate` são comandos sobre os quais o hook do Claude Code pergunta; no Codex, Gemini CLI e OpenCode eles são negados (só a pessoa). O modelo perguntar uma vez na conversa é uma instrução, não um controle.
+- **A verificação diária usa a rede no início da sessão.** `wev skills check --daily` faz poucas requisições com um orçamento de 10 segundos de relógio, não imprime nada em qualquer erro e não deixa marcador. Uma fonte recusada ainda faz a chamada ao registro antes de ser pulada.
+- **Os links de ativação são rastreados.** `activate` cria symlinks em `~/.claude/skills` e `~/.agents/skills` e os registra em `manifest.json`. Ele recusa entradas que não criou (inclusive um arquivo seu colocado onde havia um link do wev), e `deactivate` remove só links listados que ainda são symlinks. Um agente na sua conta ainda pode editar esses diretórios ou o manifesto diretamente.
+- **O arquivo de estado é dado.** Chaves desconhecidas, tipos errados e nomes de versão fora de `[A-Za-z0-9._-]+` são rejeitados; `current` e `*.tmp-*` são reservados.
+- **A autoatualização é parcial.** Para o `wev-skills`, o wev só instala e verifica a nova pasta. Reapontar a pasta do plugin do Claude e os pacotes dos harnesses é tarefa do instalador (fora desta alteração).
+
 ## Limites conhecidos
 
 Estes pontos estão abertos. Não conte com o motor para nenhum deles.

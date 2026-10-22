@@ -32,6 +32,17 @@ Ideas and conventions studied, not copied. Details are in [research/agent-skills
 
 Official Claude Code documentation pages (see [research/sources.md](research/sources.md)) were consulted to learn interfaces. No text from them is reproduced.
 
+## Installed dependencies
+
+Not vendored: no file of these projects is in this repository. `wev skills install` downloads them at the user's request into `$XDG_DATA_HOME/wev-skills/third-party/`, and the version is resolved at install time (the newest release, see the [installation guide](guides/installation.md#third-party-skills-install-daily-check-update-rollback-freeze)).
+
+| Source | Version | License | Use |
+|---|---|---|---|
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases at https://github.com/morluto/rea) | Resolved at install time (`dist-tags.latest`) | MIT | Started with `npx` as an MCP server |
+| addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolved at install time (latest release) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills linked into the user's skill directories by `wev skills activate` |
+
+The license of `rea-agents` was not checked in its source by this change; read it before you rely on it. No affiliation with or endorsement by the authors of these projects is implied.
+
 ## Rule for adding third-party files
 
 Before any third-party file, snippet, schema, prompt or dataset is added to this repository, the contributor must:

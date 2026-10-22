@@ -33,6 +33,8 @@ Focused CLI, persistence, learning, routing and budget regression tests cover th
 
 Harness adapters for Codex, Gemini CLI and OpenCode (`wev harness export|install|uninstall`, `wev hook ... --harness`) were added later. Status: implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part). The OpenCode plugin was tested under node with a fake `wev` and never run inside OpenCode. They add no row to the 16 criteria; the limits are in [SECURITY.md](../SECURITY.md#other-harnesses).
 
+Third-party skill updates (`wev skills ...`, the daily check hook) were added later. Status: implemented and tested with a local fake registry, a fake npx and local tarballs; the real registries, downloads and the real rea server are not run in this change (e2e part). They add no row to the 16 criteria; the limits are in [SECURITY.md](../SECURITY.md#third-party-skill-updates).
+
 ## Summary
 
 | # | Criterion | Status |

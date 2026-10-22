@@ -88,6 +88,7 @@ A entrada de objetivos está documentada no [guia de entrevista](docs/guides/int
 | Verificações de READMEs bilíngues | [Padrão de README](skills/wev-readme/SKILL.md) | `wev-readme` |
 | Skills, hooks de guarda e agentes para Codex, Gemini CLI e OpenCode | [Instalação: Codex, Gemini CLI e OpenCode](docs/guides/installation.pt-BR.md#codex-gemini-cli-e-opencode) | CLI `wev harness` |
 | Atualizações revisadas de fontes e conciliação de conflitos | [Política de manutenção](skills/wev-skill-maintenance/references/policy.pt-BR.md) | `wev-skill-maintenance` |
+| Instalar, verificar diariamente, atualizar, reverter e congelar skills de terceiros | [Instalação: skills de terceiros](docs/guides/installation.pt-BR.md#skills-de-terceiros-instalar-verificação-diária-atualizar-reverter-congelar) | CLI `wev skills` |
 
 Harnesses: o Claude Code usa o plugin; Codex, Gemini CLI e OpenCode recebem as skills e o guarda por `wev harness install --target <nome>`.
 
