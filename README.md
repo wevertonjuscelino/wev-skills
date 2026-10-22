@@ -84,6 +84,7 @@ Objective intake is documented in [the interview guide](docs/guides/intake.md). 
 | JSON agent specs, templates, inheritance and permission ceilings | [Creating agents](docs/guides/creating-agents.md) | `wev-agent-builder` |
 | Deterministic evaluation of harness mechanics | [Evaluation](docs/guides/evaluation.md) | `wev-harness-evaluation` |
 | Inventory-based SSH and task-owned tmux sessions | [Remote operations](docs/guides/remote-ops.md) | `wev-remote-ops` |
+| Evidence-backed reverse engineering with the rea tools (change plan or clean-room specification) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Managed project guidelines in `CLAUDE.md` | [Guidelines skill](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Bilingual README checks | [README standard](skills/wev-readme/SKILL.md) | `wev-readme` |
 | Skills, guard hooks and agents for Codex, Gemini CLI and OpenCode | [Installation: Codex, Gemini CLI and OpenCode](docs/guides/installation.md#codex-gemini-cli-and-opencode) | CLI `wev harness` |

@@ -84,6 +84,7 @@ A entrada de objetivos está documentada no [guia de entrevista](docs/guides/int
 | Specs JSON de agentes, templates, herança e tetos de permissão | [Criando agentes](docs/guides/creating-agents.pt-BR.md) | `wev-agent-builder` |
 | Avaliação determinística da mecânica do harness | [Avaliação](docs/guides/evaluation.pt-BR.md) | `wev-harness-evaluation` |
 | SSH com inventário e sessões tmux pertencentes à tarefa | [Operações remotas](docs/guides/remote-ops.pt-BR.md) | `wev-remote-ops` |
+| Engenharia reversa com evidências usando as ferramentas rea (plano de mudança ou especificação clean-room) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Diretrizes gerenciadas de projeto no `CLAUDE.md` | [Skill de diretrizes](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Verificações de READMEs bilíngues | [Padrão de README](skills/wev-readme/SKILL.md) | `wev-readme` |
 | Skills, hooks de guarda e agentes para Codex, Gemini CLI e OpenCode | [Instalação: Codex, Gemini CLI e OpenCode](docs/guides/installation.pt-BR.md#codex-gemini-cli-e-opencode) | CLI `wev harness` |

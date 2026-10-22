@@ -31,6 +31,7 @@ EXPECTED_SKILLS = (
     "wev-orchestrate",
     "wev-readme",
     "wev-remote-ops",
+    "wev-reverse",
     "wev-skill-maintenance",
 )
 
