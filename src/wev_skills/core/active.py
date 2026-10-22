@@ -19,6 +19,7 @@ from wev_skills.config import (
     explicit_language,
     find_repo_root,
     parse_config,
+    user_config_path,
 )
 from wev_skills.core import run_registry
 from wev_skills.core.contracts import Mode, RiskLevel, TaskStatus, higher_risk
@@ -308,8 +309,9 @@ def ambient_language(cwd: Path, config_path: str | None = None) -> str | None:
     """The language a command run from ``cwd`` takes from its configuration, if one is set.
 
     The active run's pinned configuration when there is one, else ``config_path`` (the
-    global ``--config``), else ``<repository root>/wev.config.json``. Only a ``language``
-    written in a file counts; the built-in default does not. A lookup that fails gives
+    global ``--config``), else ``<repository root>/wev.config.json``, else the user file
+    (``user_config_path()``, skipped when a symlink). Only a ``language`` written in a file
+    counts; the built-in default does not. A lookup that fails gives
     ``None``: the command itself reports the real error.
     """
     found = find_active_run(cwd)
@@ -317,7 +319,9 @@ def ambient_language(cwd: Path, config_path: str | None = None) -> str | None:
         return found.language
     if config_path is not None:
         return explicit_language(config_path)
-    return explicit_language(str(find_repo_root(cwd) / CONFIG_FILE_NAME))
+    repo = explicit_language(str(find_repo_root(cwd) / CONFIG_FILE_NAME))
+    user = user_config_path()
+    return repo or (None if user.is_symlink() else explicit_language(str(user)))
 
 
 def _still_active(entry: RegistryEntry) -> bool:

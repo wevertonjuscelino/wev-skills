@@ -129,6 +129,7 @@ class ReaConfigProtectionTests(RegistryCase):
             f"cp /tmp/forged.json {path}",
             f"mv {path.parent} {path.parent}.old",
             f"ln -s /tmp/forged {path.parent}",
+            f"echo x > {path.parent}/wev.config.json",
         )
         for line in lines:
             with self.subTest(line=line):

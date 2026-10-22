@@ -1,0 +1,10 @@
+#!/bin/sh
+# Fake git: logs argv to $FAKE_LOG. "git clone ... DEST" makes DEST with a bin/ that links to
+# $FAKE_REPO/bin, so DEST/bin/wev runs the repository under test.
+printf 'git %s\n' "$*" >> "$FAKE_LOG"
+if [ "$1" = clone ]; then
+  for dest; do :; done
+  mkdir -p "$dest"
+  ln -s "$FAKE_REPO/bin" "$dest/bin"
+fi
+exit 0

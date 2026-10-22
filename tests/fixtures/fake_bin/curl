@@ -1,0 +1,4 @@
+#!/bin/sh
+# Fake curl: logs argv to $FAKE_LOG and answers the releases API with $FAKE_TAG (default v9.9.9).
+printf 'curl %s\n' "$*" >> "$FAKE_LOG"
+printf '{"tag_name": "%s"}\n' "${FAKE_TAG:-v9.9.9}"

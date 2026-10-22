@@ -37,6 +37,8 @@ Third-party skill updates (`wev skills ...`, the daily check hook) were added la
 
 The rea integration (`wev rea serve|status|mode|build-image`, the `wev-rea` container image, registration for Claude Code, Gemini CLI and OpenCode) was added later. Status: implemented and tested with fake `npx` and `docker` executables (unit tests); the real rea server, the real container build and the real harness loaders are not run in this change (e2e part). The `wev-reverse` skill is documented only. It adds no row to the 16 criteria; the limits are in [SECURITY.md](../SECURITY.md#rea-reverse-engineering-server).
 
+The installer (`install.sh`), the user-level configuration tier (`~/.config/wev-skills/wev.config.json` read below the repository's file) and `wev jev key set` were added later. Status: implemented and tested with fake harness CLIs and a local source (unit tests, offline). The download route (releases API and `git clone` of the tag), a real `claude plugin install`, real Codex, Gemini CLI and OpenCode, a real JEV probe and the interactive dependency-install path are not run in this change (e2e part); the `curl | bash` line is documented only until the owner publishes the script. See the [installation guide](guides/installation.md#quick-install) and [SECURITY.md](../SECURITY.md#installer).
+
 ## Summary
 
 | # | Criterion | Status |

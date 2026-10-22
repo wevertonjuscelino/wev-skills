@@ -6,6 +6,64 @@ O wev-skills foi publicado pela primeira vez em 2026-10-13 (v1.0.0, anunciada en
 
 Os rótulos de status seguem a convenção do projeto: implementado e testado (implemented and tested), implementado mas não testado (implemented but untested), simulado com mocks (simulated with mocks), apenas documentado (documented only) e bloqueado (blocked). Veja o [glossário](../glossary.md).
 
+## Instalação rápida
+
+O `install.sh`, na raiz do repositório, faz algumas perguntas e depois chama a CLI `wev` para tudo o que tem regras. A partir de um clone:
+
+```sh
+git clone https://github.com/wevertonjuscelino/wev-skills.git
+cd wev-skills
+bash install.sh
+```
+
+Para continuar usando esse clone como a cópia instalada (rota de desenvolvimento; a instalação fica "de uma fonte local, sem autoatualização"):
+
+```sh
+bash install.sh --source "$WEV_HOME"
+```
+
+A forma em uma linha, **depois que o dono publicá-la (apenas documentado)**:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh | bash
+```
+
+Em `curl | bash` a entrada padrão é o próprio script, então toda pergunta é lida do terminal (`/dev/tty`). Sem terminal e sem `--yes`, o script para e nomeia as flags. Leia o script antes de passá-lo a um shell; é um arquivo com menos de 400 linhas.
+
+**O que pergunta, em ordem:** o idioma (`en` ou `pt-BR`, padrão vindo de `LANG`); a licença (PolyForm Noncommercial 1.0.0, somente uso não comercial) e se instala sob ela; em quais dos harnesses encontrados (`claude`, `codex`, `gemini`, `opencode`) instalar; se usa o JEV e, se sim, a chave de API (digitação oculta); se constrói agora a imagem de contêiner do rea.
+
+**O que faz, em ordem:** verificações do sistema (macOS ou Linux; `git` e `curl`, exceto com `--source`; Python 3.14 ou mais novo; Node e npm para o rea) → licença → idioma → detecção de harnesses → bootstrap (a última tag de release pela API de releases do GitHub, um clone raso dessa tag num diretório temporário e então `wev skills update wev-skills`, que instala a release em `$XDG_DATA_HOME/wev-skills/third-party/` e aponta `current` para ela; o clone temporário é apagado ao sair) → JEV → terceiros (`wev skills update rea`, `update agent-skills`, `activate`) → modo e imagem do rea → harnesses → um resumo.
+
+| Flag | Efeito |
+|---|---|
+| `--yes` | Responde sim a toda pergunta. Nunca instala pacotes do sistema: se faltar Python ou Node, para e nomeia o comando |
+| `--lang en\|pt-BR` | Idioma das mensagens (padrão: de `LANG`); repassado a todo comando `wev` |
+| `--harness LISTA` | Lista separada por vírgulas de `claude,codex,gemini,opencode` (padrão: os encontrados, cada um confirmado) |
+| `--jev` / `--no-jev` | Usa o JEV (pede a chave) ou não (padrão: perguntar; só `--yes` significa não) |
+| `--rea-mode isolated\|direct` | Como o rea roda (padrão: `isolated` se o `docker` for encontrado, senão `direct`) |
+| `--source DIR` | Usa `DIR/bin/wev` em vez de baixar a última release |
+| `--uninstall` | Remove o que o instalador colocou (abaixo) |
+| `--purge` | Com `--uninstall`: remove também o diretório de configuração |
+| `--help` | Imprime as flags |
+
+**O que grava, e onde:** o diretório de dados `$XDG_DATA_HOME/wev-skills` (senão `~/.local/share/wev-skills`: versões de terceiros, manifestos dos harnesses); o diretório de configuração `$XDG_CONFIG_HOME/wev-skills` (senão `~/.config/wev-skills`) com o arquivo da chave `.env` (modo 0600, gravado por `wev jev key set`) e a configuração do usuário `wev.config.json` (modo 0600; define `language` e `decision.provider` como `jev` só quando o teste do JEV funcionou); `rea.json`, por `wev rea mode`; e, pela CLI, os diretórios dos harnesses (`wev harness install --target codex|gemini|opencode`; no Claude Code, `claude plugin marketplace add` do diretório `current` e `claude plugin install wev-skills@wev-skills-marketplace`). Nada além disso.
+
+**A chave do JEV.** `wev jev key set` lê a chave da entrada padrão (uma linha; recusa um terminal na entrada), grava no arquivo da chave e imprime o caminho, `key_source` e `usable`, nunca a chave. O instalador lê a chave com uma pergunta oculta no terminal e a envia por pipe a esse comando, então ela não aparece em argumento, variável de ambiente nem log. Se a variável de ambiente `TYPESAFE_API_KEY` estiver definida, ela se sobrepõe ao arquivo e a resposta traz `shadowed_by_env`. `wev jev key set` é um comando só para pessoas: o hook do Claude Code pergunta e os outros harnesses negam. Você mesmo pode rodá-lo num terminal: `wev jev key set < arquivo` ou `pbpaste | wev jev key set`. Depois da chave, o instalador roda `wev jev ask` uma vez como teste; se falhar, mostra o erro, oferece uma nova tentativa e, senão, segue com o JEV desligado.
+
+**O que continua e o que para.** Um `wev skills update rea|agent-skills|activate` que falhe ou um registro de harness que falhe é mostrado, marcado como `falhou` no resumo, e o script segue; o resumo termina então com "Finished with N failures" (a mensagem no idioma escolhido) e o script sai com 1. Só uma execução sem falhas sai com 0. Uma falha no bootstrap, em `jev key set`, `rea mode`, `config validate` ou a falta de uma ferramenta obrigatória para o script com a saída daquela chamada. Recusar a licença não instala nada.
+
+**Rodar de novo.** Rode outra vez com outras respostas para reconfigurar: `skills update` não faz nada na versão mais nova, `harness install` substitui os arquivos do próprio wev, `jev key set` troca só a linha `TYPESAFE_API_KEY`, `rea mode` reescreve um arquivo e a configuração do usuário mantém as outras chaves. `--no-jev` numa execução posterior desliga o JEV (a linha `decision.provider` é removida).
+
+**Desinstalar.** `bash install.sh --uninstall` roda `wev harness uninstall --target ...` para cada manifesto presente, `claude plugin uninstall wev-skills` e `claude plugin marketplace remove wev-skills-marketplace` quando o `claude` existe, `wev skills deactivate`, e então remove o diretório de dados. Pergunta antes de remover o diretório de configuração (o arquivo da chave e a configuração do usuário); com `--yes` mantém esse diretório, a menos que `--purge` também seja dado. Imprime o que removeu e o que manteve. Se qualquer `harness uninstall`, `claude plugin uninstall`, `marketplace remove` ou `skills deactivate` falhar, o diretório de dados é mantido (os manifestos ficam para uma nova tentativa) e o script sai com 1; ele também mantém o diretório de dados e sai com 1 quando falta o Python 3.14 ou o `current/bin/wev`.
+
+**Diretório de trabalho e Python.** O script entra no próprio diretório temporário antes de qualquer chamada `wev`, então um `wev.config.json` do diretório onde você o rodou não tem efeito; vale a configuração do usuário. Todo `python3 -c` que ele roda usa `-I`. O wev roda como `<python3.14> <bin/wev>`, mas os hooks dos harnesses usam `#!/usr/bin/env python3`: quando o `python3` que vem primeiro no `PATH` é anterior ao 3.14, o resumo avisa que os hooks precisam de um 3.14 primeiro no `PATH` (um limite; o instalador não o corrige).
+
+**O teste do JEV** roda com `TYPESAFE_API_KEY` removida do ambiente, então valida a chave digitada. Se essa variável estiver exportada no seu shell, o resumo avisa que o valor exportado vai prevalecer sobre a chave gravada.
+
+**O que nunca faz.** Nunca passa um script remoto a um shell para instalar dependência. Nunca instala pacote do sistema com `--yes`; sem `--yes` mostra um comando conhecido (`uv python install 3.14`, `brew install python`, `brew install node`, `sudo apt-get install -y ...`, `sudo dnf install -y ...`) e só o roda depois do seu sim. Não confia nos hooks do Codex, não roda `gemini extensions link` nem `codex mcp add` por você: isso sai como próximos passos no resumo.
+
+Status: **implementado e testado** com CLIs de harness falsas e uma fonte local (testes unitários, offline: `tests/unit/test_install_sh.py`, `tests/unit/test_jev_key_set.py`, `tests/unit/test_config_user_tier.py`). **Não executado nesta mudança (parte e2e):** a rota de download (API de releases, `git clone` da tag), um `claude plugin install` real, Codex, Gemini CLI e OpenCode reais, um teste real do JEV e o caminho interativo de instalação de dependências. Também não verificado até lá: se um `claude plugin marketplace add` real aceita uma nova execução e se ele registra o link `current` ou o destino já resolvido. A linha `curl | bash` é apenas documentada. O `shellcheck` não é dependência. Veja [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md#instalador).
+
 ## Requisitos
 
 | Requisito | Para quê | Observações |

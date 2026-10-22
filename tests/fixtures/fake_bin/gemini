@@ -1,0 +1,7 @@
+#!/bin/sh
+# Fake gemini CLI: logs argv to $FAKE_LOG, exits 1 when FAKE_FAIL names "gemini". "extensions
+# list" prints an empty JSON list, which is what wev reads.
+printf 'gemini %s\n' "$*" >> "$FAKE_LOG"
+case ",${FAKE_FAIL:-}," in *,gemini,*) exit 1 ;; esac
+[ "$1 $2" = "extensions list" ] && echo "[]"
+exit 0

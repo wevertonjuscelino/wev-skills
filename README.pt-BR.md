@@ -41,7 +41,15 @@ Confira `python3 --version` antes de usar o plugin. Interpretadores antigos não
 
 ## Início rápido
 
-Clone o repositório público e localize a CLI. Estes comandos de clone são o passo de instalação de quem lê e não foram executados durante esta revisão da documentação:
+Instalação guiada (faz algumas perguntas e depois registra o wev-skills, as skills de terceiros e os harnesses que você escolher; implementada e testada com CLIs de harness falsas e uma fonte local, ainda não executada na rota de download nem nos harnesses reais). A partir de um clone:
+
+```sh
+bash install.sh
+```
+
+Depois que o dono publicá-la (apenas documentado): `curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh | bash`. Só no Claude Code, pelo repositório publicado como marketplace (apenas documentado, não executado): `/plugin install wev-skills --marketplace wevertonjuscelino/wev-skills`. Flags, o que grava e a desinstalação estão no [guia de instalação](docs/guides/installation.pt-BR.md#instalação-rápida).
+
+Ou à mão: clone o repositório público e localize a CLI. Estes comandos de clone são o passo de instalação de quem lê e não foram executados durante esta revisão da documentação:
 
 ```sh
 git clone https://github.com/wevertonjuscelino/wev-skills.git

@@ -39,6 +39,8 @@ class Scope:
     source: str
     state_dir: Path
     active: ActiveRun | None = None
+    sources: tuple[str, ...] = ()
+    """The configuration files merged, lowest precedence first; empty for a pinned run."""
 
 
 def _refuse_other_config(config_path: str, active: ActiveRun) -> None:
@@ -69,7 +71,9 @@ def resolve_scope(
         root = find_repo_root(here)
         resolved = resolve_config(config_path, root)
         config = protect_state_dir(resolved.config, root)
-        return Scope(root, config, resolved.source, wiring.state_dir(config, root))
+        return Scope(
+            root, config, resolved.source, wiring.state_dir(config, root), sources=resolved.sources
+        )
     if config_path is not None:
         _refuse_other_config(config_path, active)
     config = protect_state_dir(active.config, active.root)

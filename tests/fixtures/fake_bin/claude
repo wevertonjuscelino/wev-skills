@@ -1,0 +1,6 @@
+#!/bin/sh
+# Fake claude CLI: logs argv to $FAKE_LOG, exits 1 when FAKE_FAIL names "claude".
+printf 'claude %s\n' "$*" >> "$FAKE_LOG"
+echo "fake claude: $*"
+case ",${FAKE_FAIL:-}," in *,claude,*) exit 1 ;; esac
+exit 0

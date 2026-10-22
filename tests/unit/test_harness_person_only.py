@@ -36,6 +36,7 @@ PERSON_ONLY = (
     "wev skills deactivate",
     "wev rea mode direct",
     "wev rea build-image",
+    "wev jev key set",
     "git push && wev approval grant a1",
     # the marker comes from the whole line, not from the first reason shown
     "wev approval grant a1 --config x.json",
@@ -145,6 +146,13 @@ class PersonOnlyTests(unittest.TestCase):
                 reason = specific["permissionDecisionReason"]
                 self.assertEqual(out, hooks._output("ask", reason) + "\n")
                 self.assertNotIn(DENIED, out)
+
+    def test_key_set_names_the_key_file(self) -> None:
+        payload = {"cwd": str(self.work), "tool_name": "Bash",
+                   "tool_input": {"command": "wev jev key set"}}  # fmt: skip
+        _, out, _ = self.run_hook(payload)
+        reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("writes the JEV API key", reason)
 
 
 if __name__ == "__main__":
