@@ -100,11 +100,14 @@ def check_key(argv: Sequence[str]) -> tuple[str, ...]:
     return ("check", hashlib.sha256("\0".join(argv).encode()).hexdigest())
 
 
-def _fenced(lesson_id: str, label: str, text: str) -> str:
+MODEL_LABEL = "model-written lesson"
+
+
+def _fenced(lesson_id: str, label: str, text: str, limit: int = AUTHORED_MAX) -> str:
     """``text`` in the untrusted-data fence, with a marker id derived from the lesson so the
     same lesson always renders the same bytes (the export is compared with the file)."""
     digest = hashlib.sha256(f"{lesson_id}\0{label}".encode()).hexdigest()
-    return untrusted.wrap(clean_text(text, AUTHORED_MAX), label, digest[:_NONCE_LENGTH])
+    return untrusted.wrap(clean_text(text, limit), label, digest[:_NONCE_LENGTH])
 
 
 def render_lesson(lesson: Lesson, lang: str | None = None) -> str:
@@ -116,8 +119,14 @@ def render_lesson(lesson: Lesson, lang: str | None = None) -> str:
         contradictions=lesson.contradictions,
     )
     kind = i18n.t(f"agents.experience.kind.{lesson.kind}", lang)
-    head = f"[{kind}] {clean_text(lesson.text, LESSON_TEXT_MAX)} ({counts})"
-    blocks = [_fenced(lesson.id, item.label, item.text) for item in lesson.authored]
+    if lesson.kind == KIND_MODEL:  # model-written text is never bare: fixed line, text fenced
+        said = i18n.t("agents.experience.model_line", lang, by=lesson.accepted_by)
+        head = f"[{kind}] {said} ({counts})"
+        blocks = [_fenced(lesson.id, MODEL_LABEL, lesson.text, LESSON_TEXT_MAX)]
+    else:
+        head = f"[{kind}] {clean_text(lesson.text, LESSON_TEXT_MAX)} ({counts})"
+        blocks = []
+    blocks += [_fenced(lesson.id, item.label, item.text) for item in lesson.authored]
     if lesson.note:
         blocks.append(_fenced(lesson.id, NOTE_LABEL, lesson.note))
     return "\n".join([head, *blocks])

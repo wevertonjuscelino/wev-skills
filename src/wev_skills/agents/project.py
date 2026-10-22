@@ -13,6 +13,7 @@ from wev_skills.adapters.claude_code.subagent import export_all
 from wev_skills.agents import learning
 from wev_skills.agents.experience import (
     ACTIVE,
+    KIND_MODEL,
     PROPOSED,
     PROPOSER,
     RETIRED,
@@ -229,11 +230,27 @@ class ScoreDecisions:
     retired: tuple[str, ...] = ()
 
 
-def _by_score(current: Lesson, status: str) -> Lesson:
-    """A person's retirement is final: score never changes it."""
-    if current.status == RETIRED and current.accepted_by not in (PROPOSER, SCORER):
+def _by_score(current: Lesson, accept: bool) -> Lesson:
+    """Score accepts only proposed lessons and retires only active or stale ones that no
+    person decided on; every person's decision is final against it."""
+    if current.accepted_by not in (PROPOSER, SCORER):
         return current
-    return replace(current, status=status, accepted_by=SCORER)
+    if accept and current.status == PROPOSED:
+        return replace(current, status=ACTIVE, accepted_by=SCORER)
+    if not accept and current.status in (ACTIVE, STALE):
+        return replace(current, status=RETIRED, accepted_by=SCORER)
+    return current
+
+
+def _check_scores(decisions: ScoreDecisions) -> None:
+    both = set(decisions.accepted) & set(decisions.retired)
+    if both:
+        message = i18n.t("agents.specialists.score_both", lesson=sorted(both)[0])
+        raise ValidationError("score_both", message, {"lesson": sorted(both)[0]})
+    for item in decisions.new:
+        if (item.kind, item.status, item.accepted_by) != (KIND_MODEL, PROPOSED, PROPOSER):
+            message = i18n.t("agents.specialists.score_new", lesson=item.id)
+            raise ValidationError("score_new", message, {"lesson": item.id})
 
 
 def record_scores(
@@ -246,6 +263,7 @@ def record_scores(
 ) -> AgentSpec:
     """Apply a score run's decisions under the lock, only if the lessons still equal ``seen``.
     ``record`` (the audit) runs before the write, so a failed audit leaves nothing behind."""
+    _check_scores(decisions)
     with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
         spec = _load(root, config, agent_id)
         if spec.experience != seen:
@@ -257,9 +275,7 @@ def record_scores(
         added = tuple(item for item in decisions.new if item.id not in present)
         accepted, retired = set(decisions.accepted), set(decisions.retired)
         lessons = tuple(
-            _by_score(item, ACTIVE if item.id in accepted else RETIRED)
-            if item.id in accepted | retired
-            else item
+            _by_score(item, item.id in accepted) if item.id in accepted | retired else item
             for item in spec.experience
         )
         record()
