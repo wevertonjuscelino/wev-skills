@@ -44,6 +44,8 @@ ENVIRONMENT_COMMANDS = frozenset(
 GIT_DIRECTORY_OPTION = "-C"
 RAW_SEPARATORS = ("$(", "<<<", "<<", "(", ")", "{", "}", ";", "`")
 """Shell syntax dropped from a line the splitter refused, before its words are read."""
+UNQUOTE = str.maketrans("", "", "\"'\\")
+"""Quotes and backslashes, dropped from the words of such a line."""
 OUTCOME_DECISIONS = {
     PermissionOutcome.ALLOW: NO_OPINION,
     PermissionOutcome.NEEDS_APPROVAL: ASK,
@@ -254,15 +256,21 @@ def _needs_shell(part: SimpleCommand, cwd: str | None) -> bool:
     return bool(part.redirects) or not engine
 
 
+def _raw_words(command: str) -> list[str]:
+    """The words of ``command`` with its syntax, quotes and backslashes dropped (best
+    effort: ``"wev"``, ``'wev'`` and ``w\\ev`` all read ``wev``)."""
+    for token in RAW_SEPARATORS:
+        command = command.replace(token, " ")
+    return command.translate(UNQUOTE).split()
+
+
 def _raw_person_only(command: str, cwd: str) -> bool:
     """A line the splitter refused still names an operator command in its plain words.
     Words hidden behind a variable or built at runtime are not seen. Past ``MAX_WORDS`` the
-    scan would outlast the hook, so any mention of ``wev`` counts (fail closed)."""
-    for token in RAW_SEPARATORS:
-        command = command.replace(token, " ")
-    words = command.split()
+    scan would outlast the hook, so the line counts whatever it names (fail closed)."""
+    words = _raw_words(command)
     if len(words) > MAX_WORDS:
-        return engine_cli.BARE_NAME in command
+        return True
     return bool(engine_cli.mentioned_codes(words, cwd) & engine_cli.PERSON_ONLY_REASONS)
 
 

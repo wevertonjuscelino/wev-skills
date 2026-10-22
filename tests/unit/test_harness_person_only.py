@@ -21,6 +21,7 @@ from unittest import mock
 from tests.unit.test_harness_hooks import FakeStdin, fixture
 from wev_skills import cli
 from wev_skills.adapters.claude_code import hooks
+from wev_skills.core.wiring import REPO_ROOT
 
 H3 = ("codex", "gemini", "opencode")
 KEY = {"codex": "tool_input", "gemini": "tool_input", "opencode": "args"}
@@ -43,12 +44,20 @@ PERSON_ONLY = (
     "wev approval grant a1 <<EOF\nx\nEOF",
     "wev approval grant a1 <<< x",
     "wev approval grant a1 " + "x " * 10_001,
+    # quoted or escaped engine words in a line the guard cannot tokenize
+    '("wev" approval grant a1)',
+    "('wev' approval grant a1)",
+    "(w\\ev approval grant a1)",
+    '("wev" approval grant a1 ' + "y" * 20_001 + ")",
+    # past the word cap any unreadable line is denied, whatever it names
+    "(./x approval grant a1 " + "y " * 2100 + ")",
+    "(echo hi " + "y " * 2100 + ")",
 )
 POLICY_ASKS = (
     "git push",
     "wev run start --request x",
     "echo $(date)",
-    "echo $(date) " + "x " * 3000,
+    "(echo hi)",
 )
 DENIED = "this is a human-operator command; this harness cannot ask, so it was denied"
 
@@ -64,6 +73,7 @@ class PersonOnlyTests(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, {"HOME": tmp.name, **env})
         patcher.start()
         self.addCleanup(patcher.stop)
+        (self.work / "x").symlink_to(REPO_ROOT / "bin" / "wev")  # a launcher under another name
 
     def harness_hook(self, harness: str, command: str) -> tuple[int, str, str]:
         return self.run_hook(self.shell(harness, command), "--harness", harness)
