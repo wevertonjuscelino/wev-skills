@@ -319,7 +319,9 @@ class ScoringTest(unittest.TestCase):
         self.assertIn("timed out", agent.prompts[0])
         self.assertIn("+++ b/fix-c1.txt", agent.prompts[0])  # the partial work reaches the diff
 
-    def test_a_hook_planted_by_the_agent_stops_the_run_before_any_git_call(self) -> None:
+    def run_recorded(self, act: Callable[[], None], error: type[Exception]) -> Exception:
+        """Score with an agent that calls ``act``; the git calls after it must be none, its
+        workspace gone and the lessons unchanged. Returns the error raised."""
         self.add_cases("c1")
         item = lesson("do x")
         self.experience(item)
@@ -334,19 +336,62 @@ class ScoringTest(unittest.TestCase):
 
         agent = FakeAgent(lambda s: set())
 
-        def plant() -> None:
+        def run() -> None:
             marks.append(len(calls))
             paths.extend(self.scratch_dirs())
-            (self.root / ".git" / "hooks" / "post-checkout").write_text("#!/bin/sh\ntouch /x\n")
+            act()
 
-        agent.on_run = plant
-        with self.assertRaises(StateConflict) as ctx:
+        agent.on_run = run
+        with self.assertRaises(error) as ctx:
             score_specialist(self.root, self.config, Recording(), agent, AGENT, self.audit)
-        self.assertEqual(ctx.exception.code, "git_config_changed")
         self.assertEqual(len(calls), marks[0])  # not one git call after the agent ran
         self.assertTrue(paths)
         self.assertFalse(any(p.exists() for p in paths))
         self.assertEqual(self.stored()[item.id], item)
+        return ctx.exception
+
+    def hooks(self) -> Path:
+        return self.root / ".git" / "hooks"
+
+    def test_a_hook_planted_by_the_agent_stops_the_run_before_any_git_call(self) -> None:
+        err = self.run_recorded(
+            lambda: (self.hooks() / "post-checkout").write_text("#!/bin/sh\ntouch /x\n"),
+            StateConflict,
+        )
+        self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def test_an_unreadable_file_planted_in_hooks_counts_as_tampering(self) -> None:
+        def plant() -> None:
+            hook = self.hooks() / "unreadable"
+            hook.write_text("x")
+            hook.chmod(0)
+
+        err = self.run_recorded(plant, StateConflict)
+        self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def test_an_unreadable_directory_planted_in_hooks_counts_as_tampering(self) -> None:
+        def plant() -> None:
+            folder = self.hooks() / "sub"
+            (folder).mkdir()
+            (folder / "x").write_text("x")
+            folder.chmod(0)
+            self.addCleanup(folder.chmod, 0o755)
+
+        err = self.run_recorded(plant, StateConflict)
+        self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def test_chmod_plus_x_on_an_existing_hook_is_detected(self) -> None:
+        hook = self.hooks() / "pre-commit"
+        hook.write_text("#!/bin/sh\n")
+        hook.chmod(0o644)
+        err = self.run_recorded(lambda: hook.chmod(0o755), StateConflict)
+        self.assertEqual(err.code, "git_config_changed")  # type: ignore[attr-defined]
+
+    def test_an_agent_that_raises_leaves_no_git_call_and_no_workspace(self) -> None:
+        def boom() -> None:
+            raise RuntimeError("boom")
+
+        self.run_recorded(boom, RuntimeError)
 
     def scratch_dirs(self) -> list[Path]:
         return [

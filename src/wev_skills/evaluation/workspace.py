@@ -33,8 +33,18 @@ def run_git(runner: Runner, root: Path, *args: str) -> RawCommandResult:
     return runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, env)
 
 
+SKIP_GIT_ATTR = "wev_skip_git"
+
+
+def skip_git_cleanup(exc: BaseException) -> None:
+    """Mark ``exc`` so ``case_workspace`` removes the directory without any git call."""
+    setattr(exc, SKIP_GIT_ATTR, True)
+
+
 class GitTampered(StateConflict):
     """The shared git directory changed while an agent ran; nothing may use git until reviewed."""
+
+    wev_skip_git = True
 
 
 @contextmanager
@@ -53,11 +63,11 @@ def case_workspace(runner: Runner, root: Path, case: Case, scratch: Path) -> Ite
     tampered = False
     try:
         yield path
-    except GitTampered:
-        tampered = True
+    except BaseException as exc:
+        tampered = bool(getattr(exc, SKIP_GIT_ATTR, False))
         raise
     finally:
-        if not tampered:  # after tampering no git call is made, the directory is just deleted
+        if not tampered:  # once the agent ran, only a verified clean exit may call git
             run_git(runner, root, "worktree", "remove", "--force", str(path))
         shutil.rmtree(path, ignore_errors=True)  # remove can fail on a dead worktree
 

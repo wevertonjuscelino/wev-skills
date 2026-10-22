@@ -125,7 +125,7 @@
   "evaluation.scoring.over_cap": "This pass would use {planned} agent runs and lesson requests, over the cap of {cap} (specialists.score_max_runs); nothing was run. Lower score_samples or the number of lessons, or raise the cap",
   "evaluation.scoring.cases_changed": "The case set changed while scoring; no lesson was decided",
   "evaluation.scoring.agent_failed": "The agent failed on case {case} ({error}); nothing was decided",
-  "evaluation.scoring.git_config_changed": "The repository's .git/config changed while scoring; nothing was decided",
+  "evaluation.scoring.git_config_changed": "The repository's git directory (config, hooks or info) changed while scoring; nothing was decided",
   "evaluation.scoring.bad_history": "A line of the score history is not valid JSON",
   "evaluation.scoring.agent_timed_out": "The agent timed out before finishing; the check was not run."
 }
