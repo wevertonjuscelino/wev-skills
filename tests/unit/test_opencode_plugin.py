@@ -90,6 +90,11 @@ class PluginNodeTests(unittest.TestCase):
         warn = self.fake_wev('cat >/dev/null\necho \'{"decision":"allow","reason":"care"}\'\n')
         self.assertEqual(self.run_plugin(warn), {"threw": None, "warnings": ["care"]})
 
+    def test_plugin_fails_closed_on_json_that_is_not_an_object(self) -> None:
+        for body in ("echo null\n", "echo 3\n", "echo '\"allow\"'\n", "echo '[]'\n"):
+            with self.subTest(body=body):
+                self.assertIsNotNone(self.run_plugin(self.fake_wev(body))["threw"])
+
     def test_plugin_ignores_other_tools(self) -> None:
         wev = self.fake_wev("exit 3\n")
         self.assertIsNone(self.run_plugin(wev, tool="read")["threw"])

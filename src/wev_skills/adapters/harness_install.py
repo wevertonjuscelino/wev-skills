@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,9 +42,10 @@ class Manifest:
     target: str
     files: tuple[str, ...]
     registrations: tuple[tuple[str, ...], ...]
+    created_dirs: tuple[str, ...] = ()  # directories wev created (opencode config dir)
 
 
-def _root(data_home: Path, target: str) -> Path:
+def root_for(data_home: Path, target: str) -> Path:
     return data_home / PACKAGE_NAME / "harness" / target
 
 
@@ -53,7 +55,7 @@ def _check_target(target: str) -> None:
         raise ValidationError("harness_not_installable", message)
 
 
-def _invalid(path: Path, why: str) -> ValidationError:
+def invalid(path: Path, why: str) -> ValidationError:
     message = i18n.t("harness.error.manifest_invalid", path=str(path), why=why)
     return ValidationError("harness_manifest_invalid", message, {"path": str(path)})
 
@@ -73,33 +75,47 @@ def _confined(name: object, package: Path) -> bool:
 
 
 def _read(root: Path, expected: str) -> Manifest | None:
+    package = root / "package"
+    return read_manifest(
+        root, expected, lambda name: _confined(name, package), _registrations(expected, package)
+    )
+
+
+def read_manifest(
+    root: Path,
+    expected: str,
+    confined: Callable[[object], bool],
+    registrations: tuple[tuple[str, ...], ...],
+) -> Manifest | None:
     """The manifest, checked: it is data, so what it holds is compared, never obeyed."""
     path = root / "manifest.json"
     if not path.is_file():
         return None
-    package = root / "package"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         files, regs = data["files"], data["registrations"]
         target = data["target"]
         stored = tuple(tuple(r) for r in regs)
+        dirs = data.get("created_dirs", [])
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise _invalid(path, type(exc).__name__) from exc
-    if target != expected or not isinstance(files, list):
-        raise _invalid(path, "target or files")
-    if stored != _registrations(target, package):
-        raise _invalid(path, "registrations")
-    if not all(_confined(name, package) for name in files):
-        raise _invalid(path, "files")
-    return Manifest(target, tuple(files), stored)
+        raise invalid(path, type(exc).__name__) from exc
+    if target != expected or not isinstance(files, list) or not isinstance(dirs, list):
+        raise invalid(path, "target or files")
+    if stored != registrations:
+        raise invalid(path, "registrations")
+    if not all(confined(name) for name in files):
+        raise invalid(path, "files")
+    return Manifest(target, tuple(files), stored, tuple(dirs))
 
 
-def _write(root: Path, manifest: Manifest) -> None:
+def write_manifest(root: Path, manifest: Manifest) -> None:
     data = {
         "target": manifest.target,
         "files": list(manifest.files),
         "registrations": [list(r) for r in manifest.registrations],
     }
+    if manifest.created_dirs:
+        data["created_dirs"] = list(manifest.created_dirs)
     atomic_write_text(root / "manifest.json", json.dumps(data, indent=2) + "\n")
 
 
@@ -135,7 +151,7 @@ def _roll_back(runner: Runner, done: tuple[tuple[str, ...], ...], error: BaseExc
         error.details["undo_failed"] = failed
 
 
-def _remove_files(files: tuple[str, ...], root: Path, extra: Path | None = None) -> None:
+def remove_files(files: tuple[str, ...], root: Path, extra: Path | None = None) -> None:
     """Unlink the listed files, then drop the empty directories wev made (package, root, the
     harness directory and ``extra``)."""
     package = root / "package"
@@ -156,7 +172,7 @@ def _marketplace_text() -> str:
     return json.dumps({"name": PACKAGE_NAME, "plugins": [plugin]}, indent=2) + "\n"
 
 
-def _check_placeholders(files: list[Path]) -> None:
+def check_placeholders(files: list[Path]) -> None:
     for path in files:
         first = path.read_text(encoding="utf-8").split("\n", 1)[0].strip()
         if first == PLACEHOLDER_MARK:
@@ -191,6 +207,13 @@ def _copy(source: Path, destination: Path) -> None:
         raise RemoteError("harness_copy_failed", message, {"path": str(destination)}) from exc
 
 
+def copy_tree(sources: list[Path], destinations: list[Path], written: list[str]) -> None:
+    """Copy each source to its destination, recording each in ``written`` as it is copied."""
+    for source, destination in zip(sources, destinations, strict=True):
+        _copy(source, destination)
+        written.append(str(destination))
+
+
 def _populate(
     target: str,
     runner: Runner,
@@ -212,16 +235,14 @@ def _populate(
             market = staging / MARKETPLACE_FILE
             atomic_write_text(market, _marketplace_text())
             built = [*built, market]
-        _check_placeholders(built)
+        check_placeholders(built)
         _check_package(runner, target, staging)
         if previous is not None:
             _undo_previous(runner, previous, root)
         targets = [package / source.relative_to(staging) for source in built]
         for destination in targets:
             _refuse_symlinks(destination, package)
-        for source, destination in zip(built, targets, strict=True):
-            _copy(source, destination)
-            written.append(str(destination))
+        copy_tree(built, targets, written)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
@@ -283,14 +304,14 @@ def _undo_previous(runner: Runner, previous: Manifest, root: Path) -> None:
     if failed:  # keep the old manifest and files: the person can retry the uninstall
         message = i18n.t("harness.error.undo_previous", command=" ".join(failed[0]))
         raise RemoteError("harness_undo_failed", message, {"undo_failed": failed})
-    _remove_files(previous.files, root)
+    remove_files(previous.files, root)
     (root / "manifest.json").unlink(missing_ok=True)  # it would list undone registrations
 
 
 def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Manifest:
     """Build and register the package; on any failure undo what this call did."""
     _check_target(target)
-    root = _root(data_home, target)
+    root = root_for(data_home, target)
     base = data_home / PACKAGE_NAME
     created_base = None if base.exists() else base
     previous = _read(root, target)
@@ -301,17 +322,17 @@ def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Man
         performed = () if target in PERSON_LINKS else registrations
         _register(runner, performed)
     except BaseException:
-        _remove_files(tuple(files), root, created_base)
+        remove_files(tuple(files), root, created_base)
         raise
     manifest = Manifest(target, tuple(files), registrations)
     try:
-        _write(root, manifest)
+        write_manifest(root, manifest)
     except OSError as exc:
         wrapped = _rollback_failures(runner, performed, exc)
-        _remove_files(tuple(files), root, created_base)
+        remove_files(tuple(files), root, created_base)
         raise wrapped from exc
     except BaseException:
-        _remove_files(tuple(files), root, created_base)
+        remove_files(tuple(files), root, created_base)
         raise
     return manifest
 
@@ -319,13 +340,13 @@ def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Man
 def uninstall(target: str, runner: Runner, data_home: Path) -> Manifest:
     """Undo the registrations and remove the files the manifest lists, and only those."""
     _check_target(target)
-    root = _root(data_home, target)
+    root = root_for(data_home, target)
     manifest = _read(root, target)
     if manifest is None:
         message = i18n.t("harness.error.not_installed", target=target)
         raise NotFound("harness_not_installed", message)
     _undo(runner, manifest.registrations, strict=True)
-    _remove_files(manifest.files, root)
+    remove_files(manifest.files, root)
     (root / "manifest.json").unlink()
-    _remove_files((), root, data_home / PACKAGE_NAME)  # empty now that the manifest is gone
+    remove_files((), root, data_home / PACKAGE_NAME)  # empty now that the manifest is gone
     return manifest

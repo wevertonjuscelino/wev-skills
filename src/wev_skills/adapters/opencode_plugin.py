@@ -30,11 +30,16 @@ function ask(payload) {
   if (run.status !== 0) throw new Error(`wev guard exited with ${run.status}`);
   const text = run.stdout.trim();
   if (text === "") return null;
+  let answer;
   try {
-    return JSON.parse(text);
+    answer = JSON.parse(text);
   } catch {
     throw new Error("wev guard answered something that is not JSON");
   }
+  if (answer === null || typeof answer !== "object") {
+    throw new Error("wev guard answered JSON that is not an object");
+  }
+  return answer;
 }
 
 export const WevGuard = async ({ directory }) => ({

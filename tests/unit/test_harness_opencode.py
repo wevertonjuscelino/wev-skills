@@ -87,6 +87,21 @@ class InstallTests(OpenCodeBase):
             self.install()
         self.assertEqual(list(elsewhere.iterdir()), [])
 
+    def test_a_symlinked_directory_is_named_in_the_error(self) -> None:
+        (self.config / "skills").mkdir(parents=True)
+        link = self.config / "skills" / "wev-orchestrate"
+        link.symlink_to(self.tmp)
+        with self.assertRaises(ValidationError) as ctx:
+            self.install()
+        self.assertEqual(ctx.exception.details["path"], str(link))
+
+    def test_a_refused_install_leaves_no_empty_wev_directories(self) -> None:
+        (self.config / "plugins").mkdir(parents=True)
+        (self.config / "plugins" / "wev-guard.js").write_text("theirs")
+        with self.assertRaises(StateConflict):
+            self.install()
+        self.assertFalse((self.data / "wev-skills").exists())
+
     def test_a_failed_copy_rolls_back_the_files_written_so_far(self) -> None:
         calls = {"n": 0}
         from wev_skills.core import fsutil
@@ -99,7 +114,7 @@ class InstallTests(OpenCodeBase):
                 raise OSError("disk full")
             real(path, text)
 
-        patched = mock.patch("wev_skills.adapters.harness_opencode.atomic_write_text", flaky)
+        patched = mock.patch("wev_skills.adapters.harness_install.atomic_write_text", flaky)
         with patched, self.assertRaises(RemoteError):
             self.install()
         self.assertEqual(self.tree(), set())
@@ -115,6 +130,20 @@ class UninstallTests(OpenCodeBase):
         uninstall(self.data, self.config)
         self.assertEqual(self.tree(), {"plugins/mine.js", "skills/wev-orchestrate/mine.md"})
         self.assertFalse((self.root / "manifest.json").exists())
+
+    def test_uninstall_removes_the_directories_wev_created_only(self) -> None:
+        (self.config / "agents").mkdir(parents=True)  # the person's own, empty
+        self.install()
+        uninstall(self.data, self.config)
+        self.assertTrue((self.config / "agents").is_dir())
+        self.assertFalse((self.config / "plugins").exists())
+        self.assertFalse((self.config / "skills").exists())
+
+    def test_reinstall_keeps_knowing_which_directories_wev_created(self) -> None:
+        self.install()
+        self.install()
+        uninstall(self.data, self.config)
+        self.assertFalse((self.config / "plugins").exists())
 
     def test_uninstall_without_manifest_is_not_found(self) -> None:
         with self.assertRaises(NotFound):
