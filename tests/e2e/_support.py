@@ -160,7 +160,9 @@ def _reply(lines: queue.Queue[str | None], wanted: int, deadline: float) -> dict
             return dict(message["result"])
 
 
-def mcp_tool_count(argv: Sequence[str], env: Mapping[str, str], timeout: float) -> int:
+def mcp_tool_count(
+    argv: Sequence[str], env: Mapping[str, str], timeout: float, cwd: Path | None = None
+) -> int:
     """Spawn argv, send `initialize` then `tools/list`, return how many tools came back, and
     kill the whole process group. Raises when the server does not answer or sends junk."""
     proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
@@ -170,6 +172,7 @@ def mcp_tool_count(argv: Sequence[str], env: Mapping[str, str], timeout: float) 
         stderr=subprocess.DEVNULL,
         text=True,
         env={k: v for k, v in env.items() if k != SECRET_VAR},
+        cwd=cwd,
         start_new_session=True,
     )
     assert proc.stdin is not None and proc.stdout is not None  # noqa: S101 - PIPEs

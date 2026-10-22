@@ -29,6 +29,8 @@ from wev_skills.security.redact import redact
 ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS: Mapping[str, str] = {
     "macos-core": "network only (npm registry, GitHub releases); no account",
+    "linux-core": "network + one docker build (minutes); no account",
+    "macos-isolated": "network + one docker build (minutes); no account",
 }
 LABEL = "macOS: tested with isolated HOME, not a clean machine"
 OpenTty = Callable[[], TextIO | None]
@@ -145,7 +147,34 @@ def _code(cmd: object) -> str:
     return f"`` {text} ``" if "`" in text else f"`{text}`"
 
 
-def render(rows: Sequence[Mapping[str, Any]], root: Path, today: str) -> str:
+def _section(name: str, rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    mine = [r for r in rows if r["scenario"] == name]
+    out = [f"## {name}", "", "| Check | Command | Exit | Result |", "|---|---|---|---|"]
+    for r in mine:
+        cells = (r["check"], _code(r["command"]), "" if r["exit"] is None else r["exit"])
+        out.append("| " + " | ".join(_cell(c) for c in (*cells, r["result"])) + " |")
+    out.append("")
+    for r in (r for r in mine if r["result"] == "failed"):
+        out += [f"### Failed: {r['check']}", "", _code(r["command"]), ""]
+        out += ["```", str(r["detail"]).rstrip(), "```", ""]
+    return out
+
+
+def _sections_of(text: str) -> dict[str, str]:
+    """The `## <scenario>` sections of an earlier report, by name."""
+    found: dict[str, list[str]] = {}
+    current: list[str] | None = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            current = found.setdefault(line[3:].strip(), [])
+        if current is not None:
+            current.append(line)
+    return {name: "\n".join(lines) for name, lines in found.items()}
+
+
+def render(rows: Sequence[Mapping[str, Any]], root: Path, today: str, earlier: str = "") -> str:
+    """The report: a fresh header, the sections of `earlier` for scenarios not in `rows`, and
+    a section for every scenario in `rows` (replacing the old one)."""
     head = [
         "# End-to-end report",
         "",
@@ -155,20 +184,10 @@ def render(rows: Sequence[Mapping[str, Any]], root: Path, today: str) -> str:
         f"- {LABEL}",
         "",
     ]
-    body: list[str] = []
+    sections = _sections_of(earlier)
     for name in dict.fromkeys(str(r["scenario"]) for r in rows):
-        body += [f"## {name}", "", "| Check | Command | Exit | Result |", "|---|---|---|---|"]
-        for r in (r for r in rows if r["scenario"] == name):
-            cells = (r["check"], _code(r["command"]), "" if r["exit"] is None else r["exit"])
-            body.append("| " + " | ".join(_cell(c) for c in (*cells, r["result"])) + " |")
-        body.append("")
-    bad = [r for r in rows if r["result"] == "failed"]
-    if bad:
-        body += ["## Failures", ""]
-        for r in bad:
-            body += [f"### {r['scenario']}: {r['check']}", "", _code(r["command"]), ""]
-            body += ["```", str(r["detail"]).rstrip(), "```", ""]
-    return "\n".join([*head, *body])
+        sections[name] = "\n".join(_section(name, rows))
+    return "\n".join(head) + "\n" + "\n".join(s.rstrip() + "\n" for s in sections.values())
 
 
 def main(
@@ -188,7 +207,7 @@ def main(
     parser.add_argument("--out-dir", type=Path, default=root / "evals" / "reports")
     args = parser.parse_args(argv)
     out = out or sys.stdout
-    chosen = [n for n in args.scenario if n] or list(scenarios)
+    chosen = " ".join(args.scenario).split() or list(scenarios)  # make passes E2E as one word
     unknown = [n for n in chosen if n not in scenarios]
     if unknown:
         print(f"unknown scenario: {', '.join(unknown)}", file=sys.stderr)
@@ -203,7 +222,8 @@ def main(
     rows = [row for name in chosen for row in run_scenario(name, package, root)]
     args.out_dir.mkdir(parents=True, exist_ok=True)
     path = args.out_dir / f"e2e-{date.today().isoformat()}.md"
-    path.write_text(render(rows, root, date.today().isoformat()), encoding="utf-8")
+    earlier = path.read_text(encoding="utf-8") if path.exists() else ""
+    path.write_text(render(rows, root, date.today().isoformat(), earlier), encoding="utf-8")
     counts = {
         k: sum(r["result"].startswith(k) for r in rows) for k in ("passed", "failed", "skipped")
     }
