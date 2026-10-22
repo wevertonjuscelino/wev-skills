@@ -78,7 +78,7 @@ def _run_daily() -> CommandResult:
         if outcome is None:
             return silent
         if outcome.state != current:
-            state_mod.save(path, outcome.state)
+            _save_checked(path, current, outcome)
         return (
             CommandResult(_session_json(outcome.updates), raw=True) if outcome.updates else silent
         )
@@ -86,14 +86,33 @@ def _run_daily() -> CommandResult:
         return silent
 
 
+def _save_checked(path: Path, before: state_mod.State, outcome: check_mod.Outcome) -> None:
+    """Merge what the check saw into the state as it is now: another command may have saved it
+    meanwhile (a freeze, an update), and the scan's own copy is older than that."""
+    fresh = state_mod.load(path)
+    sources = dict(fresh.sources)
+    for name in outcome.checked:
+        seen = outcome.state.sources[name]
+        item = sources.get(name, state_mod.SourceState())
+        sources[name] = replace(item, last_check=seen.last_check, latest_seen=seen.latest_seen)
+    moved = outcome.state.checked_at != before.checked_at
+    marker = outcome.state.checked_at if moved else fresh.checked_at
+    state_mod.save(path, replace(fresh, sources=sources, checked_at=marker))
+
+
+def _registry() -> check_mod.Opener:
+    return check_mod.bounded(check_mod.fetch, check_mod.INTERACTIVE_BUDGET)
+
+
 def _run_check(args: argparse.Namespace) -> CommandResult | dict[str, Any]:
     if args.daily:
         return _run_daily()
     path = _state_path()
+    current = state_mod.load(path)
     outcome = check_mod.scan(
-        state_mod.load(path), datetime.now(UTC), check_mod.fetch, check_mod.BASE_URLS, force=True
+        current, datetime.now(UTC), _registry(), check_mod.BASE_URLS, force=True
     )
-    state_mod.save(path, outcome.state)
+    _save_checked(path, current, outcome)
     return {
         "updates": [asdict(u) for u in outcome.updates],
         "checked": list(outcome.checked),
@@ -117,16 +136,15 @@ def _run_decline(args: argparse.Namespace) -> dict[str, Any]:
 
 def _release_for(src: Source, version: str | None) -> check_mod.Release:
     if version is None:
-        return check_mod.latest(src, check_mod.fetch)
-    if not state_mod.VERSION_RE.fullmatch(version):
+        return check_mod.latest(src, _registry())
+    if not check_mod.valid_version(src.kind, version):
         raise ValidationError("bad_version", i18n.t("skills.error.bad_version", version=version))
     link = src.changelog.format(version=version)
     if src.kind == "npm":  # the registry must know the version before a ref is written
         base = check_mod.BASE_URLS["npm"]
-        check_mod.get_json(check_mod.fetch, f"{base}/{src.package}/{version}")
+        check_mod.get_json(_registry(), f"{base}/{src.package}/{version}")
         return check_mod.Release(version, link, None)
-    tarball = f"{check_mod.BASE_URLS['github']}/repos/{src.package}/tarball/{version}"
-    return check_mod.Release(version, link, tarball)
+    return check_mod.Release(version, link, check_mod.tarball_url(src, version))
 
 
 def _run_install(args: argparse.Namespace) -> dict[str, Any]:
@@ -140,7 +158,13 @@ def _run_install(args: argparse.Namespace) -> dict[str, Any]:
         raise RemoteError(
             exc.code, i18n.t("skills.error.install_failed", name=src.name, code=exc.code)
         ) from exc
-    return {"source": src.name, "version": release.version, "path": str(path), "active": False}
+    return {
+        "source": src.name,
+        "version": release.version,
+        "path": str(path),
+        "active": False,
+        "next_steps": i18n.t("skills.install.next_steps", name=src.name),
+    }
 
 
 def register(subparsers: Subparsers) -> None:

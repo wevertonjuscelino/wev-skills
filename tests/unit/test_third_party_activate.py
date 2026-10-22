@@ -24,8 +24,12 @@ class ActivateCase(unittest.TestCase):
         self.roots = [self.claude, self.agents, self.absent]
         self.version = self.home / "agent-skills" / "v1"
         for name in ("alpha", "beta"):
-            (self.version / "skills" / name).mkdir(parents=True)
+            self.skill(name)
         os.symlink("v1", self.home / "agent-skills" / "current")
+
+    def skill(self, name: str) -> None:
+        (self.version / "skills" / name).mkdir(parents=True)
+        (self.version / "skills" / name / "SKILL.md").write_text("---\nname: x\n---\n")
 
     def test_links_in_every_existing_root_and_the_manifest_lists_them(self) -> None:
         manifest = activate.activate(self.home, self.roots)
@@ -66,10 +70,44 @@ class ActivateCase(unittest.TestCase):
 
     def test_rerun_is_stable_and_drops_links_of_removed_skills(self) -> None:
         activate.activate(self.home, self.roots)
+        (self.version / "skills" / "beta" / "SKILL.md").unlink()
         (self.version / "skills" / "beta").rmdir()
         manifest = activate.activate(self.home, self.roots)
         self.assertEqual(len(manifest.files), 2)
         self.assertFalse((self.claude / "beta").is_symlink())
+
+    def test_only_directories_with_a_skill_md_are_linked(self) -> None:
+        (self.version / "skills" / "notes").mkdir()
+        (self.version / "skills" / "README.md").write_text("x")
+        manifest = activate.activate(self.home, self.roots)
+        self.assertEqual(sorted(Path(f).name for f in manifest.files), ["alpha"] * 2 + ["beta"] * 2)
+        self.assertFalse(os.path.lexists(self.claude / "notes"))
+
+    def repoint(self, link: Path) -> Path:
+        mine = self.home.parent / f"mine-{link.name}"
+        mine.mkdir()
+        link.unlink()
+        os.symlink(mine, link)
+        return mine
+
+    def test_an_owned_link_pointing_elsewhere_is_foreign_everywhere(self) -> None:
+        activate.activate(self.home, self.roots)
+        mine = self.repoint(self.claude / "alpha")
+        with self.assertRaises(StateConflict) as caught:
+            activate.activate(self.home, self.roots)
+        self.assertIn("alpha", caught.exception.message)
+        self.assertEqual(os.readlink(self.claude / "alpha"), str(mine))
+        removed = activate.deactivate(self.home, self.roots)
+        self.assertNotIn(str(self.claude / "alpha"), removed)
+        self.assertEqual(os.readlink(self.claude / "alpha"), str(mine))
+
+    def test_a_stale_owned_link_pointing_elsewhere_is_kept(self) -> None:
+        activate.activate(self.home, self.roots)
+        mine = self.repoint(self.claude / "beta")
+        (self.version / "skills" / "beta" / "SKILL.md").unlink()
+        manifest = activate.activate(self.home, self.roots)
+        self.assertEqual(os.readlink(self.claude / "beta"), str(mine))
+        self.assertNotIn(str(self.claude / "beta"), manifest.files)
 
     def test_deactivate_removes_only_manifest_links(self) -> None:
         activate.activate(self.home, self.roots)
@@ -101,7 +139,7 @@ class ActivateCase(unittest.TestCase):
             activate.activate(self.home, self.roots)
 
     def test_an_unsafe_skill_name_is_refused(self) -> None:
-        (self.version / "skills" / "bad name").mkdir()
+        self.skill("bad name")
         with self.assertRaises(ValidationError):
             activate.activate(self.home, self.roots)
 

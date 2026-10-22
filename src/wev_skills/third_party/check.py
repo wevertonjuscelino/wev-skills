@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import threading
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
@@ -22,8 +24,13 @@ BASE_URLS: Mapping[str, str] = {
 }
 REQUEST_TIMEOUT = 5.0
 DAILY_BUDGET = 10.0
+INTERACTIVE_BUDGET = 30.0  # wall clock of one registry request of check, install or update
 INTERVAL = timedelta(days=1)
 MAX_BODY = 4 * 1024 * 1024
+# Inside VERSION_RE, the outer bound: npm semver, a release tag, a commit sha.
+NPM_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?")
+TAG_RE = re.compile(r"v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?")
+SHA_RE = re.compile(r"[0-9a-fA-F]{7,40}")
 
 
 class CheckFailed(Exception):
@@ -82,6 +89,30 @@ def fetch(url: str, timeout: float) -> bytes:
     return body
 
 
+def bounded(opener: Opener, budget: float) -> Opener:
+    """``opener`` cut off after ``budget`` seconds of wall clock, however slowly bytes arrive."""
+
+    def get(url: str, timeout: float) -> bytes:
+        box: list[bytes | BaseException] = []
+
+        def work() -> None:
+            try:
+                box.append(opener(url, timeout))
+            except BaseException as exc:  # noqa: BLE001 - re-raised in the caller's thread
+                box.append(exc)
+
+        worker = threading.Thread(target=work, daemon=True)
+        worker.start()
+        worker.join(budget)
+        if not box:
+            raise CheckFailed("timed_out")
+        if isinstance(box[0], BaseException):
+            raise box[0]
+        return box[0]
+
+    return get
+
+
 def get_json(opener: Opener, url: str) -> object:
     try:
         return json.loads(opener(url, REQUEST_TIMEOUT))
@@ -106,15 +137,21 @@ def _text(doc: object, *keys: str) -> str:
     return doc
 
 
-def _version(value: str) -> str:
-    if not VERSION_RE.fullmatch(value):
+def valid_version(kind: str, value: str) -> bool:
+    """A name a source of ``kind`` can have: semver for npm, a release tag or a sha for GitHub."""
+    shapes = (NPM_VERSION_RE,) if kind == "npm" else (TAG_RE, SHA_RE)
+    return bool(VERSION_RE.fullmatch(value)) and any(p.fullmatch(value) for p in shapes)
+
+
+def _version(value: str, shape: re.Pattern[str]) -> str:
+    if not (VERSION_RE.fullmatch(value) and shape.fullmatch(value)):
         raise CheckFailed("bad_version")
     return value
 
 
 def _npm(src: Source, opener: Opener, base: str) -> Release:
     doc = get_json(opener, f"{base}/{src.package}")
-    version = _version(_text(doc, "dist-tags", "latest"))
+    version = _version(_text(doc, "dist-tags", "latest"), NPM_VERSION_RE)
     try:
         tarball: str | None = _text(doc, "versions", version, "dist", "tarball")
     except CheckFailed:
@@ -124,11 +161,11 @@ def _npm(src: Source, opener: Opener, base: str) -> Release:
 
 def _github_head(src: Source, opener: Opener, base: str) -> Release:
     doc = get_json(opener, f"{base}/repos/{src.package}/commits/HEAD")
-    sha = _version(_text(doc, "sha"))
+    sha = _version(_text(doc, "sha"), SHA_RE)
     return Release(
         sha[:12],
         f"https://github.com/{src.package}/commit/{sha}",
-        f"{base}/repos/{src.package}/tarball/{sha}",
+        tarball_url(src, sha, base),
     )
 
 
@@ -139,10 +176,13 @@ def _github(src: Source, opener: Opener, base: str) -> Release:
         if exc.code != "http_404":
             raise
         return _github_head(src, opener, base)
-    version = _version(_text(doc, "tag_name"))
-    tarball = doc.get("tarball_url") if isinstance(doc, dict) else None
+    version = _version(_text(doc, "tag_name"), TAG_RE)
     link = src.changelog.format(version=version)  # never the answer's own html_url
-    return Release(version, link, tarball if isinstance(tarball, str) else None)
+    return Release(version, link, tarball_url(src, version, base))  # nor its tarball_url
+
+
+def tarball_url(src: Source, ref: str, base: str = BASE_URLS["github"]) -> str:
+    return f"{base}/repos/{src.package}/tarball/{ref}"
 
 
 def latest(source: Source, opener: Opener, base_urls: Mapping[str, str] = BASE_URLS) -> Release:

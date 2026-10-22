@@ -274,7 +274,13 @@ class InstallCliCase(unittest.TestCase):
         path = self.dir / "data/wev-skills/third-party/agent-skills/v1.0.0"
         self.assertEqual(
             payload,
-            {"source": "agent-skills", "version": "v1.0.0", "path": str(path), "active": False},
+            {
+                "source": "agent-skills",
+                "version": "v1.0.0",
+                "path": str(path),
+                "active": False,
+                "next_steps": "To make it active, run `wev skills update agent-skills`.",
+            },
         )
         self.assertTrue((path / "skills/a/SKILL.md").is_file())
         self.assertEqual(got.call_args.args[0], URL)
@@ -284,9 +290,19 @@ class InstallCliCase(unittest.TestCase):
         code, _ = self.run_main("skills", "install", "agent-skills", "--version", "../x")
         self.assertEqual(code, 2)
         with mock.patch.object(fetch, "download", return_value=b"nope"):
-            code, _ = self.run_main("skills", "install", "agent-skills", "--version", "v1")
+            code, _ = self.run_main("skills", "install", "agent-skills", "--version", "v1.0.0")
         self.assertEqual(code, 8)
         self.assertEqual(self.run_main("skills", "install", "nope")[0], 2)
+
+    def test_install_refuses_a_version_outside_the_shape_of_its_kind(self) -> None:
+        cases = [("rea", v) for v in ("latest", "next", "1.x", "v1.0.0")]
+        cases += [("agent-skills", v) for v in ("latest", "1.x", "v1", "abc12")]
+        for name, version in cases:
+            with self.subTest(name=name, version=version):
+                with mock.patch.object(check, "fetch", side_effect=AssertionError("no network")):
+                    code, _ = self.run_main("skills", "install", name, "--version", version)
+                self.assertEqual(code, 2)
+        self.assertFalse((self.dir / "data").exists())
 
     def test_npm_version_must_exist_on_the_registry(self) -> None:
         routes = {"/rea-agents/2.0.0": (200, b"{}")}

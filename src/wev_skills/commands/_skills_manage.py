@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from wev_skills.cli import CommandResult
-from wev_skills.core.errors import RemoteError, WevError
+from wev_skills.core.errors import RemoteError, StateConflict, WevError
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.third_party import activate, check, fetch, health, state, switch
 from wev_skills.third_party.sources import SOURCES, Source, source
@@ -30,20 +30,34 @@ def _row(src: Source, result: switch.UpdateResult) -> dict[str, Any]:
     }
 
 
+def _relink(src: Source) -> dict[str, Any]:
+    """Re-run the activation the person made, so it follows the new ``current``: links of
+    dropped skills go, new skills are linked. Nothing to follow without a manifest."""
+    home = state.data_home()
+    if src.name != activate.TARGET or not (home / "manifest.json").is_file():
+        return {}
+    try:
+        links = activate.activate(home, activate.default_roots()).files
+    except WevError as exc:
+        return {"activation": {"ok": False, "code": exc.code, "message": exc.message}}
+    return {"activation": {"ok": True, "links": list(links)}}
+
+
 def _update_one(src: Source, yes: bool) -> dict[str, Any]:
     path = _state_path()
     new, result = switch.update(
         src,
         state.data_home(),
         state.load(path),
-        check.fetch,
+        check.bounded(check.fetch, check.INTERACTIVE_BUDGET),
         SubprocessRunner(),
         check.BASE_URLS,
         yes=yes,
     )
-    if result.code == "updated":
-        state.save(path, new)
-    return _row(src, result)
+    if result.code != "updated":
+        return _row(src, result)
+    state.save(path, new)
+    return {**_row(src, result), **_relink(src)}
 
 
 def _skipped(src: Source, code: str, *, ok: bool = True) -> dict[str, Any]:
@@ -70,19 +84,24 @@ def run_update(args: argparse.Namespace) -> CommandResult | dict[str, Any]:
 
 def _finish(rows: list[dict[str, Any]]) -> CommandResult | dict[str, Any]:
     payload = {"results": rows}
-    return payload if all(r["ok"] for r in rows) else CommandResult(payload, EXIT_UPDATE_FAILED)
+    failed = any(not r["ok"] or not r.get("activation", {"ok": True})["ok"] for r in rows)
+    return CommandResult(payload, EXIT_UPDATE_FAILED) if failed else payload
 
 
 def _item(path: Path, src: Source) -> state.SourceState:
     return state.load(path).sources.get(src.name, state.SourceState())
 
 
-def run_rollback(args: argparse.Namespace) -> dict[str, Any]:
+def run_rollback(args: argparse.Namespace) -> CommandResult | dict[str, Any]:
     src, path = source(args.source), _state_path()
     new = switch.rollback(src, state.data_home(), state.load(path))
     state.save(path, new)
     item = new.sources[src.name]
-    return {"source": src.name, "active": item.active, "previous": item.previous}
+    payload: dict[str, Any] = {"source": src.name, "active": item.active, "previous": item.previous}
+    payload |= _relink(src)
+    if payload.get("activation", {"ok": True})["ok"]:
+        return payload
+    return CommandResult(payload, StateConflict.exit_code)
 
 
 def run_freeze(args: argparse.Namespace) -> dict[str, Any]:

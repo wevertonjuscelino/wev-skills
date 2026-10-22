@@ -6,11 +6,14 @@ import contextlib
 import io
 import json
 import os
+import tarfile
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
 
+from tests.fixtures.fake_registry_server import fake_registry
 from tests.unit.test_third_party_fetch import add_file, tarball
 from wev_skills import cli
 from wev_skills.third_party import check, fetch, state
@@ -24,6 +27,15 @@ def release_json(version: str) -> bytes:
 
 def skill_tar(meta: bytes = b"---\nname: a\ndescription: d\n---\nx\n") -> bytes:
     return tarball(lambda archive: add_file(archive, "x-1/skills/a/SKILL.md", meta))
+
+
+def skills_tar(*names: str) -> bytes:
+    def build(archive: tarfile.TarFile) -> None:
+        for name in names:
+            meta = f"---\nname: {name}\ndescription: d\n---\n".encode()
+            add_file(archive, f"x-1/skills/{name}/SKILL.md", meta)
+
+    return tarball(build)
 
 
 class SwitchCliCase(unittest.TestCase):
@@ -57,30 +69,30 @@ class SwitchCliCase(unittest.TestCase):
         return state.load(self.third / "state.json").sources["agent-skills"]
 
     def test_update_switches_and_saves_state(self) -> None:
-        code, payload = self.update("v1")
+        code, payload = self.update("v1.0.0")
         self.assertEqual(code, 0)
         result = payload["results"][0]  # type: ignore[index]
         self.assertEqual(
             (result["source"], result["ok"], result["code"]), ("agent-skills", True, "updated")
         )
-        self.assertEqual(self.item().active, "v1")
-        self.assertEqual(os.readlink(self.third / "agent-skills/current"), "v1")
-        self.update("v2")
-        self.assertEqual((self.item().active, self.item().previous), ("v2", "v1"))
+        self.assertEqual(self.item().active, "v1.0.0")
+        self.assertEqual(os.readlink(self.third / "agent-skills/current"), "v1.0.0")
+        self.update("v2.0.0")
+        self.assertEqual((self.item().active, self.item().previous), ("v2.0.0", "v1.0.0"))
 
     def test_failed_health_exits_8_and_keeps_the_state(self) -> None:
-        self.update("v1")
-        code, payload = self.update("v2", skill_tar(b"nope"))
+        self.update("v1.0.0")
+        code, payload = self.update("v2.0.0", skill_tar(b"nope"))
         self.assertEqual(code, 8)
         result = payload["results"][0]  # type: ignore[index]
         self.assertEqual((result["ok"], result["code"]), (False, "bad_skill"))
         self.assertIn("invalid", result["health"])
-        self.assertEqual(self.item().active, "v1")
+        self.assertEqual(self.item().active, "v1.0.0")
 
     def test_frozen_is_refused_and_skipped_without_a_source(self) -> None:
         self.assertEqual(self.run_main("skills", "freeze", "agent-skills")[0], 0)
         self.assertTrue(self.item().frozen)
-        self.assertEqual(self.update("v1")[0], 2)
+        self.assertEqual(self.update("v1.0.0")[0], 2)
         for name in ("rea", "wev-skills"):
             self.run_main("skills", "freeze", name)
         with mock.patch.object(check, "fetch", side_effect=AssertionError("no network")):
@@ -91,13 +103,13 @@ class SwitchCliCase(unittest.TestCase):
         self.assertFalse(self.item().frozen)
 
     def test_update_without_a_source_skips_declined_and_never_installed(self) -> None:
-        item = state.SourceState(active="v1", declined="v2")
+        item = state.SourceState(active="v1.0.0", declined="v2.0.0")
         state.save(self.third / "state.json", state.State({"agent-skills": item}))
         urls: list[str] = []
 
         def fake(url: str, _timeout: float) -> bytes:
             urls.append(url)
-            return release_json("v2")
+            return release_json("v2.0.0")
 
         with mock.patch.object(check, "fetch", fake):
             code, payload = self.run_main("skills", "update")
@@ -112,15 +124,15 @@ class SwitchCliCase(unittest.TestCase):
             },
         )
         self.assertEqual(urls, [f"{API}/releases/latest"])
-        self.assertEqual(self.item().active, "v1")
+        self.assertEqual(self.item().active, "v1.0.0")
 
     def test_rollback(self) -> None:
         self.assertEqual(self.run_main("skills", "rollback", "agent-skills")[0], 5)
-        self.update("v1")
-        self.update("v2")
+        self.update("v1.0.0")
+        self.update("v2.0.0")
         code, payload = self.run_main("skills", "rollback", "agent-skills")
-        self.assertEqual((code, payload["active"], payload["previous"]), (0, "v1", "v2"))
-        self.assertEqual(os.readlink(self.third / "agent-skills/current"), "v1")
+        self.assertEqual((code, payload["active"], payload["previous"]), (0, "v1.0.0", "v2.0.0"))
+        self.assertEqual(os.readlink(self.third / "agent-skills/current"), "v1.0.0")
 
     def test_show(self) -> None:
         code, payload = self.run_main("skills", "show", "rea")
@@ -140,7 +152,7 @@ class SwitchCliCase(unittest.TestCase):
     def test_activate_and_deactivate(self) -> None:
         (self.dir / ".claude/skills").mkdir(parents=True)
         self.assertEqual(self.run_main("skills", "activate")[0], 5)  # nothing installed
-        self.update("v1")
+        self.update("v1.0.0")
         code, payload = self.run_main("skills", "activate")
         link = self.dir / ".claude/skills/a"
         self.assertEqual((code, payload["links"]), (0, [str(link)]))
@@ -149,6 +161,68 @@ class SwitchCliCase(unittest.TestCase):
         code, payload = self.run_main("skills", "deactivate")
         self.assertEqual((code, payload["removed"]), (0, [str(link)]))
         self.assertFalse(link.is_symlink())
+
+    def test_rollback_is_not_undone_by_the_next_update(self) -> None:
+        self.update("v1.0.0")
+        self.update("v2.0.0")
+        self.run_main("skills", "rollback", "agent-skills")
+        self.assertEqual(self.item().declined, "v2.0.0")
+        with mock.patch.object(check, "fetch", return_value=release_json("v2.0.0")):
+            code, payload = self.run_main("skills", "update")
+        rows = {r["source"]: r["code"] for r in payload["results"]}  # type: ignore[attr-defined]
+        self.assertEqual((code, rows["agent-skills"]), (0, "declined"))
+        self.assertEqual(self.item().active, "v1.0.0")
+        self.assertEqual(self.update("v2.0.0", None, "--yes")[0], 0)
+        self.assertEqual(self.item().active, "v2.0.0")
+
+    def links(self) -> dict[str, bool]:
+        root = self.dir / ".claude/skills"
+        return {p.name: p.exists() for p in root.iterdir()}
+
+    def test_activation_follows_an_update_and_a_rollback(self) -> None:
+        (self.dir / ".claude/skills").mkdir(parents=True)
+        self.update("v1.0.0", skills_tar("a"))
+        self.run_main("skills", "activate")
+        code, payload = self.update("v2.0.0", skills_tar("b"))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.links(), {"b": True})
+        row = payload["results"][0]  # type: ignore[index]
+        self.assertEqual(row["activation"]["ok"], True)
+        code, payload = self.run_main("skills", "rollback", "agent-skills")
+        self.assertEqual((code, self.links()), (0, {"a": True}))
+        self.assertEqual(payload["activation"]["ok"], True)  # type: ignore[index]
+
+    def test_without_a_manifest_an_update_links_nothing(self) -> None:
+        (self.dir / ".claude/skills").mkdir(parents=True)
+        _, payload = self.update("v1.0.0", skills_tar("a"))
+        self.assertEqual(self.links(), {})
+        self.assertNotIn("activation", payload["results"][0])  # type: ignore[index]
+
+    def test_a_foreign_entry_after_an_update_is_a_conflict_row(self) -> None:
+        (self.dir / ".claude/skills").mkdir(parents=True)
+        self.update("v1.0.0", skills_tar("a"))
+        self.run_main("skills", "activate")
+        (self.dir / ".claude/skills/b").mkdir()  # the person's own directory
+        code, payload = self.update("v2.0.0", skills_tar("b"))
+        row = payload["results"][0]  # type: ignore[index]
+        self.assertEqual((code, row["code"], self.item().active), (8, "updated", "v2.0.0"))
+        self.assertEqual(
+            (row["activation"]["ok"], row["activation"]["code"]), (False, "foreign_entry")
+        )
+        self.assertTrue((self.dir / ".claude/skills/b").is_dir())
+
+    def test_a_dripping_registry_stops_an_update_at_the_budget(self) -> None:
+        path = "/repos/addyosmani/agent-skills/releases/latest"
+        with (
+            fake_registry({path: (200, release_json("v1.0.0"), 0.05)}) as fake,
+            mock.patch.dict(check.BASE_URLS, {"github": fake.url}),
+            mock.patch.object(check, "INTERACTIVE_BUDGET", 0.3),
+        ):
+            started = time.monotonic()
+            code, payload = self.run_main("skills", "update", "agent-skills")
+        self.assertLess(time.monotonic() - started, 2.0)
+        row = payload["results"][0]  # type: ignore[index]
+        self.assertEqual((code, row["code"]), (8, "timed_out"))
 
 
 if __name__ == "__main__":
