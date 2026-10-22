@@ -61,6 +61,7 @@ from wev_skills.core.active import (
 from wev_skills.core.contracts import Mode, RiskLevel
 from wev_skills.core.errors import ValidationError, WevError
 from wev_skills.core.orchestrator import Orchestrator
+from wev_skills.rea import config as rea_config
 from wev_skills.security.shell import SimpleCommand
 from wev_skills.state.store import StateStore, run_dir
 
@@ -209,12 +210,17 @@ def _guarded(
 
 
 def _protected(config: Config, root: Path) -> Config:
-    """``config`` with its state directory and the per-user run registry's directory
-    protected, so the registry cannot be replaced, moved or recreated through Bash."""
+    """``config`` with its state directory, the per-user run registry's directory and the
+    per-user config directory (``rea.json``, the key file) protected: the registry cannot be
+    replaced, moved or recreated through Bash, and ``rea mode`` (person-only) cannot be
+    skipped by writing its file or swapping its directory."""
     guarded = protect_state_dir(config, root)
     registry = run_registry.registry_path().parent
+    user_dir = rea_config.rea_config_path().parent
     current = guarded.permissions.protected_paths
-    names = dict.fromkeys((str(registry), str(_real(registry))))
+    names = dict.fromkeys(
+        (str(registry), str(_real(registry)), str(user_dir), str(_real(user_dir)))
+    )
     extra = tuple(name for name in names if name not in current)
     permissions = replace(guarded.permissions, protected_paths=current + extra)
     return replace(guarded, permissions=permissions)

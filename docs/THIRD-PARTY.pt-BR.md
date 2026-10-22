@@ -38,10 +38,14 @@ Não incorporadas: nenhum arquivo desses projetos está neste repositório. `wev
 
 | Fonte | Versão | Licença | Uso |
 |---|---|---|---|
-| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases em https://github.com/morluto/rea) | Resolvida na instalação (`dist-tags.latest`) | MIT | `wev skills show rea` imprime o argv que inicia seu servidor MCP; o wev só o inicia por conta própria na verificação de saúde |
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases em https://github.com/morluto/rea) | Resolvida na instalação (`dist-tags.latest`) | MIT | `wev skills show rea` imprime o argv que inicia seu servidor MCP; o wev o inicia na verificação de saúde e por `wev rea serve` (veja o [guia de instalação](guides/installation.pt-BR.md#rea-modos-imagem-e-registro)) |
 | addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolvida na instalação (release mais novo) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills ligadas aos diretórios de skills do usuário por `wev skills activate` |
 
 Tanto o `rea` (`morluto/rea`) quanto o `agent-skills` (`addyosmani/agent-skills`) são MIT segundo o `license.spdx_id` da API do GitHub, conferido em 2026-10-20 e 2026-10-22. Essa é a licença do repositório, não os metadados do pacote npm. A linha de copyright do agent-skills é "Copyright (c) 2025 Addy Osmani". Nenhuma afiliação com os autores desses projetos nem endosso por eles é sugerido.
+
+O rea traz um `DISCLAIMER.md` (uso lícito apenas; a pessoa carrega a autorização e a responsabilidade legal). O wev não reproduz nada dele; o resumo está em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa), e `docs/research/rea-integration.md` registra o que foi lido.
+
+Imagem base: `docker/rea/Dockerfile` parte de `node:24-slim`, a imagem oficial `node` do Docker Hub. A imagem é baixada por `wev rea build-image` a pedido do usuário; nenhuma camada dela fica neste repositório. Os termos de licença dela não foram conferidos para esta entrada.
 
 ## Regra para adicionar arquivos de terceiros
 

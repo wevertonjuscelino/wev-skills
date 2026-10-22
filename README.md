@@ -26,6 +26,7 @@ The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Co
 | Skills, hooks and plugin manifests | Implemented and tested | Format and subprocess tests; live integration untested |
 | Optional JEV, SSH/tmux and evaluation adapters | Simulated with mocks | A recorded JEV response and simulated remote hosts |
 | Codex, Gemini CLI and OpenCode: package export, install, uninstall, hook codecs | Implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part) | A policy ask becomes allow plus a warning there; see [SECURITY.md](SECURITY.md) |
+| rea (third-party reverse-engineering MCP server): `wev rea` (serve, status, mode, build-image), container image, per-harness registration | Implemented and tested with fake `npx` and `docker` executables (unit tests); the real rea server, the real container build and the real harness loaders are not run in this change (e2e part). The `wev-reverse` skill is documented only | rea says it is "not a sandbox"; see [SECURITY.md](SECURITY.md#rea-reverse-engineering-server) |
 | Other agent environments and Windows support | Documented only / blocked | Future adapters; POSIX file locks today |
 
 Detailed acceptance evidence is in [MVP status](docs/mvp-status.md). The [local security review of 2026-10-13](docs/security-review-2026-10-13.md) records findings and scope; it is an internal review, not a certification.
@@ -84,6 +85,7 @@ Objective intake is documented in [the interview guide](docs/guides/intake.md). 
 | JSON agent specs, templates, inheritance and permission ceilings | [Creating agents](docs/guides/creating-agents.md) | `wev-agent-builder` |
 | Deterministic evaluation of harness mechanics | [Evaluation](docs/guides/evaluation.md) | `wev-harness-evaluation` |
 | Inventory-based SSH and task-owned tmux sessions | [Remote operations](docs/guides/remote-ops.md) | `wev-remote-ops` |
+| Evidence-backed reverse engineering with the rea tools (change plan or clean-room specification) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Managed project guidelines in `CLAUDE.md` | [Guidelines skill](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Bilingual README checks | [README standard](skills/wev-readme/SKILL.md) | `wev-readme` |
 | Skills, guard hooks and agents for Codex, Gemini CLI and OpenCode | [Installation: Codex, Gemini CLI and OpenCode](docs/guides/installation.md#codex-gemini-cli-and-opencode) | CLI `wev harness` |

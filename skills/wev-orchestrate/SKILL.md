@@ -62,6 +62,8 @@ The answer holds `classification` (complexity, risk), `strategy`, `discovery` an
 
 Tell the user the flow and its reasons in one or two sentences.
 
+When the request involves a running system (a web app, a binary, a bundle, an app), also run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" rea status` and use the `wev-reverse` skill before `plan set`, so the plan rests on evidence.
+
 A run started with `run start --from-intake` may carry an `outcome`: what the user wants to happen after the goal is reached. Work toward the goal. When a broader approach would serve that outcome better, propose it to the user in one sentence and wait; never widen the scope on your own.
 
 ### 2. Plan (planned and gated flows)

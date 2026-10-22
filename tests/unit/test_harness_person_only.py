@@ -34,6 +34,8 @@ PERSON_ONLY = (
     "wev skills freeze rea",
     "wev skills activate",
     "wev skills deactivate",
+    "wev rea mode direct",
+    "wev rea build-image",
     "git push && wev approval grant a1",
     # the marker comes from the whole line, not from the first reason shown
     "wev approval grant a1 --config x.json",

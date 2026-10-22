@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 from unittest import mock
 
 from tests.unit.test_hook_trust import ASK, DENY, UNREGISTERED, TrustCase
@@ -12,6 +13,7 @@ from tests.unit.test_hooks import NO_RUN, RUN
 from wev_skills import cli
 from wev_skills.core import active, run_registry
 from wev_skills.core.errors import StateConflict
+from wev_skills.rea import config as rea_config
 from wev_skills.state.store import list_runs
 
 UNREADABLE = "cannot be read"
@@ -108,6 +110,29 @@ class RegistryProtectionTests(RegistryCase):
         for line in self.lines():
             with self.subTest(line=line):
                 self.assertEqual(self.decision(line), DENY)
+
+
+class ReaConfigProtectionTests(RegistryCase):
+    """``rea mode`` is person-only; writing ``rea.json`` through Bash would skip that ask."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        patcher = mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.work / "cfg")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_rea_config_is_protected(self) -> None:
+        path = rea_config.rea_config_path()
+        lines = (
+            f'echo \'{{"mode": "direct"}}\' > {path}',
+            f"rm {path}",
+            f"cp /tmp/forged.json {path}",
+            f"mv {path.parent} {path.parent}.old",
+            f"ln -s /tmp/forged {path.parent}",
+        )
+        for line in lines:
+            with self.subTest(line=line):
+                self.assertEqual(self.without_run(line), DENY)
 
 
 class RunStartRegistryTests(RegistryCase):

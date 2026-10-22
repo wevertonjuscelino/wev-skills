@@ -26,6 +26,7 @@ O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um
 | Skills, hooks e manifestos do plugin | Implementado e testado | Testes de formato e subprocesso; integração real não testada |
 | Adaptadores opcionais JEV, SSH/tmux e avaliação | Simulado com mocks | Uma resposta JEV gravada e hosts remotos simulados |
 | Codex, Gemini CLI e OpenCode: exportação do pacote, instalação, desinstalação, codecs dos hooks | Implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e) | Um ask de política vira allow mais aviso nesses harnesses; veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md) |
+| rea (servidor MCP de engenharia reversa de terceiros): `wev rea` (serve, status, mode, build-image), imagem de contêiner, registro por harness | Implementado e testado com executáveis `npx` e `docker` falsos (testes unitários); o servidor rea real, o build real do contêiner e os carregadores reais dos harnesses não são executados nesta alteração (parte e2e). A skill `wev-reverse` está apenas documentada | O rea diz que "not a sandbox" (não é um sandbox); veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa) |
 | Outros ambientes de agentes e suporte a Windows | Apenas documentado / bloqueado | Adaptadores futuros; travas de arquivo POSIX hoje |
 
 As evidências detalhadas de aceitação estão no [status do MVP](docs/mvp-status.pt-BR.md). A [revisão local de segurança de 2026-10-13](docs/security-review-2026-10-13.pt-BR.md) registra achados e escopo; é uma revisão interna, não uma certificação.
@@ -84,6 +85,7 @@ A entrada de objetivos está documentada no [guia de entrevista](docs/guides/int
 | Specs JSON de agentes, templates, herança e tetos de permissão | [Criando agentes](docs/guides/creating-agents.pt-BR.md) | `wev-agent-builder` |
 | Avaliação determinística da mecânica do harness | [Avaliação](docs/guides/evaluation.pt-BR.md) | `wev-harness-evaluation` |
 | SSH com inventário e sessões tmux pertencentes à tarefa | [Operações remotas](docs/guides/remote-ops.pt-BR.md) | `wev-remote-ops` |
+| Engenharia reversa com evidências usando as ferramentas rea (plano de mudança ou especificação clean-room) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Diretrizes gerenciadas de projeto no `CLAUDE.md` | [Skill de diretrizes](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Verificações de READMEs bilíngues | [Padrão de README](skills/wev-readme/SKILL.md) | `wev-readme` |
 | Skills, hooks de guarda e agentes para Codex, Gemini CLI e OpenCode | [Instalação: Codex, Gemini CLI e OpenCode](docs/guides/installation.pt-BR.md#codex-gemini-cli-e-opencode) | CLI `wev harness` |

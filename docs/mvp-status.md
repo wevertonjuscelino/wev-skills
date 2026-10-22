@@ -35,6 +35,8 @@ Harness adapters for Codex, Gemini CLI and OpenCode (`wev harness export|install
 
 Third-party skill updates (`wev skills ...`, the daily check hook) were added later. Status: implemented and tested with a local fake registry, a fake npx and local tarballs; the real registries, downloads and the real rea server are not run in this change (e2e part). They add no row to the 16 criteria; the limits are in [SECURITY.md](../SECURITY.md#third-party-skill-updates).
 
+The rea integration (`wev rea serve|status|mode|build-image`, the `wev-rea` container image, registration for Claude Code, Gemini CLI and OpenCode) was added later. Status: implemented and tested with fake `npx` and `docker` executables (unit tests); the real rea server, the real container build and the real harness loaders are not run in this change (e2e part). The `wev-reverse` skill is documented only. It adds no row to the 16 criteria; the limits are in [SECURITY.md](../SECURITY.md#rea-reverse-engineering-server).
+
 ## Summary
 
 | # | Criterion | Status |

@@ -45,6 +45,7 @@
   "hooks.reason.unknown_target": "Este comando indica um caminho por meio de uma variável, então o alvo não pode ser conhecido aqui, e há uma execução wev ativa em {root}. Ele pode tocar a árvore dessa execução, então uma pessoa decide.",
   "orch.budget.warning": "A execução consumiu ao menos 80% do orçamento do motor; revise o escopo restante.",
   "orch.budget.stop": "Orçamento da execução esgotado ou o trabalho solicitado excederia o limite; inicie outra execução com limites revisados.",
+  "hooks.reason.engine_rea": "Este comando do wev muda como o servidor de engenharia reversa rea roda (o modo, a imagem de contêiner ou o registro nos seus harnesses); quem decide é uma pessoa.",
   "hooks.reason.engine_skills": "Este comando do wev instala, troca ou desfaz uma versão de skill de terceiros, ou vincula skills aos seus harnesses (baixa código da rede para o seu diretório de dados); quem decide é uma pessoa.",
   "hooks.reason.engine_harness": "Este comando wev instala ou remove o pacote wev em um harness (registra plugins e hooks na configuração dele); uma pessoa decide."
 }

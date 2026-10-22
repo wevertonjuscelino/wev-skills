@@ -207,6 +207,35 @@ wev skills decline agent-skills
 - **Approvals.** Claude Code asks before `skills install|update|rollback|freeze|activate|deactivate`; `list`, `check`, `decline` and `show` are not asked. On Codex, Gemini CLI and OpenCode these six are denied: run them in your own terminal.
 - **Limits.** A wev self-update installs and health-checks the new directory only; a wev-skills update does not switch the running plugin: the installer does, and `skills update` does not. `check` and `update` read the state again just before saving and merge in only what the check saw, so a `freeze` or an update saved meanwhile is kept. The health check reads at most 32 MiB per reply line from the MCP server (the real server's `tools/list` is about 3.2 MB) and refuses a longer one. The health-check child keeps only `PATH`, `HOME`, `LANG`, `LC_*`, `XDG_*`, `npm_config_*` and `NODE_*` from your environment. With `HOME` kept, npm reads `~/.npmrc`, `npm_config_*` may carry npm tokens, and `NODE_OPTIONS` can inject code into the child. A declined source still makes its registry call before it is skipped. The real registries, downloads and the real rea server are not run in this change (e2e part). See [SECURITY.md](../../SECURITY.md#third-party-skill-updates).
 
+## rea: modes, image, registration
+
+`rea` (npm `rea-agents`, installed by `wev skills install rea`) is an MCP server of reverse-engineering tools. wev starts it for the harness through `wev rea serve`, in one of two modes. Status: implemented and tested with fake `npx` and `docker` executables (unit tests); the real rea server, the real container build and the real harness loaders are not run in this change (e2e part). The `wev-reverse` skill that uses the tools is documented only.
+
+```sh
+bin/wev rea status
+bin/wev rea mode isolated
+bin/wev rea build-image
+bin/wev rea serve --dry-run
+```
+
+- **`status`** prints the mode (and whether it is the default or came from your choice), the pinned version, the image tag, whether Docker was found and whether the image is present, with warnings.
+- **`mode isolated|direct`** saves your choice in `rea.json` under `~/.config/wev-skills` (`$XDG_CONFIG_HOME` is honored). Without a saved choice the mode is `isolated` when Docker is found and `direct` otherwise.
+- **Isolated mode** runs `docker run` on the image `wev-rea:<version>`, as your uid:gid, with the network on, the working directory mounted read-only at its own path and a wev-owned writable directory mounted at `/opt/rea-home` (rea's home). Static and web-bundle analysis work; the runtime tools (Frida, adb, browser and Electron capture, debuggers) are unavailable in the container.
+- **Direct mode** runs `npx -y rea-agents@<version> mcp` on the host, with your permissions and no container.
+- **`build-image [--version V]`** builds `wev-rea:<version>` from `docker/rea/Dockerfile` (base image `node:24-slim`, then `npm install -g rea-agents@<version>`). It needs Docker and the network. The pinned version is the one `wev skills` activated, so run `wev skills install rea` first.
+- **`serve --dry-run`** prints the command that would start the server, as JSON, without starting it.
+
+Registration, per harness:
+
+| Harness | How `rea` is registered |
+|---|---|
+| Claude Code | The plugin's `.mcp.json` runs `${CLAUDE_PLUGIN_ROOT}/bin/wev rea serve`; nothing to do |
+| Gemini CLI | `wev harness install --target gemini` writes `mcpServers.rea` in the extension's `gemini-extension.json` |
+| OpenCode | `wev harness install --target opencode` writes `mcp.rea` in `opencode.json` under the OpenCode config directory. It refuses to run when an `mcp.rea` entry exists that wev did not write, or when `opencode.json` is a symlink; it keeps every other key, re-indents the file to 2 spaces and keeps its file mode |
+| Codex | wev does not register it. Run it yourself: `codex mcp add rea -- <python> <path to bin/wev> rea serve` |
+
+Limits: `rea mode` and `rea build-image` are asked about in Claude Code and denied on the other harnesses, so run them in your own terminal. See [SECURITY.md](../../SECURITY.md#rea-reverse-engineering-server) before pointing rea at a binary you do not trust.
+
 ## What needs network access
 
 | Step | Network |
