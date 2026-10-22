@@ -103,5 +103,13 @@
   "evaluation.col.tools_dropped": "Ferramentas removidas",
   "evaluation.col.tools_restored": "Ferramentas restauradas (falhas)",
   "evaluation.report.tool_selection": "Seleção de ferramentas por subtarefa",
-  "evaluation.report.tool_selection_text": "Só há linhas para configurações com a seleção de ferramentas ligada. O roteiro nomeia a ferramenta que um passo representa; nenhuma ferramenta é chamada. As colunas de tokens de definição de ferramentas acima são somas de constantes aproximadas, definidas à mão por ferramenta: estimativas para comparação, não medições para nenhum modelo ou cliente."
+  "evaluation.report.tool_selection_text": "Só há linhas para configurações com a seleção de ferramentas ligada. O roteiro nomeia a ferramenta que um passo representa; nenhuma ferramenta é chamada. As colunas de tokens de definição de ferramentas acima são somas de constantes aproximadas, definidas à mão por ferramenta: estimativas para comparação, não medições para nenhum modelo ou cliente.",
+  "evaluation.cases.help": "Lista e valida os casos pontuados em evals/cases.",
+  "evaluation.cases.list": "Lista os casos e o digest do conjunto de casos.",
+  "evaluation.cases.validate": "Confere cada arquivo de caso e os arquivos que ele lista.",
+  "evaluation.cases.invalid": "Caso inválido {file}: {detail}",
+  "evaluation.cases.id_mismatch": "o id {id!r} deve ser igual ao nome do arquivo",
+  "evaluation.cases.path_escape": "o caminho {path!r} sai da pasta do caso",
+  "evaluation.cases.file_missing": "o arquivo listado {path!r} não está na pasta do caso",
+  "evaluation.cases.uncommitted": "O conjunto de casos em evals/cases tem alterações não commitadas ou não rastreadas; faça o commit antes."
 }

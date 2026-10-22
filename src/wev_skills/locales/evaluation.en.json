@@ -103,5 +103,13 @@
   "evaluation.col.tools_dropped": "Tools dropped",
   "evaluation.col.tools_restored": "Tools restored (misses)",
   "evaluation.report.tool_selection": "Tool selection per subtask",
-  "evaluation.report.tool_selection_text": "Rows exist only for configurations with tool selection on. The script names the tool a step stands for; no tool is called. The tool-definition token columns above are sums of rough, hand-set constants per tool: estimates for comparison, not measurements for any model or client."
+  "evaluation.report.tool_selection_text": "Rows exist only for configurations with tool selection on. The script names the tool a step stands for; no tool is called. The tool-definition token columns above are sums of rough, hand-set constants per tool: estimates for comparison, not measurements for any model or client.",
+  "evaluation.cases.help": "List and validate the scored cases under evals/cases.",
+  "evaluation.cases.list": "List the cases and the digest of the case set.",
+  "evaluation.cases.validate": "Check every case file and the files it lists.",
+  "evaluation.cases.invalid": "Invalid case {file}: {detail}",
+  "evaluation.cases.id_mismatch": "the id {id!r} must match the file name",
+  "evaluation.cases.path_escape": "the path {path!r} leaves the case folder",
+  "evaluation.cases.file_missing": "the listed file {path!r} is missing from the case folder",
+  "evaluation.cases.uncommitted": "The case set under evals/cases has uncommitted or untracked changes; commit them first."
 }
