@@ -78,7 +78,7 @@ bash install.sh
 | Desinstalar | `bash install.sh --uninstall` (pergunta antes de apagar o arquivo da chave; `--purge` apaga também) |
 | Ver todas as opções | `bash install.sh --help` |
 
-Status: implementado e testado com CLIs de harness falsas e uma fonte local, e de ponta a ponta no macOS com `HOME` isolado a partir de uma fonte local (13 de 13 verificações). A rota de download, o Linux e os harnesses reais (Claude Code, Codex, Gemini CLI, OpenCode) ainda não foram executados. Detalhes, flags e o que o instalador grava: [guia de instalação](docs/guides/installation.pt-BR.md#instalação-rápida).
+Status, v6.0.0: o comando de uma linha acima foi executado de verdade no macOS com `HOME` isolado (baixou e instalou a 6.0.0, e a desinstalação removeu o que ele gravou); o cenário de ponta a ponta passou em 13 de 13 verificações no macOS com `HOME` isolado (não uma máquina limpa) e em 14 de 14 num contêiner Linux em branco. Os harnesses reais (Claude Code, Codex, Gemini CLI, OpenCode) ainda não foram executados. A desinstalação deixa o cache do próprio npm em `~/.npm`, que o `npx` cria quando o rea roda no modo direto. Detalhes, flags e o que o instalador grava: [guia de instalação](docs/guides/installation.pt-BR.md#instalação-rápida).
 
 ## Início rápido
 
