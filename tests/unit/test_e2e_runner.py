@@ -179,6 +179,33 @@ class RunnerCase(unittest.TestCase):
         self.assertIn("`` echo `x` ``", text)
         self.assertIn("| c2 |  |  | passed |", text)
 
+    def test_a_second_run_keeps_the_other_scenarios_sections(self) -> None:
+        both = {"alpha": "cost a", "beta": "cost b"}
+        (self.dir / "fakepkg" / "test_beta.py").write_text(
+            FAKE.replace('"alpha"', '"beta"').replace("Alpha", "Beta")
+        )
+        yes = {"WEV_E2E_CONFIRM": "yes"}
+
+        def run(name: str, results: str) -> str:
+            fake = {"FAKE_RESULTS": results, "FAKE_MARK": str(self.mark), "FAKE_CRASH": ""}
+            with mock.patch.dict(os.environ, fake):
+                e2e.main(
+                    [name, "--out-dir", str(self.reports)], scenarios=both, package="fakepkg",
+                    root=self.dir, env=yes, out=io.StringIO(),
+                )  # fmt: skip
+            return self.report()
+
+        run("alpha", "passed")
+        text = run("beta", "passed")
+        self.assertIn("## alpha", text)
+        self.assertIn("## beta", text)
+        text = run("alpha", "skipped: later")
+        self.assertEqual(text.count("## alpha"), 1)
+        self.assertIn("skipped: later", text)
+        self.assertEqual(text.count("check passed"), 1)  # alpha's old row is gone, beta's kept
+        self.assertIn("## beta", text)
+        self.assertEqual(text.count("# End-to-end report"), 1)
+
     def test_unknown_scenario_exits_2(self) -> None:
         out = io.StringIO()
         code = e2e.main(["nope"], scenarios=COSTS, root=self.dir, out=out)
