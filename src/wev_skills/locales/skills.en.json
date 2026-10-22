@@ -1,0 +1,6 @@
+{
+  "skills.group.help": "Manage updates of the third-party skill sources.",
+  "skills.list.help": "List the third-party sources with the active version, the newest one seen and the changelog link.",
+  "skills.error.unknown_source": "Unknown source: {name}.",
+  "skills.error.state_invalid": "The third-party state file {path} is invalid ({why})."
+}

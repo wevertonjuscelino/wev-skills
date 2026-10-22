@@ -1,0 +1,6 @@
+{
+  "skills.group.help": "Gerencia as atualizações das fontes de skills de terceiros.",
+  "skills.list.help": "Lista as fontes de terceiros com a versão ativa, a mais nova vista e o link do changelog.",
+  "skills.error.unknown_source": "Fonte desconhecida: {name}.",
+  "skills.error.state_invalid": "O arquivo de estado de terceiros {path} é inválido ({why})."
+}
