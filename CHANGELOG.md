@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-10-22
+
 ### Added
 
 - Harness adapters for Codex, Gemini CLI and OpenCode: `wev hook pre-tool-use|session-context --harness codex|gemini|opencode`, `wev harness export|install|uninstall --target ...` with a manifest under `$XDG_DATA_HOME/wev-skills/harness/<target>/`. Implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part). A policy ask becomes allow plus a warning on these harnesses and a fail-safe ask becomes deny; Codex commands are judged under the session cwd; the OpenCode plugin was tested under node with a fake `wev` and never run inside OpenCode. See SECURITY.md, "Other harnesses".
@@ -19,6 +21,13 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - `wev jev key set`: reads the key from stdin and writes `TYPESAFE_API_KEY` into the env file atomically (0600 in a 0700 directory, other lines kept, symlinks refused); prints the path, `key_source`, `usable` and `shadowed_by_env`, never the key. Person-only: asked on Claude Code, denied on the other harnesses. Implemented and tested.
 
 - End-to-end runner (`make e2e`, `scripts/e2e.py`) and scenarios under `tests/e2e/`: it lists each scenario with what it spends, asks for `yes` (or `WEV_E2E_CONFIRM=yes`), installs into an isolated temporary `HOME`, and writes `evals/reports/e2e-<date>.md`. `macos-core` is implemented and tested: it passed 13 of 13 checks on macOS with an isolated HOME (not a clean machine) on 2026-10-22, against the real npm registry and GitHub releases. `linux-core` (blank container from `docker/e2e/Dockerfile`) and `macos-isolated` (rea in its container) are implemented but were skipped because the Docker daemon was not running. The `claude`, `codex`, `gemini`, `opencode`, `jev` and `update-daily` scenarios are implemented but untested: never run against a real harness or a real key, and they spend your account, tokens or a key you type. The first run found three product problems; their fixes are recorded on their own branches. See the installation guide, "End-to-end tests".
+- built-in JEV client, no-run Bash guard and YAGNI rule ([#6](https://github.com/wevertonjuscelino/wev-skills/pull/6))
+- add ambition practices to intake and wev-orchestrate ([#7](https://github.com/wevertonjuscelino/wev-skills/pull/7))
+- deliver the wev guard and skills to codex, gemini cli and opencode ([#9](https://github.com/wevertonjuscelino/wev-skills/pull/9))
+- install, check daily, update and roll back third-party skills ([#10](https://github.com/wevertonjuscelino/wev-skills/pull/10))
+- integrate the rea reverse-engineering server (Part 5) ([#11](https://github.com/wevertonjuscelino/wev-skills/pull/11))
+- interactive installer, user config tier and jev key set (Part 1) ([#12](https://github.com/wevertonjuscelino/wev-skills/pull/12))
+- end-to-end tests for the installer, third parties and rea ([#13](https://github.com/wevertonjuscelino/wev-skills/pull/13))
 
 ### Changed
 
@@ -33,6 +42,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - The hooks compare a command's paths and working directory with the registry's roots without case on macOS and Windows when the file system confirms the same place (`os.path.samefile`; a case-sensitive volume keeps `Repo` and `repo` apart), so `rm -rf /USERS/me/repo/src` from another directory is judged by the run of `/Users/me/repo`; Linux keeps exact comparison. The recursive-reader check expands `~+` and `~-` operands, and `grep -r` and `rg` given only their pattern are treated as walking the working directory even when the pattern names an existing file. Implemented and tested.
 - Behavior change: engine commands that apply policy (`exec`, `task`, `plan set`, `run resume|report|finish`, `check-command`, `approval request|grant|deny`, `remote`, `specialists`, `agent create|export`, `jev ask|batch`) refuse an open run the per-user registry does not list, or one whose run id differs from its entry, with `unregistered_run` (exit 5), even with `--run`. `run status`, `run brief`, `plan show` and `state show|list` still work and report `registered`. A finished run is refused (`run_finished`) before anything else by every command that changes it or runs something, except `run report`, `run finish`, `guard check` and `task next`. New human-operator command `wev run adopt` shows the run's pinned configuration on single lines without terminal control characters, asks for a typed word at a terminal and registers the run; the Bash hook answers `ask` for it. Implemented and tested.
 - An unexpected error anywhere in the PreToolUse hook now answers `ask` instead of printing nothing (the stderr note stays); the plan-brief hooks still fail silent. Implemented and tested.
+- add a Claude Code end-to-end suite and per-feature report ([#14](https://github.com/wevertonjuscelino/wev-skills/pull/14))
 
 ### Fixed
 
@@ -165,7 +175,8 @@ First published as 0.1.0 and renumbered on 2026-10-15 under the release-counting
 - When the JEV program is not found, the recorded fallback reason says it was not found on the allowed path and names the two fixes (`decision.jev.command` as an absolute path, or `permissions.exec_path`); an absolute path must be a regular executable file.
 - `wev agent export` named `agent-specs/examples/<id>.json` as the source of every agent; `wev agent list --dir` failed on a JSON file that is not a spec; remote alias errors showed the alias inside literal quotes.
 
-[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v5.0.0...v6.0.0
 [5.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v2.0.0...v3.0.0

@@ -89,7 +89,7 @@ Real output (the launcher was run for this guide):
 
 ```text
 {
-  "version": "5.0.0"
+  "version": "6.0.0"
 }
 ```
 

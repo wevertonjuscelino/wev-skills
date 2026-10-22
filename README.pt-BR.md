@@ -14,7 +14,7 @@ O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um
 ## Status
 
 > [!IMPORTANT]
-> A versão <!-- wev:version -->5.0.0<!-- /wev:version --> é um lançamento alfa. A CLI e o formato do plugin têm testes automatizados; uma sessão real do Claude Code, execução remota real e avaliação da qualidade dos modelos seguem sem validação. Não há pacote no PyPI nem entrada em marketplace oficial. O badge de CI leva aos resultados atuais do workflow.
+> A versão <!-- wev:version -->6.0.0<!-- /wev:version --> é um lançamento alfa. A CLI e o formato do plugin têm testes automatizados; uma sessão real do Claude Code, execução remota real e avaliação da qualidade dos modelos seguem sem validação. Não há pacote no PyPI nem entrada em marketplace oficial. O badge de CI leva aos resultados atuais do workflow.
 
 | Capacidade | Evidência | Limite prático |
 |---|---|---|
