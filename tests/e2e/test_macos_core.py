@@ -28,7 +28,7 @@ INSTALL = ["--yes", "--lang", "en", "--source", str(ROOT), "--harness", ""] + [
     "direct",
 ]
 # npx creates these in HOME and the uninstaller does not own them.
-ALLOWED_LEFTOVERS = (".npm", ".cache")
+ALLOWED_LEFTOVERS = frozenset({".npm", ".cache"})
 LONG, SHORT = 900.0, 180.0
 PLAIN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 
@@ -81,8 +81,11 @@ class MacosCore(unittest.TestCase):
             words = ["wev", *words[2:]]
         return scrub(shlex.join(words), self.tree)
 
-    def record(self, name: str, cmd: str, code: int | None, ok: bool, detail: str = "") -> None:
-        result = "passed" if ok else "failed"
+    def record(
+        self, name: str, cmd: str, code: int | None, ok: bool, detail: str = "", note: str = ""
+    ) -> None:
+        """`note` says what was simulated or set up by hand; it is part of a passed result."""
+        result = "failed" if not ok else f"passed ({note})" if note else "passed"
         report_line(SCENARIO, name, cmd, code, result, scrub(detail, self.tree))
         if not ok:
             self.fail(f"{name}: {detail[-800:]}")
@@ -129,6 +132,7 @@ class MacosCore(unittest.TestCase):
         self.record("installer exits 0, zero failures", cmd, done.exit, ok, done.output)
 
     def test_02_wev_version_is_the_clone_version(self) -> None:
+        self.need_install("wev version = clone version")
         done, cmd = self.wev("version")
         got = _json(done).get("version")
         self.record("wev version = clone version", cmd, done.exit, got == __version__, done.output)
@@ -148,10 +152,13 @@ class MacosCore(unittest.TestCase):
         self.record(name, cmd, done.exit, ok, f"newest rea: {newest}\n{done.output}")
 
     def test_04_rea_status_is_direct(self) -> None:
+        self.need_install("rea status mode direct")
         done, cmd = self.wev("rea", "status")
-        self.record("rea status mode direct", cmd, done.exit, _json(done).get("mode") == "direct")
+        ok = _json(done).get("mode") == "direct"
+        self.record("rea status mode direct", cmd, done.exit, ok, done.output)
 
     def test_05_jev_status_orchestration_is_harness(self) -> None:
+        self.need_install("jev status orchestration harness")
         done, cmd = self.wev("jev", "status")
         ok = _json(done).get("orchestration") == "harness"
         self.record("jev status orchestration harness", cmd, done.exit, ok, done.output)
@@ -162,12 +169,14 @@ class MacosCore(unittest.TestCase):
         self.allow_npx_dir()
         argv = [sys.executable, str(WEV), "rea", "serve"]
         try:
-            count = mcp_tool_count(argv, self.tree.env(), 180)
-            self.record(name, self.shown(argv), None, count >= 1, f"{count} tools")
+            count = mcp_tool_count(argv, self.tree.env(), SHORT)
+            note = "npx directory added to exec_path in the isolated user config"
+            self.record(name, self.shown(argv), None, count >= 1, f"{count} tools", note)
         except (OSError, ValueError, TimeoutError) as exc:
             self.record(name, self.shown(argv), None, False, f"{type(exc).__name__}: {exc}")
 
     def test_07_no_skill_links_in_a_fresh_home(self) -> None:
+        self.need_install("no ~/.claude/skills or ~/.agents/skills created")
         links = [p for p in (".claude/skills", ".agents/skills") if (self.tree.home / p).exists()]
         name = "no ~/.claude/skills or ~/.agents/skills created"
         self.record(name, "ls ~/.claude/skills ~/.agents/skills", None, not links, str(links))
@@ -204,7 +213,8 @@ class MacosCore(unittest.TestCase):
         state_file.write_text(json.dumps(data), encoding="utf-8")
         done, cmd = self.wev("skills", "rollback", "rea")
         ok = done.exit == 0 and self.active() == previous
-        self.record(name, cmd, done.exit, ok, done.output)
+        note = "state seeded: the CLI cannot make an older release active"
+        self.record(name, cmd, done.exit, ok, done.output, note)
 
     def test_11_update_returns_to_the_newest_release(self) -> None:
         name = "skills update rea --yes -> newest active again"
@@ -229,7 +239,9 @@ class MacosCore(unittest.TestCase):
         gone = not (self.tree.data / "wev-skills").exists()
         gone = gone and not (self.tree.config / "wev-skills").exists()
         extra = sorted(
-            p for p in self.tree.listing() - self.before if not p.startswith(ALLOWED_LEFTOVERS)
+            p
+            for p in self.tree.listing() - self.before
+            if Path(p).parts[0] not in ALLOWED_LEFTOVERS
         )
         ok = done.exit == 0 and gone and not extra
         name = "uninstall --purge removes data and config, nothing else under HOME"

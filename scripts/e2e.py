@@ -5,7 +5,8 @@ that appends one JSON line per check to the file named in ``WEV_E2E_REPORT``.
 
 Nothing runs before a ``yes`` typed on ``/dev/tty`` or ``WEV_E2E_CONFIRM=yes``.
 Run from the repository root: ``PYTHONPATH=src python3 scripts/e2e.py [scenario ...]``.
-Exit codes: 0 all passed or skipped, 1 a check failed, 2 not confirmed or bad usage.
+Exit codes: 0 all passed or skipped (a skip never fails the run), 1 a check failed,
+2 not confirmed or bad usage.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -21,6 +23,8 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 from pathlib import Path
 from typing import Any, TextIO
+
+from wev_skills.security.redact import redact
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS: Mapping[str, str] = {
@@ -84,11 +88,29 @@ def run_scenario(name: str, package: str, root: Path) -> list[dict[str, Any]]:
         )
         lines = report.read_text(encoding="utf-8").splitlines() if report.exists() else []
     rows: list[dict[str, Any]] = [json.loads(line) for line in lines if line.strip()]
-    if done.returncode != 0 and not any(r["result"] == "failed" for r in rows):
-        rows.append(_crash_row(name, module, done))
+    if done.returncode != 0 and _failures(done.stderr + done.stdout) > _failed(rows):
+        rows.append(_crash_row(name, module, done, root))
     if not rows:
         rows.append(_row(name, "scenario ran", module, 0, "skipped: the module reported no checks"))
     return rows
+
+
+def _failed(rows: Sequence[Mapping[str, Any]]) -> int:
+    return sum(r["result"] == "failed" for r in rows)
+
+
+def _failures(output: str) -> int:
+    """failures + errors unittest reported; a run it could not summarise counts as one."""
+    found = re.search(r"FAILED \((.*)\)", output)
+    counts = re.findall(r"=(\d+)", found.group(1)) if found else []
+    return sum(map(int, counts)) or 1
+
+
+def scrub(text: str, root: Path) -> str:
+    """Redact secrets and replace machine paths, so a report can be committed."""
+    out = redact(text).replace(str(root), "<clone>")
+    out = re.sub(r"\S*wev-e2e-\w+", "<tmp>", out)
+    return out.replace(str(Path.home()), "<real-home>")
 
 
 def _row(
@@ -104,15 +126,23 @@ def _row(
     }
 
 
-def _crash_row(name: str, module: str, done: subprocess.CompletedProcess[str]) -> dict[str, Any]:
-    return _row(
-        name, "scenario ran", f"python -m unittest {module}", done.returncode, "failed",
-        (done.stdout + done.stderr)[-2000:],
-    )  # fmt: skip
+def _crash_row(
+    name: str, module: str, done: subprocess.CompletedProcess[str], root: Path
+) -> dict[str, Any]:
+    detail = scrub((done.stdout + done.stderr)[-2000:], root)
+    cmd = f"python -m unittest {module}"
+    return _row(name, "scenario ran", cmd, done.returncode, "failed", detail)
 
 
 def _cell(text: object) -> str:
     return str(text).replace("|", "\\|").replace("\n", " ")
+
+
+def _code(cmd: object) -> str:
+    text = str(cmd)
+    if not text:
+        return ""
+    return f"`` {text} ``" if "`" in text else f"`{text}`"
 
 
 def render(rows: Sequence[Mapping[str, Any]], root: Path, today: str) -> str:
@@ -129,14 +159,14 @@ def render(rows: Sequence[Mapping[str, Any]], root: Path, today: str) -> str:
     for name in dict.fromkeys(str(r["scenario"]) for r in rows):
         body += [f"## {name}", "", "| Check | Command | Exit | Result |", "|---|---|---|---|"]
         for r in (r for r in rows if r["scenario"] == name):
-            cells = (r["check"], f"`{r['command']}`", "" if r["exit"] is None else r["exit"])
+            cells = (r["check"], _code(r["command"]), "" if r["exit"] is None else r["exit"])
             body.append("| " + " | ".join(_cell(c) for c in (*cells, r["result"])) + " |")
         body.append("")
     bad = [r for r in rows if r["result"] == "failed"]
     if bad:
         body += ["## Failures", ""]
         for r in bad:
-            body += [f"### {r['scenario']}: {r['check']}", "", f"`{r['command']}`", ""]
+            body += [f"### {r['scenario']}: {r['check']}", "", _code(r["command"]), ""]
             body += ["```", str(r["detail"]).rstrip(), "```", ""]
     return "\n".join([*head, *body])
 
@@ -155,11 +185,10 @@ def main(
     parser.add_argument(
         "scenario", nargs="*", help=f"one of: {', '.join(scenarios)} (default: all)"
     )
-    parser.add_argument("--allow-skips", action="store_true", help="skips never fail the run")
     parser.add_argument("--out-dir", type=Path, default=root / "evals" / "reports")
     args = parser.parse_args(argv)
     out = out or sys.stdout
-    chosen = args.scenario or list(scenarios)
+    chosen = [n for n in args.scenario if n] or list(scenarios)
     unknown = [n for n in chosen if n not in scenarios]
     if unknown:
         print(f"unknown scenario: {', '.join(unknown)}", file=sys.stderr)

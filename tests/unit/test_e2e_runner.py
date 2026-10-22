@@ -6,7 +6,9 @@ from __future__ import annotations
 import importlib.util
 import io
 import os
+import subprocess
 import tempfile
+import time
 import unittest
 from collections.abc import Callable
 from pathlib import Path
@@ -24,14 +26,20 @@ import json, os, unittest
 
 @unittest.skipUnless(os.environ.get("WEV_E2E") == "alpha", "not selected")
 class Alpha(unittest.TestCase):
+    def test_crash(self):
+        if os.environ.get("FAKE_CRASH"):
+            raise RuntimeError(os.environ["FAKE_CRASH"])
+
     def test_rows(self):
-        for result in os.environ["FAKE_RESULTS"].split(","):
+        with open(os.environ["FAKE_MARK"], "w") as handle:
+            handle.write("ran")
+        for result in filter(None, os.environ["FAKE_RESULTS"].split(",")):
             line = {"scenario": "alpha", "check": "check " + result, "command": "cmd | x",
                     "exit": 0, "result": result, "detail": "boom output"}
             with open(os.environ["WEV_E2E_REPORT"], "a") as handle:
                 handle.write(json.dumps(line) + "\\n")
-        with open(os.environ["FAKE_MARK"], "w") as handle:
-            handle.write("ran")
+            if result == "failed":
+                self.fail("failed")
 """
 COSTS = {"alpha": "network only; no account"}
 
@@ -59,10 +67,16 @@ class RunnerCase(unittest.TestCase):
         self.reports = self.dir / "reports"
 
     def main(
-        self, results: str, env: dict[str, str], tty: Callable[[], TextIO | None] = lambda: None
+        self,
+        results: str,
+        env: dict[str, str],
+        tty: Callable[[], TextIO | None] = lambda: None,
+        crash: str = "",
+        out: io.StringIO | None = None,
     ) -> tuple[int, str]:
-        out = io.StringIO()
-        with mock.patch.dict(os.environ, {"FAKE_RESULTS": results, "FAKE_MARK": str(self.mark)}):
+        out = out or io.StringIO()
+        fake = {"FAKE_RESULTS": results, "FAKE_MARK": str(self.mark), "FAKE_CRASH": crash}
+        with mock.patch.dict(os.environ, fake):
             code = e2e.main(
                 ["--out-dir", str(self.reports)],
                 scenarios=COSTS,
@@ -112,10 +126,93 @@ class RunnerCase(unittest.TestCase):
         self.assertIn("| check failed | `cmd \\| x` | 0 | failed |", self.report())
         self.assertIn("boom output", self.report())
 
+    def test_yes_in_other_spellings_is_not_a_yes(self) -> None:
+        for answer in ("YES", "y", "Yes", ""):
+            code, _ = self.main("passed", {}, tty=lambda a=answer: Tty(a))
+            self.assertEqual(code, 2, answer)
+        self.assertFalse(self.mark.exists())
+
+    def test_cost_lines_come_before_the_prompt(self) -> None:
+        events: list[str] = []
+
+        class Out(io.StringIO):
+            def write(self, text: str) -> int:
+                events.append("out:" + text.strip())
+                return super().write(text)
+
+        class Asking(Tty):
+            def write(self, text: str) -> int:
+                events.append("prompt")
+                return super().write(text)
+
+        self.main("passed", {}, tty=lambda: Asking("yes"), out=Out())
+        cost = "out:alpha: network only; no account"
+        self.assertLess(events.index(cost), events.index("prompt"))
+
+    def test_a_crash_alone_is_a_failed_row(self) -> None:
+        code, _ = self.main("", {"WEV_E2E_CONFIRM": "yes"}, crash="kaboom")
+        self.assertEqual(code, 1)
+        self.assertIn("| scenario ran |", self.report())
+        self.assertIn("kaboom", self.report())
+
+    def test_a_crash_next_to_a_failed_row_is_not_hidden(self) -> None:
+        code, _ = self.main("failed", {"WEV_E2E_CONFIRM": "yes"}, crash="kaboom")
+        text = self.report()
+        self.assertEqual(code, 1)
+        self.assertIn("| check failed |", text)
+        self.assertIn("| scenario ran |", text)
+        self.assertIn("kaboom", text)
+
+    def test_a_crash_message_is_scrubbed(self) -> None:
+        home = str(Path.home())
+        self.main("", {"WEV_E2E_CONFIRM": "yes"}, crash=f"password=hunter2 at {home}/x")
+        text = self.report()
+        self.assertNotIn("hunter2", text)
+        self.assertNotIn(home, text)
+
+    def test_backticks_and_empty_commands_render_safely(self) -> None:
+        rows = [
+            {"scenario": "a", "check": "c1", "command": "echo `x`", "exit": 0, "result": "passed"},
+            {"scenario": "a", "check": "c2", "command": "", "exit": None, "result": "passed"},
+        ]
+        text = e2e.render(rows, self.dir, "2026-01-01")
+        self.assertIn("`` echo `x` ``", text)
+        self.assertIn("| c2 |  |  | passed |", text)
+
     def test_unknown_scenario_exits_2(self) -> None:
         out = io.StringIO()
         code = e2e.main(["nope"], scenarios=COSTS, root=self.dir, out=out)
         self.assertEqual(code, 2)
+
+
+class SupportCase(unittest.TestCase):
+    def test_a_timeout_kills_the_whole_process_group(self) -> None:
+        from tests.e2e._support import run
+
+        script = "(sleep 7.31) & echo out; echo err >&2; sleep 30"
+        start = time.monotonic()
+        done = run(["bash", "-c", script], 1, os.environ)
+        self.assertLess(time.monotonic() - start, 5)
+        self.assertEqual(done.exit, -1)
+        self.assertIn("err", done.output)  # stderr is kept
+        left = subprocess.run(["pgrep", "-f", "sleep 7.31"], capture_output=True, check=False)
+        self.assertNotEqual(left.returncode, 0, left.stdout)
+
+    def test_the_child_env_drops_account_and_npm_variables(self) -> None:
+        from tests.e2e._support import Tree
+
+        dirty = {"NPM_CONFIG_PREFIX": "x", "npm_config_cache": "y", "XDG_CACHE_HOME": "z"}
+        dirty |= {"CLAUDE_CONFIG_DIR": "c", "TYPESAFE_API_KEY": "k", "LANG": "C.UTF-8"}
+        tree = Tree()
+        self.addCleanup(tree.cleanup)
+        with mock.patch.dict(os.environ, dirty):
+            env = tree.env()
+        for name in ("NPM_CONFIG_PREFIX", "npm_config_cache", "XDG_CACHE_HOME"):
+            self.assertNotIn(name, env)
+        self.assertNotIn("CLAUDE_CONFIG_DIR", env)
+        self.assertNotIn("TYPESAFE_API_KEY", env)
+        self.assertEqual(env["LANG"], "C.UTF-8")
+        self.assertEqual(env["HOME"], str(tree.home))
 
 
 if __name__ == "__main__":

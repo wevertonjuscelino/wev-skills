@@ -15,7 +15,7 @@ test:
 # End-to-end scenarios for real (network, installer, rea); asks for `yes` first.
 # Usage: make e2e E2E=macos-core   (WEV_E2E_CONFIRM=yes answers without a terminal)
 e2e:
-	PYTHONPATH=src $(PYTHON) scripts/e2e.py $(E2E)
+	PYTHONPATH=src $(PYTHON) scripts/e2e.py "$(E2E)"
 
 lint:
 	@if [ -n "$(RUFF)" ]; then \

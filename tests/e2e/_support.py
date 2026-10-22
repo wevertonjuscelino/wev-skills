@@ -3,6 +3,7 @@ sees or prints the JEV key, the report lines, and a minimal MCP client."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -20,7 +21,7 @@ from wev_skills.security.redact import redact
 
 ROOT = Path(__file__).resolve().parents[2]
 SECRET_VAR = "TYPESAFE_API_KEY"
-MAX_REPLY = 64 * 1024 * 1024  # rea's tools/list alone is a few MB on one line
+MAX_REPLY = 32 * 1024 * 1024  # rea's tools/list alone is a few MB on one line
 TAIL = 2000
 
 
@@ -28,6 +29,17 @@ TAIL = 2000
 class Done:
     exit: int
     output: str
+
+
+def _dropped(name: str) -> bool:
+    """Variables that would point a child at the real account, caches or npm settings."""
+    low = name.lower()
+    return (
+        name == SECRET_VAR
+        or low.startswith("npm_config_")
+        or low == "xdg_cache_home"
+        or name.startswith("CLAUDE_")
+    )
 
 
 class Tree:
@@ -48,7 +60,7 @@ class Tree:
         return path
 
     def env(self) -> dict[str, str]:
-        base = {k: v for k, v in os.environ.items() if k != SECRET_VAR}
+        base = {k: v for k, v in os.environ.items() if not _dropped(k)}
         return {
             **base,
             "HOME": str(self.home),
@@ -75,24 +87,32 @@ def scrub(text: str, tree: Tree | None = None) -> str:
 def run(
     argv: Sequence[str], timeout: float, env: Mapping[str, str], cwd: Path | None = None
 ) -> Done:
-    """Run argv without a shell, no stdin, stdout and stderr together, the key removed."""
-    clean = {k: v for k, v in env.items() if k != SECRET_VAR}
+    """Run argv without a shell, no stdin, stdout and stderr together, the key removed. On a
+    timeout (and always at the end) the whole process group is killed."""
+    proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
+        list(argv),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env={k: v for k, v in env.items() if k != SECRET_VAR},
+        cwd=cwd,
+        start_new_session=True,
+    )
     try:
-        done = subprocess.run(  # noqa: S603 - argv list, no shell
-            list(argv),
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=clean,
-            cwd=cwd,
-            check=False,
-            start_new_session=True,
-        )
-    except subprocess.TimeoutExpired as exc:
-        partial = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-        return Done(-1, f"timed out after {timeout:.0f}s\n{partial}")
-    return Done(done.returncode, done.stdout + done.stderr)
+        output, _ = proc.communicate(timeout=timeout)
+        return Done(proc.returncode, output)
+    except subprocess.TimeoutExpired:
+        _kill_group(proc)
+        output, _ = proc.communicate()
+        return Done(-1, f"timed out after {timeout:.0f}s\n{output}")
+    finally:
+        _kill_group(proc)
+
+
+def _kill_group(proc: subprocess.Popen[str]) -> None:
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, signal.SIGKILL)
 
 
 def report_line(
@@ -117,7 +137,7 @@ def report_line(
 def _pump(stream: Any, lines: queue.Queue[str | None]) -> None:
     try:
         while True:
-            line = stream.readline()
+            line = stream.readline(MAX_REPLY + 1)
             lines.put(line or None)
             if not line:
                 return
