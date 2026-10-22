@@ -51,6 +51,17 @@ class ParseLessonTest(unittest.TestCase):
         ):
             self.assertIsNone(parse_lesson(_answer(text)), text)
 
+    def test_lone_surrogate_is_dropped(self) -> None:
+        self.assertIsNone(parse_lesson('{"lesson": "a\\ud800b"}'))
+
+    def test_ordinary_text_is_kept(self) -> None:
+        for text in (
+            "1º passo: rode a verificação…",
+            "nº 2 e x²\u00a0ok",
+            "acentuac\u0327a\u0303o",
+        ):
+            self.assertEqual(parse_lesson(_answer(text)), text)
+
     def test_huge_answer_is_cheap(self) -> None:
         huge = _answer("x" * 5_000_000)
         start = time.monotonic()

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 
 from wev_skills import i18n
 from wev_skills.agents.experience import LESSON_TEXT_MAX
 from wev_skills.evaluation.cases import Case
 from wev_skills.security.redact import redact
-from wev_skills.security.untrusted import normalize, scan, wrap
+from wev_skills.security.untrusted import _SCAN_TABLE, normalize, sanitize, scan, wrap
 
 FORBIDDEN = re.compile(
     r"(?i)(allowed[-_ ]?tools|permission|bypass|dangerously|--tools|tools\s*:|model\s*:"
@@ -38,11 +39,16 @@ def lesson_request(case: Case, check_output: str, diff: str, lang: str) -> str:
 def _is_safe(text: str) -> bool:
     if not 1 <= len(text) <= LESSON_TEXT_MAX:
         return False
-    # Any character that normalizing would remove or fold (controls, invisibles,
-    # full-width forms) or a newline is refused, not repaired.
-    if normalize(text) != text or "\n" in text:
+    # Controls, invisibles and newlines are refused, not repaired; so are lone surrogates
+    # (json.loads accepts them, UTF-8 cannot encode them). Accents and typographic
+    # characters pass.
+    if sanitize(text).translate(_SCAN_TABLE) != text or "\n" in text:
         return False
-    return not (_FENCE_LIKE.search(text) or FORBIDDEN.search(text) or scan(text))
+    if any(unicodedata.category(char) == "Cs" for char in text):
+        return False
+    # These checks must stay on the normalized form so full-width look-alikes are caught.
+    folded = normalize(text)
+    return not (_FENCE_LIKE.search(folded) or FORBIDDEN.search(folded) or scan(text))
 
 
 def parse_lesson(answer: str) -> str | None:
