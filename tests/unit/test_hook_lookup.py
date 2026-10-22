@@ -198,6 +198,27 @@ class NoRunTests(HookCase):
                 self.assertIn("harness", found["reason"])
         self.assertIsNone(self.decision(f"{WEV} harness export --target codex --out x"))
 
+    def test_hook_asks_for_skills_install_but_not_check_or_list(self) -> None:
+        found = self.bash(f"{WEV} skills install rea --version 1.0.0")
+        assert found is not None
+        self.assertEqual(found["decision"], ASK)
+        self.assertIn("third-party", found["reason"])
+        for args in (
+            "skills update rea",
+            "skills update",
+            "skills rollback rea",
+            "skills freeze rea --off",
+            "skills activate",
+            "skills deactivate",
+        ):
+            with self.subTest(args=args):
+                found = self.bash(f"{WEV} {args}")
+                assert found is not None
+                self.assertEqual(found["decision"], ASK)
+        for args in ("skills check", "skills list", "skills decline rea", "skills show rea"):
+            with self.subTest(args=args):
+                self.assertIsNone(self.decision(f"{WEV} {args}"))
+
     def test_the_jev_reason_names_the_service(self) -> None:
         found = self.bash(f"{WEV} jev ask --questions q.json --state-file notes.txt")
         assert found is not None

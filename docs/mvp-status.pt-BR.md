@@ -33,6 +33,8 @@ Testes focados de CLI, persistência, aprendizado, roteamento e orçamento cobre
 
 Os adaptadores de harness para Codex, Gemini CLI e OpenCode (`wev harness export|install|uninstall`, `wev hook ... --harness`) foram acrescentados depois. Status: implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e). O plugin do OpenCode foi testado sob node com um `wev` falso e nunca rodou dentro do OpenCode. Eles não acrescentam linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#outros-harnesses).
 
+As atualizações de skills de terceiros (`wev skills ...`, o hook da verificação diária) foram acrescentadas depois. Situação: implementado e testado com um registro local falso, um npx falso e tarballs locais; os registros reais, os downloads e o servidor rea real não são executados nesta alteração (parte e2e). Elas não acrescentam linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#atualizações-de-skills-de-terceiros).
+
 ## Resumo
 
 | # | Critério | Situação |

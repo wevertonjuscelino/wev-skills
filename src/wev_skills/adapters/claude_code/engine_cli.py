@@ -49,6 +49,14 @@ JEV_COMMANDS = frozenset({("jev", "ask"), ("jev", "batch")})
 """``jev status`` sends nothing and writes nothing, so it is left to the engine."""
 HARNESS_COMMANDS = frozenset({("harness", "install"), ("harness", "uninstall")})
 """``harness export`` only writes into a directory the person names, so it is left to the engine."""
+SKILLS_COMMANDS = frozenset(
+    {
+        ("skills", name)
+        for name in ("install", "update", "rollback", "freeze", "activate", "deactivate")
+    }
+)
+"""``skills check|list|decline|show`` write only the state file; the others fetch code, switch
+the version in use or link files into the harnesses' skill directories."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"
 REOPEN_MIN = len("--reo")
@@ -59,7 +67,8 @@ REASON_REQUEST = "engine_request"
 REASON_CONFIG = "engine_config"
 REASON_JEV = "engine_jev"
 REASON_HARNESS = "engine_harness"
-PERSON_ONLY_REASONS = frozenset({REASON_OPERATOR, REASON_HARNESS})
+REASON_SKILLS = "engine_skills"
+PERSON_ONLY_REASONS = frozenset({REASON_OPERATOR, REASON_HARNESS, REASON_SKILLS})
 """Asks a harness without an ask decision denies: an agent must not grant itself approvals
 or remove its own guard. ``run``, ``--config`` and ``jev`` asks stay policy asks there."""
 
@@ -123,6 +132,8 @@ def _command_reason(args: Sequence[str]) -> str | None:
         return REASON_JEV
     if words in HARNESS_COMMANDS:
         return REASON_HARNESS
+    if words in SKILLS_COMMANDS:
+        return REASON_SKILLS
     return REASON_RUN if words in RUN_COMMANDS else None
 
 

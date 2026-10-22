@@ -88,6 +88,7 @@ Objective intake is documented in [the interview guide](docs/guides/intake.md). 
 | Bilingual README checks | [README standard](skills/wev-readme/SKILL.md) | `wev-readme` |
 | Skills, guard hooks and agents for Codex, Gemini CLI and OpenCode | [Installation: Codex, Gemini CLI and OpenCode](docs/guides/installation.md#codex-gemini-cli-and-opencode) | CLI `wev harness` |
 | Reviewed upstream updates and conflict reconciliation | [Maintenance policy](skills/wev-skill-maintenance/references/policy.md) | `wev-skill-maintenance` |
+| Install, check daily, update, roll back and freeze third-party skills | [Installation: third-party skills](docs/guides/installation.md#third-party-skills-install-daily-check-update-rollback-freeze) | CLI `wev skills` |
 
 Harnesses: Claude Code uses the plugin; Codex, Gemini CLI and OpenCode get the skills and the guard through `wev harness install --target <name>`.
 

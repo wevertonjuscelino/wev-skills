@@ -180,6 +180,33 @@ After a real session with the plugin, `claude plugin list` shows whether it is i
 - Source tree: in your clone, check out the previous tag or commit (`git checkout v1.0.0`, for example) and update the plugin as above. Every release has a tag `vX.0.0`; `git tag --list` shows them.
 - Run state: `.wev/runs/<id>/` is plain files. A bad run can be left alone (it stops being the active run after `wev run finish`) or deleted by removing its directory. Nothing outside `.wev/` is written by the engine except the per-user run registry and the files a task changes.
 
+## Third-party skills: install, daily check, update, rollback, freeze
+
+`wev skills` manages three sources: `rea` (the npm package `rea-agents`, newest is its `dist-tags.latest`), `agent-skills` (GitHub releases of `addyosmani/agent-skills`) and `wev-skills` (GitHub releases of this repository). A GitHub source with no release uses the HEAD of its default branch, named by the first 12 characters of the sha. Registry requests go only to `api.github.com` and `registry.npmjs.org`; tarball downloads go only to `api.github.com`, `codeload.github.com` and `github.com`; redirects are checked against the same lists. The tarball URL is built from the repository and the tag, never taken from the registry's answer. A version must have the shape of its source: strict semver for `rea` (`1.2.3`, `1.2.3-rc.1`), a release tag `v1.2.3` or `1.2.3` for GitHub, 7 to 40 hex characters for a HEAD sha; `latest`, `next` or `1.x` are refused. Status: implemented and tested with a local fake registry, a fake npx and local tarballs; the real registries, downloads and the real rea server are not run in this change (e2e part).
+
+```sh
+wev skills list
+wev skills check
+wev skills install agent-skills
+wev skills update agent-skills
+wev skills rollback agent-skills
+wev skills freeze agent-skills
+wev skills freeze agent-skills --off
+wev skills activate
+wev skills deactivate
+wev skills show rea
+wev skills decline agent-skills
+```
+
+- **Where things live.** `$XDG_DATA_HOME/wev-skills/third-party/` (else `~/.local/share/wev-skills/third-party/`): `state.json`, `<source>/<version>/` for every installed version, `<source>/current` (a symlink to the active one) and `manifest.json` for activation links.
+- **`install`** puts a version (`--version` picks one) beside the others without making it active, and prints the next step (`wev skills update SOURCE`). For `rea` it downloads nothing: it records `npm-ref.json` (after the registry confirms a `--version`) and `npx` fetches the package into npm's own cache during the health check. For `agent-skills` and `wev-skills` it downloads a tarball. **`update SOURCE`** installs the newest version, runs its health check and repoints `current` (atomically) only when the check passes; the previous version stays. `update --yes` offers a version you declined. `update` without a source skips frozen, declined and never-installed sources. Version names `current` and `*.tmp-*` are refused. After an update, only the active and the previous version stay on disk; when a health check fails, the failed version stays too, for inspection, but only the newest failed one per source.
+- **`rollback`** swaps the active and the previous version, and records the version it left as declined, so the daily check does not offer it and `update` without `--yes` does not reinstall it. **`freeze`** stops checks and updates for a source (`--off` undoes it). **`decline`** records that the newest version was refused; only that exact version stops being offered, and any different version is offered again.
+- **Daily check.** The Claude Code `SessionStart` `startup` hook runs `wev skills check --daily`. Status of the engine part: implemented and tested with a local fake registry, a fake npx and local tarballs. It prints nothing unless a day has passed since the last check, has a 10 second wall-clock budget, fails silently and injects one short paragraph when a newer version exists. A failure does not advance the daily marker; when only some sources fail, the sources that succeeded still save their `last_check` and `latest_seen`, and a budget timeout saves nothing. Frozen sources are skipped, and a source you never installed is not offered; run `wev skills update SOURCE` for it, which installs, health-checks and activates its first version (`install` alone leaves it inactive). The model asking you once (yes runs `wev skills update SOURCE`, no runs `wev skills decline SOURCE`) is an instruction to the model: documented only. The daily check is wired only for Claude Code so far.
+- **Health check before the switch.** `rea`: `npx -y rea-agents@<version> mcp` is started without a shell, with a reduced environment, 60 seconds of wall clock and the whole process group killed afterwards; it must answer `initialize` and `tools/list` with at least one tool. `agent-skills`: every `skills/*/SKILL.md` has a `name` equal to its directory and a description. `wev-skills`: `bin/wev version` of the new directory must print the installed version when that is a release tag (`v` and a digit first); for a default-branch HEAD install, named by a sha, it only has to run and print a version made of numbers and dots. This catches a broken update, not a malicious one.
+- **`activate`** (agent-skills only) links `<root>/<name>` to `current/skills/<name>` in `~/.claude/skills` and `~/.agents/skills` when those directories exist (Codex, OpenCode and Gemini CLI read the second one, per the notes in `docs/research/`). Only skill directories with a `SKILL.md` are linked. It refuses to replace anything it did not create, including a file you put where a wev link was and a wev link you repointed elsewhere. `deactivate` removes only the links the manifest lists that still point where wev made them. Once you have activated, `update` and `rollback` of `agent-skills` re-run the activation: links of dropped skills go and new skills are linked; an entry that is not wev's is reported in the result's `activation` (exit 8 for `update`, 5 for `rollback`) and left alone.
+- **Approvals.** Claude Code asks before `skills install|update|rollback|freeze|activate|deactivate`; `list`, `check`, `decline` and `show` are not asked. On Codex, Gemini CLI and OpenCode these six are denied: run them in your own terminal.
+- **Limits.** A wev self-update installs and health-checks the new directory only; a wev-skills update does not switch the running plugin: the installer does, and `skills update` does not. `check` and `update` read the state again just before saving and merge in only what the check saw, so a `freeze` or an update saved meanwhile is kept. The health check reads at most 32 MiB per reply line from the MCP server (the real server's `tools/list` is about 3.2 MB) and refuses a longer one. The health-check child keeps only `PATH`, `HOME`, `LANG`, `LC_*`, `XDG_*`, `npm_config_*` and `NODE_*` from your environment. With `HOME` kept, npm reads `~/.npmrc`, `npm_config_*` may carry npm tokens, and `NODE_OPTIONS` can inject code into the child. A declined source still makes its registry call before it is skipped. The real registries, downloads and the real rea server are not run in this change (e2e part). See [SECURITY.md](../../SECURITY.md#third-party-skill-updates).
+
 ## What needs network access
 
 | Step | Network |
@@ -190,6 +217,7 @@ After a real session with the plugin, `claude plugin list` shows whether it is i
 | `pip install` | Yes, if you choose it |
 | Claude Code itself and the models it uses | Yes, outside this project |
 | The JEV decision provider, if you enable it | Yes: sends the task objective (classification) or a task's title, objective and acceptance criteria (tool selection) to a third party (see the [configuration guide](configuration-and-providers.md)) |
+| `wev skills check`, `install`, `update` (and the daily check at session start) | Yes: registry or GitHub requests (5 s per socket operation), tarball downloads (120 s for the whole download), a health check (60 s); one registry request of `check`, `install` or `update` stops at 30 s of wall clock, and the daily check stops at 10 s in total |
 | The remote module | SSH to hosts you configured |
 | GitHub Actions workflows | Yes, when run on GitHub; none has completed a run |
 
