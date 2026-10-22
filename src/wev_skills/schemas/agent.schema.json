@@ -62,7 +62,7 @@
       "required": ["id", "kind", "text", "evidence", "created_at", "accepted_by"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
-        "kind": { "enum": ["practice", "pitfall", "need"] },
+        "kind": { "enum": ["practice", "pitfall", "need", "model"] },
         "text": { "type": "string", "minLength": 1, "maxLength": 600 },
         "evidence": {
           "type": "object",

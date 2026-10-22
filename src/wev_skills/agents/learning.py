@@ -9,9 +9,11 @@ from dataclasses import replace
 from wev_skills import i18n
 from wev_skills.agents.experience import (
     ACTIVE,
+    KIND_MODEL,
     PROPOSED,
     PROPOSER,
     RETIRED,
+    SCORER,
     STALE,
     Lesson,
     LessonEvidence,
@@ -72,6 +74,20 @@ def _usage(states: Sequence[RunState], agent_id: str, shown: Shown) -> dict[str,
     return found
 
 
+def model_lesson(case_id: str, text: str, score_id: str, now: str) -> Lesson:
+    """A lesson the model wrote while scoring a case: proposed until someone accepts it."""
+    return Lesson(
+        _id(("model", case_id, text)),
+        KIND_MODEL,
+        text,
+        LessonEvidence(score_id, case_id, ()),
+        now,
+        PROPOSER,
+        status=PROPOSED,
+        derivation="model",
+    )
+
+
 def derive(
     states: Sequence[RunState], agent_id: str, stale_after: int = 20, shown: Shown | None = None
 ) -> tuple[Lesson, ...]:
@@ -124,8 +140,15 @@ def derive(
 
 def _carry(lesson: Lesson, before: Lesson | None) -> Lesson:
     """A person's decision outlives relearning; anything no person decided is proposed,
-    including a lesson the engine accepted or retired before acceptance existed."""
-    if before is None or before.accepted_by == PROPOSER or before.status == PROPOSED:
+    including a lesson the engine accepted or retired before acceptance existed. A score
+    run's acceptance is kept, but its retirement is only a proposal to retire: the lesson
+    comes back proposed."""
+    if (
+        before is None
+        or (before.status == RETIRED and before.accepted_by == SCORER)
+        or before.accepted_by == PROPOSER
+        or before.status == PROPOSED
+    ):
         return replace(lesson, status=PROPOSED, accepted_by=PROPOSER)
     if before.status == RETIRED:
         return replace(lesson, status=RETIRED, accepted_by=before.accepted_by)
@@ -137,10 +160,17 @@ def reconcile(
 ) -> tuple[Lesson, ...]:
     """Preserve the operator's decisions and retain at most the configured, hard-capped 30
     lessons. A new lesson, or one only the engine accepted (before acceptance existed), is
-    proposed: it is not shown until a person accepts it. Lessons a person decided on are kept
-    before proposed ones, so the cap drops proposals before it drops a decision."""
+    proposed: it is not shown until a person (or a score run) accepts it. Lessons the model
+    wrote are not derived from records, so they are kept as they are. Lessons a person decided
+    on are kept before proposed ones, so the cap drops proposals before it drops a decision."""
     before = {lesson.id: lesson for lesson in old}
     found = [_carry(lesson, before.get(lesson.id)) for lesson in derived]
+    seen = {lesson.id for lesson in derived}
+    found += [
+        _carry(lesson, lesson)
+        for lesson in old
+        if lesson.kind == KIND_MODEL and lesson.id not in seen
+    ]
     found.sort(
         key=lambda item: (
             item.accepted_by == PROPOSER,

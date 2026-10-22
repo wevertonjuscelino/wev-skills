@@ -23,12 +23,14 @@ from wev_skills.core._codec import Serializable
 from wev_skills.core.textsafe import clean_text
 from wev_skills.security import untrusted
 
-KIND_PRACTICE, KIND_PITFALL, KIND_NEED = "practice", "pitfall", "need"
-LESSON_KINDS = (KIND_PRACTICE, KIND_PITFALL, KIND_NEED)
+KIND_PRACTICE, KIND_PITFALL, KIND_NEED, KIND_MODEL = "practice", "pitfall", "need", "model"
+LESSON_KINDS = (KIND_PRACTICE, KIND_PITFALL, KIND_NEED, KIND_MODEL)
 ACTIVE, STALE, RETIRED, PROPOSED = "active", "stale", "retired", "proposed"
 LESSON_STATUSES = (ACTIVE, STALE, RETIRED, PROPOSED)
 PROPOSER = "engine"
 """``accepted_by`` of a lesson no person has accepted yet."""
+SCORER = "score"
+"""``accepted_by`` of a lesson a score run decided on; reserved like ``PROPOSER``."""
 LESSON_TEXT_MAX = 600
 """The schema's bound on a lesson's text; rendering cleans the text to the same length."""
 AUTHORED_MAX = 240

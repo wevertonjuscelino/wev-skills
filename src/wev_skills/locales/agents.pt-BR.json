@@ -109,5 +109,6 @@
   "agents.specialists.lesson_not_found": "O especialista {specialist} não tem a lição {lesson}",
   "agents.specialists.wrong_status": "A lição {lesson} está {status}; esta decisão não se aplica a ela",
   "agents.specialists.lesson_changed": "A lição {lesson} mudou depois de exibida; nada foi decidido. Rode o comando de novo para revisar a lição atual",
+  "agents.specialists.lessons_changed": "As lições de {specialist} mudaram desde a leitura; nada foi decidido",
   "agents.specialists.operator_reserved": "O nome de operador {operator} é reservado para lições que nenhuma pessoa decidiu; rode o comando com outro usuário"
 }

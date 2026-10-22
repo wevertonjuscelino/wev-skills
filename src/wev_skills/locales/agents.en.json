@@ -109,5 +109,6 @@
   "agents.specialists.lesson_not_found": "Specialist {specialist} has no lesson {lesson}",
   "agents.specialists.wrong_status": "Lesson {lesson} is {status}; this decision does not apply to it",
   "agents.specialists.lesson_changed": "Lesson {lesson} changed after it was shown; nothing was decided. Run the command again to review the current lesson",
+  "agents.specialists.lessons_changed": "The lessons of {specialist} changed since they were read; nothing was decided",
   "agents.specialists.operator_reserved": "The operator name {operator} is reserved for lessons no person has decided on; run the command as another user"
 }
