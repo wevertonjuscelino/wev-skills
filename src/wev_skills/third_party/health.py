@@ -228,6 +228,13 @@ def _health_skills(base: Path) -> HealthReport:
     return HealthReport(True, "ok", {"skills": len(files)})
 
 
+_VERSION_SHAPE = re.compile(r"[0-9]+(\.[0-9]+)*")
+
+
+def _is_tag(version: str) -> bool:
+    return re.match(r"v[0-9]", version) is not None
+
+
 def _health_wev(base: Path, version: str, runner: Runner, python: str) -> HealthReport:
     result = runner.run(
         [python, str(base / "bin" / "wev"), "version"], None, HEALTH_TIMEOUT, child_env()
@@ -240,7 +247,11 @@ def _health_wev(base: Path, version: str, runner: Runner, python: str) -> Health
         printed = json.loads(result.stdout).get("version")
     except ValueError, RecursionError, AttributeError:
         printed = None
-    if printed != version.removeprefix("v"):
+    if _is_tag(version):
+        matches = printed == version.removeprefix("v")
+    else:  # a default-branch HEAD install is named by its sha, so only the shape can be checked
+        matches = isinstance(printed, str) and _VERSION_SHAPE.fullmatch(printed) is not None
+    if not matches:
         return _fail("version_mismatch")
     return HealthReport(True, "ok", {"version": str(printed)})
 

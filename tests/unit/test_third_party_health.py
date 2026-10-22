@@ -170,6 +170,21 @@ class WevTests(unittest.TestCase):
             report = health(WEV, "v5.0.0", Path(tmp), RUNNER)
             self.assertNotIn("SECRETVALUE", repr(report))
 
+    def head_report(self, printed: str) -> health_mod.HealthReport:
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "wev-skills" / "0123456789ab" / "bin" / "wev"
+            script.parent.mkdir(parents=True)
+            script.write_text(f"import json\nprint(json.dumps({{'version': {printed!r}}}))\n")
+            return health(WEV, "0123456789ab", Path(tmp), RUNNER)
+
+    def test_head_install_needs_only_a_well_formed_version(self) -> None:
+        report = self.head_report("5.1.0")
+        self.assertTrue(report.ok)
+        self.assertEqual(report.code, "ok")
+
+    def test_head_install_with_malformed_version_fails(self) -> None:
+        self.assertEqual(self.head_report("not a version").code, "version_mismatch")
+
     def test_missing_binary_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "wev-skills" / "v5.0.0").mkdir(parents=True)

@@ -34,14 +34,14 @@ Official Claude Code documentation pages (see [research/sources.md](research/sou
 
 ## Installed dependencies
 
-Not vendored: no file of these projects is in this repository. `wev skills install` downloads them at the user's request into `$XDG_DATA_HOME/wev-skills/third-party/`, and the version is resolved at install time (the newest release, see the [installation guide](guides/installation.md#third-party-skills-install-daily-check-update-rollback-freeze)).
+Not vendored: no file of these projects is in this repository. `wev skills install` puts them under `$XDG_DATA_HOME/wev-skills/third-party/` at the user's request, and the version is resolved at install time (the newest release, see the [installation guide](guides/installation.md#third-party-skills-install-daily-check-update-rollback-freeze)). `agent-skills` is downloaded as a GitHub tarball; for `rea` wev downloads nothing, it records the version and `npx` fetches the package into npm's cache during the health check.
 
 | Source | Version | License | Use |
 |---|---|---|---|
-| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases at https://github.com/morluto/rea) | Resolved at install time (`dist-tags.latest`) | MIT | Started with `npx` as an MCP server |
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases at https://github.com/morluto/rea) | Resolved at install time (`dist-tags.latest`) | MIT | `wev skills show rea` prints the argv that starts its MCP server; wev starts it itself only for the health check |
 | addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolved at install time (latest release) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills linked into the user's skill directories by `wev skills activate` |
 
-The license of `rea-agents` was not checked in its source by this change; read it before you rely on it. No affiliation with or endorsement by the authors of these projects is implied.
+Both `rea` (`morluto/rea`) and `agent-skills` (`addyosmani/agent-skills`) are MIT per the GitHub API `license.spdx_id`, checked on 2026-10-20 and 2026-10-22. That is the repository's license, not the npm package metadata. The agent-skills copyright line is "Copyright (c) 2025 Addy Osmani". No affiliation with or endorsement by the authors of these projects is implied.
 
 ## Rule for adding third-party files
 

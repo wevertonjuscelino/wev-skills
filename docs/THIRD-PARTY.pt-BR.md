@@ -34,14 +34,14 @@ As páginas da documentação oficial do Claude Code (ver [research/sources.md](
 
 ## Dependências instaladas
 
-Não incorporadas: nenhum arquivo desses projetos está neste repositório. `wev skills install` os baixa a pedido do usuário para `$XDG_DATA_HOME/wev-skills/third-party/`, e a versão é resolvida na hora da instalação (o release mais novo; veja o [guia de instalação](guides/installation.pt-BR.md#skills-de-terceiros-instalar-verificação-diária-atualizar-reverter-congelar)).
+Não incorporadas: nenhum arquivo desses projetos está neste repositório. `wev skills install` os coloca em `$XDG_DATA_HOME/wev-skills/third-party/` a pedido do usuário, e a versão é resolvida na hora da instalação (o release mais novo; veja o [guia de instalação](guides/installation.pt-BR.md#skills-de-terceiros-instalar-verificação-diária-atualizar-reverter-congelar)). O `agent-skills` é baixado como tarball do GitHub; para o `rea` o wev não baixa nada, registra a versão e o `npx` busca o pacote no cache do npm durante a verificação de saúde.
 
 | Fonte | Versão | Licença | Uso |
 |---|---|---|---|
-| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases em https://github.com/morluto/rea) | Resolvida na instalação (`dist-tags.latest`) | MIT | Iniciado com `npx` como servidor MCP |
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases em https://github.com/morluto/rea) | Resolvida na instalação (`dist-tags.latest`) | MIT | `wev skills show rea` imprime o argv que inicia seu servidor MCP; o wev só o inicia por conta própria na verificação de saúde |
 | addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolvida na instalação (release mais novo) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills ligadas aos diretórios de skills do usuário por `wev skills activate` |
 
-A licença do `rea-agents` não foi conferida no código-fonte por esta alteração; leia-a antes de depender dele. Nenhuma afiliação com os autores desses projetos nem endosso por eles é sugerido.
+Tanto o `rea` (`morluto/rea`) quanto o `agent-skills` (`addyosmani/agent-skills`) são MIT segundo o `license.spdx_id` da API do GitHub, conferido em 2026-10-20 e 2026-10-22. Essa é a licença do repositório, não os metadados do pacote npm. A linha de copyright do agent-skills é "Copyright (c) 2025 Addy Osmani". Nenhuma afiliação com os autores desses projetos nem endosso por eles é sugerido.
 
 ## Regra para adicionar arquivos de terceiros
 
