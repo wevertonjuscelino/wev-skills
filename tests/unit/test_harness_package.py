@@ -47,7 +47,7 @@ class RenderTests(unittest.TestCase):
         for name in sorted((REPO_ROOT / "skills").glob("*/SKILL.md")):
             text = render_skill_text(name.read_text(encoding="utf-8"), WEV)
             self.assertNotIn("CLAUDE_PLUGIN_ROOT", text, name)
-        self.assertEqual(len(list((REPO_ROOT / "skills").glob("*/SKILL.md"))), 7)
+        self.assertEqual(len(list((REPO_ROOT / "skills").glob("*/SKILL.md"))), 8)
 
     def test_render_quotes_a_path_with_spaces(self) -> None:
         out = render_skill_text('run "${CLAUDE_PLUGIN_ROOT}/bin/wev" eval list', SPACED)
@@ -98,7 +98,8 @@ class LayoutTests(unittest.TestCase):
     def test_opencode_layout(self) -> None:
         out, _ = self._build("opencode")
         agents = {f"agents/{i}.md" for i in AGENT_IDS}
-        self.assertEqual(_files(out), {"plugins/wev-guard.js"} | self._skills() | agents)
+        expected = {"plugins/wev-guard.js", "opencode.json"} | self._skills() | agents
+        self.assertEqual(_files(out), expected)
         agent = (out / "agents/architect.md").read_text()
         self.assertIn("mode: subagent", agent.split("---")[1])
         self.assertIn("spawnSync", (out / "plugins/wev-guard.js").read_text())
@@ -115,6 +116,47 @@ class LayoutTests(unittest.TestCase):
                         argv = shlex.split(command)
                         self.assertEqual(argv[:2], [python, str(SPACED)])
                         self.assertEqual(argv[-2:], ["--harness", target])
+
+    def _rea_commands(self, target: str, wev: Path) -> list[list[str]]:
+        out, _ = self._build(target, wev)
+        if target == "gemini":
+            server = json.loads((out / "gemini-extension.json").read_text())["mcpServers"]["rea"]
+            return [[server["command"], *server["args"]]]
+        if target == "opencode":
+            return [json.loads((out / "opencode.json").read_text())["mcp"]["rea"]["command"]]
+        return []
+
+    def test_mcp_entries_use_the_pinned_interpreter_absolute_wev_and_rea_serve(self) -> None:
+        for python in (sys.executable, "/opt/my py's/python3"):
+            for target in ("gemini", "opencode"):
+                with self.subTest(python=python, target=target):
+                    with mock.patch.object(sys, "executable", python):
+                        commands = self._rea_commands(target, SPACED)
+                    self.assertEqual(commands, [[python, str(SPACED), "rea", "serve"]])
+                    self.assertTrue(Path(commands[0][1]).is_absolute())
+
+    def test_no_mcp_entry_points_at_npx(self) -> None:
+        self.assertEqual(self._rea_commands("codex", WEV), [])  # codex registers nothing
+        for target in harness_package.TARGETS:
+            out, _ = self._build(target)
+            for path in out.rglob("*.json"):
+                with self.subTest(target=target, path=path.name):
+                    self.assertNotIn("npx", path.read_text(encoding="utf-8"))
+        for target in ("gemini", "opencode"):
+            self.assertFalse(
+                any("npx" in part for c in self._rea_commands(target, WEV) for part in c)
+            )
+
+    def test_gemini_manifest_declares_only_the_rea_server(self) -> None:
+        out, _ = self._build("gemini")
+        servers = json.loads((out / "gemini-extension.json").read_text())["mcpServers"]
+        self.assertEqual(list(servers), ["rea"])
+
+    def test_codex_skips_mcp_with_an_honest_note(self) -> None:
+        out, _ = self._build("codex")
+        manifest = json.loads((out / ".codex-plugin/plugin.json").read_text())
+        self.assertNotIn("mcpServers", manifest)
+        self.assertTrue(any("codex mcp" in n for n in skipped_notes("codex")))
 
     def test_exported_skills_start_with_the_harness_notice(self) -> None:
         notice = (

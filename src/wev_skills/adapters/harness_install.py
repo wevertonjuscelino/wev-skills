@@ -44,6 +44,7 @@ class Manifest:
     files: tuple[str, ...]
     registrations: tuple[tuple[str, ...], ...]
     created_dirs: tuple[str, ...] = ()  # directories wev created (opencode config dir)
+    mcp: str = ""  # JSON text of the ``mcp.rea`` entry wev wrote into the opencode config
 
 
 def root_for(data_home: Path, target: str) -> Path:
@@ -98,15 +99,18 @@ def read_manifest(
         target = data["target"]
         stored = tuple(tuple(r) for r in regs)
         dirs = data.get("created_dirs", [])
+        mcp = data.get("mcp", "")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise invalid(path, type(exc).__name__) from exc
     if target != expected or not isinstance(files, list) or not isinstance(dirs, list):
         raise invalid(path, "target or files")
+    if not isinstance(mcp, str):
+        raise invalid(path, "mcp")
     if stored != registrations:
         raise invalid(path, "registrations")
     if not all(confined(name) for name in files):
         raise invalid(path, "files")
-    return Manifest(target, tuple(files), stored, tuple(dirs))
+    return Manifest(target, tuple(files), stored, tuple(dirs), mcp)
 
 
 def write_manifest(root: Path, manifest: Manifest) -> None:
@@ -117,6 +121,8 @@ def write_manifest(root: Path, manifest: Manifest) -> None:
     }
     if manifest.created_dirs:
         data["created_dirs"] = list(manifest.created_dirs)
+    if manifest.mcp:
+        data["mcp"] = manifest.mcp
     atomic_write_text(root / "manifest.json", json.dumps(data, indent=2) + "\n")
 
 

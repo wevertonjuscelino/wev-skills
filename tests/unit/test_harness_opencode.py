@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,7 +37,7 @@ class OpenCodeBase(unittest.TestCase):
 class InstallTests(OpenCodeBase):
     def test_install_copies_plugin_skills_and_agents_and_lists_them(self) -> None:
         manifest = self.install()
-        files = self.tree()
+        files = self.tree() - {"opencode.json"}  # the settings file is merged, not a manifest file
         self.assertIn("plugins/wev-guard.js", files)
         self.assertIn("skills/wev-orchestrate/SKILL.md", files)
         self.assertIn("agents/wev-architect.md", files)
@@ -118,6 +119,146 @@ class InstallTests(OpenCodeBase):
         with patched, self.assertRaises(RemoteError):
             self.install()
         self.assertEqual(self.tree(), set())
+
+
+class McpTests(OpenCodeBase):
+    @property
+    def settings(self) -> Path:
+        return self.config / "opencode.json"
+
+    def _put(self, data: dict[str, object]) -> None:
+        self.config.mkdir(parents=True, exist_ok=True)
+        self.settings.write_text(json.dumps(data))
+
+    def _mcp(self) -> dict[str, object]:
+        return json.loads(self.settings.read_text())["mcp"]
+
+    def test_install_writes_the_rea_server_and_keeps_the_other_keys(self) -> None:
+        self._put({"theme": "x", "mcp": {"other": {"type": "local", "command": ["a"]}}})
+        self.install()
+        rea = self._mcp()["rea"]
+        self.assertEqual(
+            rea, {"type": "local", "command": [sys.executable, str(WEV), "rea", "serve"]}
+        )
+        self.assertIn("other", self._mcp())
+        self.assertEqual(json.loads(self.settings.read_text())["theme"], "x")
+        self.assertNotIn("opencode.json", [Path(f).name for f in self.manifest_files()])
+
+    def manifest_files(self) -> list[str]:
+        return json.loads((self.root / "manifest.json").read_text())["files"]
+
+    def test_install_without_a_config_file_creates_it(self) -> None:
+        self.install()
+        self.assertEqual(list(self._mcp()), ["rea"])
+
+    def test_install_refuses_a_foreign_rea_entry_and_writes_nothing(self) -> None:
+        self._put({"mcp": {"rea": {"type": "local", "command": ["mine"]}}})
+        before = self.settings.read_text()
+        with self.assertRaises(StateConflict):
+            self.install()
+        self.assertEqual(self.settings.read_text(), before)
+        self.assertEqual(self.tree(), {"opencode.json"})
+        self.assertFalse((self.root / "manifest.json").exists())
+
+    def test_reinstall_replaces_its_own_entry(self) -> None:
+        self.install()
+        with mock.patch.object(sys, "executable", "/other/python3"):
+            self.install()
+        self.assertEqual(self._mcp()["rea"]["command"][0], "/other/python3")  # type: ignore[index]
+
+    def test_reinstall_refuses_an_entry_the_person_edited(self) -> None:
+        self.install()
+        self._put({"mcp": {"rea": {"type": "local", "command": ["edited"]}}})
+        with self.assertRaises(StateConflict):
+            self.install()
+
+    def test_install_refuses_a_config_that_is_not_json(self) -> None:
+        self.config.mkdir(parents=True)
+        self.settings.write_text("// comment\n{}")
+        with self.assertRaises(ValidationError):
+            self.install()
+        self.assertEqual(self.settings.read_text(), "// comment\n{}")
+
+    def test_uninstall_removes_only_the_wev_entry(self) -> None:
+        self._put({"theme": "x", "mcp": {"other": {"type": "local", "command": ["a"]}}})
+        self.install()
+        uninstall(self.data, self.config)
+        data = json.loads(self.settings.read_text())
+        self.assertEqual(
+            data, {"theme": "x", "mcp": {"other": {"type": "local", "command": ["a"]}}}
+        )
+
+    def test_uninstall_deletes_a_config_that_only_held_the_wev_entry(self) -> None:
+        self.install()
+        uninstall(self.data, self.config)
+        self.assertFalse(self.settings.exists())
+
+    def test_uninstall_keeps_an_entry_the_person_edited(self) -> None:
+        self.install()
+        edited = {"mcp": {"rea": {"type": "local", "command": ["edited"]}}}
+        self._put(edited)
+        uninstall(self.data, self.config)
+        self.assertEqual(json.loads(self.settings.read_text()), edited)
+
+    def test_a_symlinked_config_is_refused_and_left_alone(self) -> None:
+        self.config.mkdir(parents=True)
+        real = self.tmp / "real.json"
+        real.write_text('{"theme": "x"}')
+        self.settings.symlink_to(real)
+        with self.assertRaises(StateConflict):
+            self.install()
+        self.assertTrue(self.settings.is_symlink())
+        self.assertEqual(real.read_text(), '{"theme": "x"}')
+        self.assertFalse((self.root / "manifest.json").exists())
+
+    def test_uninstall_refuses_a_config_replaced_by_a_symlink(self) -> None:
+        self.install()
+        real = self.tmp / "real.json"
+        real.write_text(self.settings.read_text())
+        self.settings.unlink()
+        self.settings.symlink_to(real)
+        with self.assertRaises(StateConflict):
+            uninstall(self.data, self.config)
+        self.assertTrue(self.settings.is_symlink())
+
+    def test_the_file_mode_survives_install_and_uninstall(self) -> None:
+        self._put({"theme": "x", "mcp": {"other": {"type": "local", "command": ["a"]}}})
+        self.settings.chmod(0o644)
+        self.install()
+        self.assertEqual(self.settings.stat().st_mode & 0o777, 0o644)
+        uninstall(self.data, self.config)
+        self.assertEqual(self.settings.stat().st_mode & 0o777, 0o644)
+
+    def test_a_jsonc_config_without_a_json_one_is_refused(self) -> None:
+        self.config.mkdir(parents=True)
+        (self.config / "opencode.jsonc").write_text("{}")
+        with self.assertRaises(ValidationError):
+            self.install()
+        self.assertFalse(self.settings.exists())
+
+    def test_a_failing_restore_does_not_skip_the_cleanup(self) -> None:
+        self._put({"theme": "x"})
+        patched = mock.patch(
+            "wev_skills.adapters.harness_opencode._write", side_effect=OSError("x")
+        )
+        restore = mock.patch(
+            "wev_skills.adapters.harness_opencode_mcp.restore", side_effect=OSError("restore")
+        )
+        with patched, restore, self.assertRaises(OSError) as ctx:
+            self.install()
+        self.assertEqual(str(ctx.exception), "restore")
+        self.assertIsNotNone(ctx.exception.__context__)
+        self.assertEqual(self.tree(), {"opencode.json"})
+
+    def test_a_failed_install_restores_the_config_file(self) -> None:
+        self._put({"theme": "x"})
+        before = self.settings.read_text()
+        patched = mock.patch(
+            "wev_skills.adapters.harness_opencode._write", side_effect=OSError("x")
+        )
+        with patched, self.assertRaises(OSError):
+            self.install()
+        self.assertEqual(self.settings.read_text(), before)
 
 
 class UninstallTests(OpenCodeBase):

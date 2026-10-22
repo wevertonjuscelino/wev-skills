@@ -29,6 +29,7 @@ from wev_skills.core.wiring import CATALOG_SUBDIRS, REPO_ROOT, catalog_directori
 
 TARGETS = ("codex", "gemini", "opencode")
 PACKAGE_NAME = "wev-skills"
+OPENCODE_CONFIG = "opencode.json"  # a fragment in the export; install merges it
 _PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}"
 _QUOTED_WEV = re.compile(r'"\$\{CLAUDE_PLUGIN_ROOT\}/bin/wev"|\$\{CLAUDE_PLUGIN_ROOT\}/bin/wev')
 HOOK_TIMEOUT_SECONDS = 10
@@ -95,8 +96,24 @@ def _codex_manifest() -> str:
     })  # fmt: skip
 
 
-def _gemini_manifest() -> str:
-    return _json({"name": PACKAGE_NAME, "version": _version(), "description": _description()})
+def mcp_command(wev_path: Path) -> list[str]:
+    """The rea server as harnesses launch it: pinned interpreter, absolute launcher, never npx."""
+    return [sys.executable, str(wev_path), "rea", "serve"]
+
+
+def opencode_mcp_entry(wev_path: Path) -> dict[str, Any]:
+    return {"type": "local", "command": mcp_command(wev_path)}
+
+
+def _gemini_manifest(wev_path: Path) -> str:
+    command = mcp_command(wev_path)
+    server = {"command": command[0], "args": command[1:]}
+    return _json({
+        "name": PACKAGE_NAME,
+        "version": _version(),
+        "description": _description(),
+        "mcpServers": {"rea": server},
+    })  # fmt: skip
 
 
 def _write(out: Path, relative: str, text: str, written: list[Path]) -> None:
@@ -177,11 +194,13 @@ def build_package(target: str, out: Path, wev_path: Path) -> list[Path]:
         _write(out, ".codex-plugin/plugin.json", _codex_manifest(), written)
         _write(out, "hooks.json", _hooks_json("codex", wev_path), written)
     elif target == "gemini":
-        _write(out, "gemini-extension.json", _gemini_manifest(), written)
+        _write(out, "gemini-extension.json", _gemini_manifest(wev_path), written)
         _write(out, "hooks/hooks.json", _hooks_json("gemini", wev_path), written)
         _write_agents(out, "gemini", written)
     else:
         _write(out, "plugins/wev-guard.js", render_plugin(wev_path), written)
+        config = {"mcp": {"rea": opencode_mcp_entry(wev_path)}}
+        _write(out, OPENCODE_CONFIG, _json(config), written)
         _write_agents(out, "opencode", written)
     return written
 
@@ -189,7 +208,7 @@ def build_package(target: str, out: Path, wev_path: Path) -> list[Path]:
 def skipped_notes(target: str) -> list[str]:
     """What the notes leave unknown for ``target`` and the package therefore omits."""
     keys = {
-        "codex": ["codex_agents", "codex_trust"],
+        "codex": ["codex_agents", "codex_trust", "codex_mcp"],
         "gemini": ["agent_tools", "gemini_context", "gemini_hooks_shape"],
         "opencode": ["agent_tools", "opencode_session_context"],
     }.get(target, [])

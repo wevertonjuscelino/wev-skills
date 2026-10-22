@@ -26,6 +26,7 @@ import tempfile
 from pathlib import Path
 
 from wev_skills import i18n
+from wev_skills.adapters import harness_opencode_mcp as mcp
 from wev_skills.adapters.harness_install import (
     Manifest,
     check_placeholders,
@@ -36,7 +37,12 @@ from wev_skills.adapters.harness_install import (
     root_for,
     write_manifest,
 )
-from wev_skills.adapters.harness_package import PACKAGE_NAME, build_package
+from wev_skills.adapters.harness_package import (
+    OPENCODE_CONFIG,
+    PACKAGE_NAME,
+    build_package,
+    opencode_mcp_entry,
+)
 from wev_skills.core.errors import NotFound, RemoteError, StateConflict, ValidationError
 from wev_skills.core.fsutil import ensure_private_dir
 
@@ -127,6 +133,9 @@ def install(data_home: Path, config: Path, wev_path: Path) -> Manifest:
     base = data_home / PACKAGE_NAME
     created_base = None if base.exists() else base
     previous = _read(root, config)
+    config_file = config / OPENCODE_CONFIG
+    mcp.check(config_file, previous.mcp if previous else "")
+    before = mcp.snapshot(config_file)
     owned = set(previous.files) if previous else set()
     kept = tuple(d for d in (previous.created_dirs if previous else ()) if Path(d).is_dir())
     created = (*kept, *(str(config / k) for k in KINDS if not (config / k).exists()))
@@ -137,17 +146,23 @@ def install(data_home: Path, config: Path, wev_path: Path) -> Manifest:
         try:
             built = build_package(TARGET, staging, wev_path)
             check_placeholders(built)
+            built = [b for b in built if b.relative_to(staging) != Path(OPENCODE_CONFIG)]
             targets = [config / _destination(b.relative_to(staging)) for b in built]
             _check_destinations(targets, config, owned)
             copy_tree(built, targets, written)
-            manifest = Manifest(TARGET, tuple(str(t) for t in targets), (), created)
+            entry = mcp.dump(opencode_mcp_entry(wev_path))
+            manifest = Manifest(TARGET, tuple(str(t) for t in targets), (), created, entry)
+            mcp.apply(config_file, opencode_mcp_entry(wev_path))
             _write(root, manifest)
         finally:
             shutil.rmtree(staging, ignore_errors=True)
     except BaseException:
-        new = tuple(w for w in written if w not in owned)
-        _prune(new, config, tuple(d for d in created if d not in kept))
-        remove_files((), root, created_base)
+        try:
+            mcp.restore(config_file, before)
+        finally:  # a failed restore still raises, with the install error as its context
+            new = tuple(w for w in written if w not in owned)
+            _prune(new, config, tuple(d for d in created if d not in kept))
+            remove_files((), root, created_base)
         raise
     _prune(tuple(f for f in owned if f not in manifest.files), config, ())  # stale entries
     return manifest
@@ -169,6 +184,7 @@ def uninstall(data_home: Path, config: Path) -> Manifest:
         message = i18n.t("harness.error.not_installed", target=TARGET)
         raise NotFound("harness_not_installed", message)
     _prune(manifest.files, config, manifest.created_dirs)
+    mcp.remove(config / OPENCODE_CONFIG, manifest.mcp)
     (root / "manifest.json").unlink()
     remove_files((), root, data_home / PACKAGE_NAME)  # empty now that the manifest is gone
     return manifest
