@@ -6,14 +6,18 @@ import unittest
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from wev_skills.agents import project
 from wev_skills.agents.experience import ACTIVE, PROPOSED, PROPOSER, SCORER, Lesson, LessonEvidence
 from wev_skills.agents.spec import AgentSpec
+from wev_skills.commands import specialists
 from wev_skills.config import Config
 from wev_skills.core.contracts import AgentRunResult
-from wev_skills.core.errors import GuardTripped, StateConflict
+from wev_skills.core.errors import GuardTripped, ProviderError, StateConflict, ValidationError
 from wev_skills.core.ports import SubprocessRunner
+from wev_skills.evaluation import snapshot
 from wev_skills.evaluation.scoring import SCORES_FILE, planned_runs, score_specialist
 from wev_skills.governance.audit import AuditLog
 
@@ -53,13 +57,17 @@ class FakeAgent:
         self.runs = 0
         self.prompts: list[str] = []
         self.on_run: Callable[[], None] = lambda: None
+        self.extra_file = False
+        self.outcome: AgentRunResult | None = None
 
     def run_agent(self, workspace: Path, spec: AgentSpec, objective: str, timeout: float):  # type: ignore[no-untyped-def]
         self.runs += 1
         self.on_run()
+        if self.extra_file:
+            (workspace / "scratch.txt").write_text("agent-wrote-this\n")
         if objective in self.fixes(spec):
             (workspace / f"fix-{objective}.txt").write_text("x")
-        return AgentRunResult(True, "done")
+        return self.outcome or AgentRunResult(True, "done")
 
     def ask(self, prompt: str, timeout: float):  # type: ignore[no-untyped-def]
         self.prompts.append(prompt)
@@ -118,13 +126,13 @@ class ScoringTest(unittest.TestCase):
     def test_planned_runs_formula(self) -> None:
         self.assertEqual(planned_runs(4, 2, 1, 2, 3), (1 + 2 + 3 + 1) * 4 * 2 + 3)
 
+    def limits(self, **fields: object) -> None:
+        self.config = replace(self.config, specialists=replace(self.config.specialists, **fields))
+
     def test_over_cap_refuses_before_any_run(self) -> None:
-        self.add_cases("c1")
+        self.add_cases("c1", "c2")
         self.experience(lesson("do x"))
-        config = replace(
-            self.config, specialists=replace(self.config.specialists, score_max_runs=3)
-        )
-        self.config = config
+        self.limits(score_max_runs=1)
         agent = FakeAgent(lambda spec: set())
         with self.assertRaises(GuardTripped) as ctx:
             self.score(agent)
@@ -184,8 +192,20 @@ class ScoringTest(unittest.TestCase):
         self.add_cases("c1")
         fenced = '```json\n{"lesson": "write the fix file"}\n```'
         report = self.score(FakeAgent(lambda s: set(), (fenced,)))
-        self.assertEqual(len(report.new), 1)
-        self.assertEqual(self.stored()[report.new[0]].status, PROPOSED)
+        self.assertEqual(report.new, ())  # a tying model lesson is not stored
+        self.assertEqual(self.stored(), {})
+
+    def test_a_losing_model_lesson_is_not_stored(self) -> None:
+        self.add_cases("c1")
+        report = self.score(FakeAgent(lambda s: set(), ('{"lesson": "write the fix file"}',)))
+        self.assertEqual((report.new, self.stored()), ((), {}))
+        self.assertEqual(report.runs_used, 3)
+
+    def test_a_fenced_answer_that_helps_is_stored(self) -> None:
+        self.add_cases("c1")
+        fenced = '```json\n{"lesson": "write the fix file"}\n```'
+        agent = FakeAgent(lambda s: {"c1"} if shown(s, "write the fix file") else set(), (fenced,))
+        self.assertEqual(len(self.score(agent).new), 1)
 
     def test_two_fences_or_prose_drop_the_lesson(self) -> None:
         self.add_cases("c1")
@@ -230,6 +250,148 @@ class ScoringTest(unittest.TestCase):
             self.assertEqual((data["specialist"], data["digest"]), (AGENT, report.digest))
         self.assertEqual(events["specialists.auto_accept"]["lesson"], good.id)
         self.assertEqual(events["specialists.auto_accept"]["before"], 0)
+
+    def test_a_file_the_agent_wrote_is_in_the_diff_and_the_check_files_are_not(self) -> None:
+        self.add_cases("c1")
+        agent = FakeAgent(lambda s: set(), ('{"lesson": "write the fix file"}',))
+        agent.extra_file = True
+        self.score(agent)
+        prompt = agent.prompts[0]
+        self.assertIn("+++ b/scratch.txt", prompt)
+        self.assertIn("agent-wrote-this", prompt)
+        self.assertNotIn("b/test_c1.py", prompt)
+
+    def test_a_changed_git_config_decides_nothing(self) -> None:
+        self.add_cases("c1")
+        item = lesson("do x")
+        self.experience(item)
+        agent = FakeAgent(lambda s: {"c1"} if shown(s, "do x") else set())
+        config_path = self.root / ".git" / "config"
+        agent.on_run = lambda: config_path.write_text(config_path.read_text() + "\n[x]\n")
+        with self.assertRaises(StateConflict) as ctx:
+            self.score(agent)
+        self.assertEqual(ctx.exception.code, "git_config_changed")
+        self.assertEqual(self.stored()[item.id], item)
+
+    def test_git_after_the_agent_ran_is_hardened(self) -> None:
+        self.add_cases("c1")
+        calls: list[tuple[tuple[str, ...], object]] = []
+
+        class Recording(SubprocessRunner):
+            def run(self, argv, cwd, timeout, env):  # type: ignore[no-untyped-def]
+                calls.append((tuple(argv), env))
+                return super().run(argv, cwd, timeout, env)
+
+        score_specialist(
+            self.root, self.config, Recording(), FakeAgent(lambda s: set()), AGENT, self.audit
+        )
+        removals = [c for c in calls if "remove" in c[0] and "worktree" in c[0]]
+        self.assertTrue(removals)
+        for argv, env in removals:
+            self.assertIn("core.hooksPath=/dev/null", argv)
+            self.assertIn("core.fsmonitor=", argv)
+            self.assertEqual(env["GIT_CONFIG_GLOBAL"], "/dev/null")  # type: ignore[index]
+            self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")  # type: ignore[index]
+
+    def test_an_agent_that_fails_aborts_and_a_timeout_is_a_fail(self) -> None:
+        self.add_cases("c1")
+        item = lesson("do x")
+        self.experience(item)
+        agent = FakeAgent(lambda s: set())
+        agent.outcome = AgentRunResult(False, "boom")
+        with self.assertRaises(ProviderError) as ctx:
+            self.score(agent)
+        self.assertEqual(ctx.exception.code, "score_agent_failed")
+        self.assertEqual(self.stored()[item.id], item)
+        self.assertFalse((self.root / self.config.state_dir / SCORES_FILE).exists())
+        agent.outcome = AgentRunResult(False, "slow", True)
+        self.assertEqual(self.score(agent).baseline, {"c1": 0})
+
+    def test_a_candidate_the_render_cap_hides_is_skipped_not_run(self) -> None:
+        self.add_cases("c1")
+        self.limits(max_lessons_rendered=1)
+        held = replace(lesson("held", ACTIVE, "alice"), confirmations=5)
+        late = lesson("late")
+        bad = lesson("bad advice", ACTIVE, SCORER)
+        self.experience(held, late, bad)
+        agent = FakeAgent(lambda s: {"c1"})
+        report = self.score(agent)
+        self.assertEqual(agent.runs, 1)
+        self.assertEqual(
+            sorted(report.skipped),
+            sorted([f"{late.id}: not_shown", f"{bad.id}: ablation_changes_other_lessons"]),
+        )
+
+    def test_over_cap_with_a_fitting_baseline_scores_the_oldest_and_defers_the_rest(self) -> None:
+        self.add_cases("c1")
+        self.limits(score_max_runs=2)
+        old = replace(lesson("old tip"), created_at="2026-01-01")
+        newer = replace(lesson("newer tip"), created_at="2026-02-01")
+        self.experience(newer, old)
+        agent = FakeAgent(lambda s: {"c1"} if shown(s, "old tip") else set())
+        report = self.score(agent)
+        self.assertEqual((report.accepted, report.deferred), ((old.id,), (newer.id, "new:c1")))
+        self.assertEqual((agent.runs, agent.prompts), (2, []))
+        self.assertGreater(report.planned_runs, 2)
+
+    def test_no_applicable_case_is_refused(self) -> None:
+        with self.assertRaises(ValidationError) as ctx:
+            self.score(FakeAgent(lambda s: set()))
+        self.assertEqual(ctx.exception.code, "score_no_cases")
+
+    def test_the_scratch_directory_is_removed_when_the_agent_raises(self) -> None:
+        self.add_cases("c1")
+        made: list[Path] = []
+        real = tempfile.mkdtemp
+
+        def spy(*a: object, **k: object) -> str:
+            made.append(Path(real(*a, **k)))  # type: ignore[arg-type]
+            return str(made[-1])
+
+        agent = FakeAgent(lambda s: set())
+        agent.on_run = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+        with mock.patch.object(tempfile, "mkdtemp", spy), self.assertRaises(RuntimeError):
+            self.score(agent)
+        self.assertTrue(made[0].name.startswith("wev-scoring-"))
+        self.assertFalse(made[0].exists())
+
+    def test_score_history_command_filters_and_survives_a_missing_file(self) -> None:
+        state = self.root / "state"
+        scope = SimpleNamespace(state_dir=state, source="s")
+        args = SimpleNamespace(config=None, id="a")
+        with mock.patch.object(specialists, "resolve_scope", return_value=scope):
+            self.assertEqual(specialists._scores(args)["scores"], [])
+            state.mkdir()
+            lines = [{"agent": "a", "n": 1}, {"agent": "b", "n": 2}, {"agent": "a", "n": 3}]
+            (state / SCORES_FILE).write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+            self.assertEqual([x["n"] for x in specialists._scores(args)["scores"]], [1, 3])
+            args.id = None
+            self.assertEqual(len(specialists._scores(args)["scores"]), 3)
+            (state / SCORES_FILE).write_text("{oops\n")
+            with self.assertRaises(ValidationError):
+                specialists._scores(args)
+
+
+class SnapshotTest(unittest.TestCase):
+    def test_diff_covers_new_deleted_changed_and_large_files(self) -> None:
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        (tmp / ".git").mkdir()
+        (tmp / ".git" / "x").write_text("ignored")
+        (tmp / "gone.txt").write_text("bye\n")
+        (tmp / "same.txt").write_text("a\n")
+        (tmp / "big.bin").write_bytes(b"\0" * 10)
+        before = snapshot.take(tmp)
+        (tmp / "gone.txt").unlink()
+        (tmp / "same.txt").write_text("b\n")
+        (tmp / "new.txt").write_text("hi\n")
+        (tmp / "big.bin").write_bytes(b"\1" * 10)
+        (tmp / ".git" / "x").write_text("changed")
+        out = snapshot.diff(before, snapshot.take(tmp))
+        for text in ("--- a/gone.txt", "+++ /dev/null", "-a", "+b", "+++ b/new.txt", "+hi"):
+            self.assertIn(text, out)
+        self.assertIn("Binary or large file changed: big.bin", out)
+        self.assertNotIn(".git", out)
 
 
 if __name__ == "__main__":

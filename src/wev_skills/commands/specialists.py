@@ -18,6 +18,7 @@ from wev_skills.commands._human import confirm_human, summary_lines
 from wev_skills.commands._scope import resolve_scope
 from wev_skills.commands._scoring import score
 from wev_skills.core import wiring
+from wev_skills.core.errors import ValidationError
 from wev_skills.core.textsafe import clean_text
 from wev_skills.evaluation.scoring import SCORES_FILE
 from wev_skills.governance.audit import AuditLog
@@ -101,7 +102,12 @@ def _scores(args: argparse.Namespace) -> dict[str, Any]:
     scope = resolve_scope(args.config)
     path = scope.state_dir / SCORES_FILE
     lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
-    found = [json.loads(line) for line in lines if line.strip()]
+    try:
+        found = [json.loads(line) for line in lines if line.strip()]
+    except ValueError as exc:
+        raise ValidationError(
+            "bad_score_history", i18n.t("evaluation.scoring.bad_history")
+        ) from exc
     kept = [item for item in found if args.id is None or item.get("agent") == args.id]
     return {"scores": kept, "config_source": scope.source}
 

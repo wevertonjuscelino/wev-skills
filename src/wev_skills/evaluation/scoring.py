@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import tempfile
 import uuid
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 from wev_skills import i18n
 from wev_skills.agents import project
 from wev_skills.agents.experience import ACTIVE, PROPOSED, SCORER, Lesson
-from wev_skills.agents.learning import model_lesson
 from wev_skills.agents.project import ScoreDecisions
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.config import Config
@@ -25,13 +23,12 @@ from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, Valida
 from wev_skills.core.fsutil import append_line
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.evaluation import cases as case_store
-from wev_skills.evaluation.lesson_writer import lesson_request, parse_lesson
 from wev_skills.evaluation.ratchet import improves
-from wev_skills.evaluation.score_runs import Setup, Tally, run_configuration
+from wev_skills.evaluation.score_pass import Pass
+from wev_skills.evaluation.score_runs import Setup
 from wev_skills.governance.audit import AuditLog
 
 SCORES_FILE = "scores.jsonl"
-_FENCE = re.compile(r"\A```[A-Za-z]*\n(.*)\n```\Z", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -44,30 +41,14 @@ class ScoreReport(Serializable):
     retired: tuple[str, ...]
     new: tuple[str, ...]
     runs_used: int
+    planned_runs: int
+    skipped: tuple[str, ...] = ()
+    deferred: tuple[str, ...] = ()
 
 
 def planned_runs(cases: int, proposals: int, active: int, samples: int, new_lessons: int) -> int:
-    """Agent runs plus lesson requests one pass may use (the cap is checked against this)."""
+    """Agent runs plus lesson requests a full pass would use."""
     return (1 + proposals + new_lessons + active) * cases * samples + new_lessons
-
-
-def _unfence(answer: str) -> str:
-    """Drop exactly one surrounding code fence; the lesson filter judges the rest."""
-    found = _FENCE.match(answer.strip())
-    return found.group(1) if found else answer
-
-
-def _shown_as(lesson: Lesson) -> Lesson:
-    return replace(lesson, status=ACTIVE, accepted_by=SCORER)
-
-
-def _with(spec: AgentSpec, lesson: Lesson) -> AgentSpec:
-    kept = tuple(item for item in spec.experience if item.id != lesson.id)
-    return replace(spec, experience=(*kept, _shown_as(lesson)))
-
-
-def _without(spec: AgentSpec, lesson_id: str) -> AgentSpec:
-    return replace(spec, experience=tuple(i for i in spec.experience if i.id != lesson_id))
 
 
 def _load(root: Path, config: Config, agent_id: str) -> AgentSpec:
@@ -79,122 +60,112 @@ def _load(root: Path, config: Config, agent_id: str) -> AgentSpec:
     )
 
 
-def _refuse_over_cap(config: Config, cases: int, proposals: int, active: int) -> None:
+def _refuse_if_baseline_over_cap(config: Config, cases: int) -> None:
+    """Only a baseline that alone exceeds the cap refuses; anything else is scored in part."""
     cfg = config.specialists
-    planned = planned_runs(cases, proposals, active, cfg.score_samples, cfg.score_max_new_lessons)
-    if planned > cfg.score_max_runs:
-        message = i18n.t("evaluation.scoring.over_cap", planned=planned, cap=cfg.score_max_runs)
+    needed = cases * cfg.score_samples
+    if needed > cfg.score_max_runs:
+        message = i18n.t("evaluation.scoring.over_cap", planned=needed, cap=cfg.score_max_runs)
         raise GuardTripped(
-            "score_over_cap", message, {"planned": planned, "cap": cfg.score_max_runs}
+            "score_over_cap", message, {"planned": needed, "cap": cfg.score_max_runs}
         )
 
 
-def _new_lessons(
-    setup: Setup, config: Config, spec: AgentSpec, baseline: Tally, score_id: str
-) -> tuple[tuple[Lesson, ...], int]:
-    """Ask for one lesson per failed case (at most the configured number); keep the safe ones."""
-    known = {item.id for item in spec.experience}
-    now = datetime.now(UTC).isoformat(timespec="seconds")
-    found: dict[str, Lesson] = {}
-    asked = 0
-    for failure in baseline.failures[: config.specialists.score_max_new_lessons]:
-        prompt = lesson_request(failure.case, failure.output, failure.diff, config.language)
-        answer = setup.agent.ask(prompt, setup.timeout)
-        asked += 1
-        text = parse_lesson(_unfence(answer.output)) if answer.ok else None
-        if text is None:
-            continue
-        lesson = model_lesson(failure.case.id, text, score_id, now)
-        if lesson.id not in known:
-            found.setdefault(lesson.id, lesson)
-    return tuple(found.values()), asked
-
-
-def _totals(passes: Mapping[str, int]) -> int:
-    return sum(passes.values())
+def _git_config(runner: Runner, root: Path) -> bytes:
+    """The bytes of the repository's ``.git/config`` (the common dir, for a linked worktree)."""
+    argv = ("git", "rev-parse", "--git-common-dir")
+    out = runner.run(argv, str(root), case_store.GIT_TIMEOUT_SECONDS, None).stdout.strip()
+    try:
+        return (root / out / "config").read_bytes()
+    except OSError:
+        return b""
 
 
 @dataclass(frozen=True)
 class Outcome:
-    baseline: dict[str, int]
-    scores: dict[str, dict[str, int]]
-    new: tuple[Lesson, ...]
+    pass_: Pass
     accepted: tuple[str, ...]
     retired: tuple[str, ...]
-    runs_used: int
+    new: tuple[Lesson, ...]
 
 
 def _measure(
-    setup: Setup,
-    config: Config,
-    spec: AgentSpec,
-    cases: tuple[case_store.Case, ...],
-    ablatable: tuple[Lesson, ...],
-    score_id: str,
+    setup: Setup, config: Config, spec: AgentSpec, cases: tuple[case_store.Case, ...], score_id: str
 ) -> Outcome:
-    baseline = run_configuration(setup, spec, cases)
-    new, asked = _new_lessons(setup, config, spec, baseline, score_id)
-    proposals = tuple(item for item in spec.experience if item.status == PROPOSED)
-    variants = {item.id: _with(spec, item) for item in (*proposals, *new)}
-    variants |= {item.id: _without(spec, item.id) for item in ablatable}
-    scores = {key: run_configuration(setup, v, cases).passes for key, v in variants.items()}
-    better = {key for key, passes in scores.items() if improves(baseline.passes, passes)}
-    return Outcome(
-        baseline.passes,
-        scores,
-        new,
-        tuple(item.id for item in (*proposals, *new) if item.id in better),
-        tuple(item.id for item in ablatable if item.id in better),
-        baseline.runs + asked + len(variants) * len(cases) * setup.samples,
+    """Run the baseline, then proposals oldest first, then ablations, then model lessons."""
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    run = Pass(setup, config, spec, cases, now)
+    proposals = sorted(
+        (i for i in spec.experience if i.status == PROPOSED), key=lambda i: (i.created_at, i.id)
     )
+    ablatable = [i for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER]
+    for item in proposals:
+        run.variant(item, True)
+    for item in ablatable:
+        run.variant(item, False)
+    run.ask_new(score_id)
+    better = {k for k, passes in run.scores.items() if improves(run.baseline.passes, passes)}
+    new = tuple(item for item in run.new.values() if item.id in better)
+    accepted = tuple(i.id for i in (*proposals, *new) if i.id in better)
+    return Outcome(run, accepted, tuple(i.id for i in ablatable if i.id in better), new)
 
 
-def _audit_writer(
-    audit: AuditLog, agent_id: str, digest: str, outcome: Outcome
-) -> Callable[[str, tuple[str, ...]], Callable[[], None]]:
-    before = _totals(outcome.baseline)
+def _audit(audit: AuditLog, agent_id: str, digest: str, outcome: Outcome) -> Callable[[], None]:
+    before = sum(outcome.pass_.baseline.passes.values())
 
-    def writer(kind: str, ids: tuple[str, ...]) -> Callable[[], None]:
-        def write() -> None:
+    def write() -> None:
+        for kind, ids in (
+            ("specialists.auto_accept", outcome.accepted),
+            ("specialists.auto_retire", outcome.retired),
+        ):
             for lesson_id in ids:
-                after = _totals(outcome.scores[lesson_id])
+                after = sum(outcome.pass_.scores[lesson_id].values())
                 payload = {"specialist": agent_id, "lesson": lesson_id, "digest": digest}
                 audit.append(kind, {**payload, "before": before, "after": after})
 
-        return write
-
-    return writer
+    return write
 
 
-def _record(
-    root: Path,
-    config: Config,
-    spec: AgentSpec,
-    outcome: Outcome,
-    writer: Callable[[str, tuple[str, ...]], Callable[[], None]],
+def _decided(
+    root: Path, config: Config, spec: AgentSpec, outcome: Outcome, record: Callable[[], None]
 ) -> None:
-    """A model lesson is written first and accepted by a second call: the first call adds it."""
-    fresh = {item.id for item in outcome.new}
-    first = tuple(i for i in outcome.accepted if i not in fresh)
-    later = tuple(i for i in outcome.accepted if i in fresh)
-    accept, retire = (
-        writer("specialists.auto_accept", first),
-        writer("specialists.auto_retire", outcome.retired),
+    if outcome.new or outcome.accepted or outcome.retired:
+        decisions = ScoreDecisions(outcome.new, outcome.accepted, outcome.retired)
+        project.record_scores(root, config, spec.id, spec.experience, decisions, record)
+
+
+def _in_scratch(
+    root: Path, config: Config, runner: Runner, agent: AgentRunner, spec: AgentSpec, score_id: str
+) -> Outcome:
+    """Measure ``spec`` in a scratch directory outside the state dir, always removed."""
+    cfg = config.specialists
+    policy = wiring.build_grantless_policy(config, root)
+    resolved = wiring.build_agents(config, root).factory.resolve(spec)
+    cases = case_store.cases_for(case_store.load_cases(root), spec.id)
+    scratch = Path(tempfile.mkdtemp(prefix="wev-scoring-"))
+    try:
+        setup = Setup(
+            root, runner, policy, agent, scratch, cfg.score_samples, cfg.score_timeout_seconds
+        )
+        return _measure(setup, config, resolved, cases, score_id)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _report(
+    config: Config, spec: AgentSpec, digest: str, score_id: str, outcome: Outcome
+) -> ScoreReport:
+    cfg, run = config.specialists, outcome.pass_
+    proposals = sum(1 for item in spec.experience if item.status == PROPOSED)
+    ablatable = sum(1 for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER)
+    planned = planned_runs(
+        len(run.cases), proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons
     )
-
-    def record() -> None:
-        accept()
-        retire()
-
-    updated = spec
-    if outcome.new or first or outcome.retired:
-        decisions = ScoreDecisions(outcome.new, first, outcome.retired)
-        updated = project.record_scores(root, config, spec.id, spec.experience, decisions, record)
-    if later:
-        project.record_scores(
-            root, config, spec.id, updated.experience, ScoreDecisions(accepted=later),
-            writer("specialists.auto_accept", later),
-        )  # fmt: skip
+    return ScoreReport(
+        score_id, spec.id, digest, run.baseline.passes, outcome.accepted, outcome.retired,
+        tuple(item.id for item in outcome.new), run.runs, planned,
+        tuple(run.skipped), tuple(run.deferred),
+    )  # fmt: skip
 
 
 def score_specialist(
@@ -206,28 +177,16 @@ def score_specialist(
     cases = case_store.cases_for(case_store.load_cases(root), agent_id)
     if not cases:
         raise ValidationError("score_no_cases", i18n.t("evaluation.scoring.no_cases"))
-    ablatable = tuple(i for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER)
-    proposals = sum(1 for item in spec.experience if item.status == PROPOSED)
-    _refuse_over_cap(config, len(cases), proposals, len(ablatable))
-    resolved = wiring.build_agents(config, root).factory.resolve(spec)
-    scratch = Path(tempfile.mkdtemp(prefix="wev-scoring-"))
-    policy = wiring.build_grantless_policy(config, root)
-    cfg = config.specialists
-    setup = Setup(
-        root, runner, policy, agent, scratch, cfg.score_samples, cfg.score_timeout_seconds
-    )
+    _refuse_if_baseline_over_cap(config, len(cases))
     score_id = f"score-{uuid.uuid4().hex[:12]}"
-    try:
-        outcome = _measure(setup, config, resolved, cases, ablatable, score_id)
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    git_config = _git_config(runner, root)
+    outcome = _in_scratch(root, config, runner, agent, spec, score_id)
+    if _git_config(runner, root) != git_config:
+        raise StateConflict("git_config_changed", i18n.t("evaluation.scoring.git_config_changed"))
     if case_store.case_set_digest(root) != digest:
         raise StateConflict("cases_changed", i18n.t("evaluation.scoring.cases_changed"))
-    _record(root, config, spec, outcome, _audit_writer(audit, agent_id, digest, outcome))
-    report = ScoreReport(
-        score_id, agent_id, digest, outcome.baseline, outcome.accepted, outcome.retired,
-        tuple(item.id for item in outcome.new), outcome.runs_used,
-    )  # fmt: skip
+    _decided(root, config, spec, outcome, _audit(audit, agent_id, digest, outcome))
+    report = _report(config, spec, digest, score_id, outcome)
     line = json.dumps(report.to_dict(), ensure_ascii=False)
     append_line(wiring.state_dir(config, root) / SCORES_FILE, line)
     return report

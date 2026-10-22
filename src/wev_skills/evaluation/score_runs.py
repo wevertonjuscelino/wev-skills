@@ -6,12 +6,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from wev_skills import i18n
 from wev_skills.agents.spec import AgentSpec
+from wev_skills.core.errors import ProviderError
 from wev_skills.core.ports import AgentRunner, Runner
-from wev_skills.evaluation.cases import GIT_TIMEOUT_SECONDS, Case
+from wev_skills.core.textsafe import clean_text
+from wev_skills.evaluation import snapshot
+from wev_skills.evaluation.cases import Case
 from wev_skills.evaluation.workspace import case_workspace, passed, run_check
 from wev_skills.security.permissions import PermissionPolicy
 
+ERROR_CHARS = 200
 CONTEXT_CHARS = 8000
 """Most characters of a check's output or an agent's diff handed to the lesson request."""
 
@@ -47,13 +52,20 @@ class Tally:
 
 def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure | None]:
     with case_workspace(setup.runner, setup.root, case, setup.scratch) as path:
-        setup.agent.run_agent(path, spec, case.objective, setup.timeout)
+        before = snapshot.take(path)
+        ran = setup.agent.run_agent(path, spec, case.objective, setup.timeout)
+        after = snapshot.take(path)  # before run_check copies the case files in
+        if not ran.ok and not ran.timed_out:
+            error = clean_text(ran.output, ERROR_CHARS)
+            raise ProviderError(
+                "score_agent_failed",
+                i18n.t("evaluation.scoring.agent_failed", case=case.id, error=error),
+            )
         result = run_check(setup.runner, setup.policy, case, setup.root, path, setup.timeout)
-        if passed(result):
-            return True, None
-        diff = setup.runner.run(("git", "diff"), str(path), GIT_TIMEOUT_SECONDS, None).stdout
+    if passed(result):
+        return True, None
     output = (result.stdout + result.stderr)[-CONTEXT_CHARS:]
-    return False, Failure(case, output, diff[:CONTEXT_CHARS])
+    return False, Failure(case, output, snapshot.diff(before, after)[:CONTEXT_CHARS])
 
 
 def run_configuration(setup: Setup, spec: AgentSpec, cases: Sequence[Case]) -> Tally:

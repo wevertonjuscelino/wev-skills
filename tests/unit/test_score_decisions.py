@@ -10,7 +10,7 @@ from tests.unit.test_lesson_acceptance import AGENT, SpecialistCase, derived
 from wev_skills.agents import learning, project
 from wev_skills.agents.experience import ACTIVE, PROPOSED, RETIRED, SCORER, STALE, render_lesson
 from wev_skills.agents.project import ScoreDecisions
-from wev_skills.core.errors import StateConflict, ValidationError
+from wev_skills.core.errors import NotFound, StateConflict, ValidationError
 
 NOW = "2026-10-22T12:00:00Z"
 
@@ -107,6 +107,17 @@ class ScoreDecisionTests(SpecialistCase):
         with self.assertRaises(ValidationError):
             self.score(ScoreDecisions(accepted=(self.lesson.id,), retired=(self.lesson.id,)))
         self.assertEqual(self.status(), PROPOSED)
+
+    def test_a_new_lesson_may_be_accepted_in_the_same_call(self) -> None:
+        model = learning.model_lesson("case-1", "tip", "score-1", NOW)
+        self.score(ScoreDecisions(new=(model,), accepted=(model.id,)))
+        found = {item.id: item for item in self.stored()}  # type: ignore[attr-defined]
+        self.assertEqual((found[model.id].status, found[model.id].accepted_by), (ACTIVE, SCORER))
+        self.assertEqual(len(found), 2)
+
+    def test_an_unknown_accepted_id_is_still_refused(self) -> None:
+        with self.assertRaises(NotFound):
+            self.score(ScoreDecisions(accepted=("lesson-nope",)))
 
     def test_a_new_lesson_must_be_a_proposed_model_lesson(self) -> None:
         model = learning.model_lesson("case-1", "tip", "score-1", NOW)

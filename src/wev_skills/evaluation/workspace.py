@@ -21,8 +21,16 @@ CHECK_ENV_KEYS = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
 EXIT_NOT_STARTED = 127  # SubprocessRunner's code for a command that could not start
 
 
+# An agent ran in the workspace and may have planted git configuration: no repository config
+# command, hook or system/global file may take part in these calls.
+GIT_HARDENING = ("-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null")
+GIT_ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
+
+
 def _git(runner: Runner, root: Path, *args: str) -> RawCommandResult:
-    return runner.run(("git", *args), str(root), GIT_TIMEOUT_SECONDS, None)
+    env = {key: os.environ[key] for key in ("PATH", "HOME") if key in os.environ} | GIT_ENV
+    argv = ("git", *GIT_HARDENING, *args)
+    return runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, env)
 
 
 @contextmanager

@@ -159,12 +159,12 @@ class EngineCommandTests(HookCase):
                 with self.subTest(args=args, program=program[-12:]):
                     self.assertEqual(self.decision(f"{program} {args}"), ASK)
 
-    def test_scoring_asks_with_its_own_reason_and_is_not_person_only(self) -> None:
+    def test_scoring_asks_with_its_own_reason_and_is_person_only(self) -> None:
         from wev_skills.adapters.claude_code import engine_cli
 
         reason = engine_cli.operator_reason(("specialists", "score", "x"))
         self.assertEqual(reason, "engine_score")
-        self.assertNotIn(reason, engine_cli.PERSON_ONLY_REASONS)
+        self.assertIn(reason, engine_cli.PERSON_ONLY_REASONS)
         self.assertIsNone(engine_cli.operator_reason(("specialists", "scores")))
 
     def test_read_only_engine_commands_are_left_alone(self) -> None:

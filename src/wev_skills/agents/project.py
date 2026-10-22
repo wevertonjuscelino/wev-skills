@@ -269,17 +269,18 @@ def record_scores(
         if spec.experience != seen:
             message = i18n.t("agents.specialists.lessons_changed", specialist=agent_id)
             raise StateConflict("lessons_changed", message, {"specialist": agent_id})
-        for lesson_id in (*decisions.accepted, *decisions.retired):
-            _find(spec, lesson_id)
         present = {item.id for item in spec.experience}
         added = tuple(item for item in decisions.new if item.id not in present)
+        pool = replace(spec, experience=(*spec.experience, *added))  # new first, then decided
+        for lesson_id in (*decisions.accepted, *decisions.retired):
+            _find(pool, lesson_id)
         accepted, retired = set(decisions.accepted), set(decisions.retired)
         lessons = tuple(
             _by_score(item, item.id in accepted) if item.id in accepted | retired else item
-            for item in spec.experience
+            for item in pool.experience
         )
         record()
-        updated = replace(spec, experience=(*lessons, *added))
+        updated = replace(spec, experience=lessons)
         _write(root, config, updated)
     return updated
 

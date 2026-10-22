@@ -123,5 +123,8 @@
   "evaluation.scoring.no_specialist": "Não existe o especialista de projeto {specialist}",
   "evaluation.scoring.no_cases": "Nenhum caso em evals/cases se aplica a este especialista; não há o que pontuar",
   "evaluation.scoring.over_cap": "Esta passada usaria {planned} execuções de agente e pedidos de lição, acima do teto de {cap} (specialists.score_max_runs); nada foi executado. Reduza score_samples ou o número de lições, ou aumente o teto",
-  "evaluation.scoring.cases_changed": "O conjunto de casos mudou durante a pontuação; nenhuma lição foi decidida"
+  "evaluation.scoring.cases_changed": "O conjunto de casos mudou durante a pontuação; nenhuma lição foi decidida",
+  "evaluation.scoring.agent_failed": "O agente falhou no caso {case} ({error}); nada foi decidido",
+  "evaluation.scoring.git_config_changed": "O .git/config do repositório mudou durante a pontuação; nada foi decidido",
+  "evaluation.scoring.bad_history": "Uma linha do histórico de pontuações não é JSON válido"
 }

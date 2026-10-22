@@ -78,7 +78,7 @@ REASON_REA = "engine_rea"
 REASON_JEV_KEY = "engine_jev_key"
 REASON_SCORE = "engine_score"
 PERSON_ONLY_REASONS = frozenset(
-    {REASON_OPERATOR, REASON_HARNESS, REASON_SKILLS, REASON_REA, REASON_JEV_KEY}
+    {REASON_OPERATOR, REASON_HARNESS, REASON_SKILLS, REASON_REA, REASON_JEV_KEY, REASON_SCORE}
 )
 """Asks a harness without an ask decision denies: an agent must not grant itself approvals
 or remove its own guard. ``run``, ``--config`` and ``jev`` asks stay policy asks there."""
