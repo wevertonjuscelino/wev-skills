@@ -13,6 +13,7 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.cli import CommandResult
 from wev_skills.commands import Subparsers
+from wev_skills.commands import _skills_manage as manage
 from wev_skills.core.errors import RemoteError, ValidationError
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.third_party import check as check_mod
@@ -157,3 +158,23 @@ def register(subparsers: Subparsers) -> None:
     installing.add_argument("source", help=i18n.t("skills.decline.source"))
     installing.add_argument("--version", help=i18n.t("skills.install.version"))
     installing.set_defaults(handler=_run_install)
+    updating = commands.add_parser("update", help=i18n.t("skills.update.help"))
+    updating.add_argument("source", nargs="?", help=i18n.t("skills.update.source"))
+    updating.add_argument("--yes", action="store_true", help=i18n.t("skills.update.yes"))
+    updating.set_defaults(handler=manage.run_update)
+    rolling = commands.add_parser("rollback", help=i18n.t("skills.rollback.help"))
+    rolling.add_argument("source", help=i18n.t("skills.decline.source"))
+    rolling.set_defaults(handler=manage.run_rollback)
+    freezing = commands.add_parser("freeze", help=i18n.t("skills.freeze.help"))
+    freezing.add_argument("source", help=i18n.t("skills.decline.source"))
+    freezing.add_argument("--off", action="store_true", help=i18n.t("skills.freeze.off"))
+    freezing.set_defaults(handler=manage.run_freeze)
+    showing = commands.add_parser("show", help=i18n.t("skills.show.help"))
+    showing.add_argument("source", help=i18n.t("skills.decline.source"))
+    showing.set_defaults(handler=manage.run_show)
+    commands.add_parser("activate", help=i18n.t("skills.activate.help")).set_defaults(
+        handler=manage.run_activate
+    )
+    commands.add_parser("deactivate", help=i18n.t("skills.deactivate.help")).set_defaults(
+        handler=manage.run_deactivate
+    )

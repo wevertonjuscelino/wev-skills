@@ -148,7 +148,7 @@ def _health_mcp(version: str, npx: str) -> HealthReport:
             start_new_session=True,  # own process group, so the whole tree can be killed
         )
     except OSError:
-        return _fail("spawn_failed")
+        return _fail("spawn_failed", exit=-1)
     assert proc.stdout is not None  # noqa: S101 - opened with PIPE
     lines: queue.Queue[str | None] = queue.Queue()
     reader = threading.Thread(target=_reader, args=(proc.stdout, lines), daemon=True)
@@ -241,7 +241,7 @@ def _health_wev(base: Path, version: str, runner: Runner, python: str) -> Health
     except ValueError, RecursionError, AttributeError:
         printed = None
     if printed != version.removeprefix("v"):
-        return _fail("version_mismatch", got=type(printed).__name__)
+        return _fail("version_mismatch")
     return HealthReport(True, "ok", {"version": str(printed)})
 
 

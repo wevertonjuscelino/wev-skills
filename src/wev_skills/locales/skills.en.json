@@ -20,5 +20,21 @@
   "skills.health.no_tools": "The server started but lists no tools.",
   "skills.health.no_skills": "No skill files were found in this version.",
   "skills.health.bad_skill": "The skill in directory {dir} is invalid (name or description).",
-  "skills.health.version_mismatch": "The installed program reports a different version ({got})."
+  "skills.health.version_mismatch": "The installed program reports a different version than the one released.",
+  "skills.error.frozen": "{name} is frozen; run `wev skills freeze {name} --off` first.",
+  "skills.error.declined": "{version} of {name} was declined; pass --yes to update anyway.",
+  "skills.error.no_previous": "{name} has no previous version to roll back to.",
+  "skills.error.previous_missing": "The previous version {version} of {name} is no longer on disk.",
+  "skills.error.not_installed": "{name} is not installed; run `wev skills update {name}` first.",
+  "skills.error.bad_skill_name": "Refusing to link a skill with an unsafe name: {name}.",
+  "skills.error.foreign": "{path} exists and was not created by wev; move it away first.",
+  "skills.update.help": "Install the newest version of a source and make it active, only if its health check passes.",
+  "skills.update.source": "The source to update (default: every source that is not frozen).",
+  "skills.update.yes": "Update even to a version that was declined.",
+  "skills.rollback.help": "Make the previous version of a source active again.",
+  "skills.freeze.help": "Stop checking and updating a source.",
+  "skills.freeze.off": "Unfreeze the source.",
+  "skills.activate.help": "Link the active agent-skills into the skill directories of Claude Code and of Codex, OpenCode and Gemini.",
+  "skills.deactivate.help": "Remove the links that `wev skills activate` made, and only those.",
+  "skills.show.help": "Show the state of a source and, for rea, the command that starts its MCP server."
 }

@@ -88,6 +88,14 @@ class McpTests(unittest.TestCase):
     def test_missing_npx_fails(self) -> None:
         self.assertEqual(mcp("ok", npx="/nonexistent/npx").code, "spawn_failed")
 
+    def test_missing_npx_renders_without_a_placeholder(self) -> None:
+        report = mcp("ok", npx="/nonexistent/npx")
+        self.assertNotIn("{", health_mod.render(report, "en"))
+
+    def test_mismatch_message_names_no_type(self) -> None:
+        text = health_mod.render(health_mod.HealthReport(False, "version_mismatch"), "en")
+        self.assertNotIn("{", text)
+
     def test_mcp_timeout_fails(self) -> None:
         with mock.patch.object(health_mod, "HEALTH_TIMEOUT", 1.0):
             self.assertEqual(mcp("hang").code, "timeout")

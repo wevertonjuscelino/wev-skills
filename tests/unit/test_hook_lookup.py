@@ -203,7 +203,19 @@ class NoRunTests(HookCase):
         assert found is not None
         self.assertEqual(found["decision"], ASK)
         self.assertIn("third-party", found["reason"])
-        for args in ("skills check", "skills list", "skills decline rea"):
+        for args in (
+            "skills update rea",
+            "skills update",
+            "skills rollback rea",
+            "skills freeze rea --off",
+            "skills activate",
+            "skills deactivate",
+        ):
+            with self.subTest(args=args):
+                found = self.bash(f"{WEV} {args}")
+                assert found is not None
+                self.assertEqual(found["decision"], ASK)
+        for args in ("skills check", "skills list", "skills decline rea", "skills show rea"):
             with self.subTest(args=args):
                 self.assertIsNone(self.decision(f"{WEV} {args}"))
 
