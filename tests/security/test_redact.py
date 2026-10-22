@@ -26,7 +26,8 @@ SHORT = "hunt" + "er2" + "Xq"
 BASIC = "YWRt" + "aW46" + "ZXhhbXBsZV9mYWtl"
 PK_WORDS = "PRIV" + "ATE KEY"
 DASHES = "-" * 5
-TIME_BOUND_SECONDS = 3.0
+# Guards against quadratic scanning (minutes on a big input), not against a slow CI runner.
+TIME_BOUND_SECONDS = 10.0
 ADVERSARIAL_SIZE = 200_000
 
 

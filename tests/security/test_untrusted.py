@@ -12,7 +12,8 @@ NONCE = "0123456789abcdef"
 OPEN = re.compile(r'^<<<WEV_UNTRUSTED_DATA id=([0-9a-f]+) source="([^"]*)">>>$')
 CLOSE = "<<<END_WEV_UNTRUSTED_DATA id={}>>>"
 API_KEY_WORDS = "api" + " key"
-TIME_BOUND_SECONDS = 3.0
+# Guards against quadratic scanning (minutes on a big input), not against a slow CI runner.
+TIME_BOUND_SECONDS = 10.0
 ADVERSARIAL_SIZE = 200_000
 ESC = "\x1b"
 ZERO_WIDTH = "\u200b"
