@@ -151,6 +151,16 @@ def _engine_verdicts(argv: Sequence[str], cwd: str) -> list[HookVerdict]:
     return [replace(_ask(found), person_only=bool(every & engine_cli.PERSON_ONLY_REASONS))]
 
 
+def _program_rewritten(part: SimpleCommand) -> bool:
+    """The shell rewrites a word in program position: the first word, or any word a wrapper
+    may run (``nohup $CC``), so which program runs is unknown. A harness that cannot ask
+    denies; a rewritten argument (``rm -rf $D``) stays a policy ask."""
+    argv, flags = part.argv, part.rewritten
+    views = commands.expand(argv).commands
+    starts = {len(argv) - len(v) for v in views if len(v) <= len(argv) and argv[-len(v) :] == v}
+    return any(start < len(flags) and flags[start] for start in starts)
+
+
 def _program_verdicts(
     part: SimpleCommand, context: GuardContext, cwd: str, compound: bool
 ) -> list[HookVerdict]:
@@ -158,7 +168,8 @@ def _program_verdicts(
     argv, mode = part.argv, context.mode
     found = _engine_verdicts(argv, cwd)
     if part.dynamic or part.unresolved:
-        found.append(_ask("unresolved", command=shown(argv)))
+        unresolved = _ask("unresolved", command=shown(argv))
+        found.append(replace(unresolved, fail_safe=_program_rewritten(part)))
     elif engine_cli.engine_args(argv, cwd) is not None:
         return found
     name = commands.program_name(argv)

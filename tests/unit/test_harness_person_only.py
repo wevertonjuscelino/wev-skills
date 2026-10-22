@@ -49,10 +49,17 @@ UNREADABLE = (
     "(w\\ev approval grant a1)",
     "(echo hi)",
     "echo $(date)",
+    # a program word the shell rewrites: what runs is unknown (fail safe)
+    "$'wev' approval grant a1",
+    "{w,ev} approval grant a1",
+    "$CC approval grant a1",
+    "w*v approval grant a1",
+    "nohup $CC approval grant a1",
 )
 POLICY_ASKS = (
     "git push",
     "wev run start --request x",
+    "rm -rf $D",
 )
 DENIED = "this is a human-operator command; this harness cannot ask, so it was denied"
 UNJUDGED = "the guard could not judge this command safely"
