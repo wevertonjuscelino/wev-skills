@@ -7,10 +7,15 @@ RUFF  = $(shell if command -v ruff >/dev/null 2>&1; then echo ruff; \
 MYPY  = $(shell if command -v mypy >/dev/null 2>&1; then echo mypy; \
 	elif command -v uvx >/dev/null 2>&1; then echo uvx mypy; fi)
 
-.PHONY: test lint format check hooks
+.PHONY: test e2e lint format check hooks
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover -s tests -t . -v
+
+# End-to-end scenarios for real (network, installer, rea); asks for `yes` first.
+# Usage: make e2e E2E=macos-core   (WEV_E2E_CONFIRM=yes answers without a terminal)
+e2e:
+	PYTHONPATH=src $(PYTHON) scripts/e2e.py $(E2E)
 
 lint:
 	@if [ -n "$(RUFF)" ]; then \
