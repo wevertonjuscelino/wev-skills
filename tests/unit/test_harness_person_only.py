@@ -29,6 +29,11 @@ PERSON_ONLY = (
     "wev run adopt x",
     "wev harness uninstall --target gemini",
     "git push && wev approval grant a1",
+    # the marker comes from the whole line, not from the first reason shown
+    "wev approval grant a1 --config x.json",
+    "wev run start && wev approval grant a1",
+    "wev --config x.json run adopt r1",
+    "python3 -m wev_skills approval grant a1",
 )
 POLICY_ASKS = ("git push", "wev run start --request x")
 DENIED = "this is a human-operator command; this harness cannot ask, so it was denied"

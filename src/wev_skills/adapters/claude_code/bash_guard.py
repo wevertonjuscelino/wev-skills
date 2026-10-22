@@ -147,7 +147,8 @@ def _engine_verdicts(argv: Sequence[str], cwd: str) -> list[HookVerdict]:
     found = next((code for code in codes if code is not None), None)
     if found is None:
         return []
-    return [replace(_ask(found), person_only=found in engine_cli.PERSON_ONLY_REASONS)]
+    every = {code for view in views for code in engine_cli.mentioned_codes(view, cwd)}
+    return [replace(_ask(found), person_only=bool(every & engine_cli.PERSON_ONLY_REASONS))]
 
 
 def _program_verdicts(

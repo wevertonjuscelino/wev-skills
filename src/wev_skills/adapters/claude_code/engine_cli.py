@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parents[2]
@@ -148,20 +148,30 @@ def _tail(words: Sequence[str], index: int, cwd: str) -> tuple[str, ...] | None:
     return None
 
 
-def mentioned_reason(words: Sequence[str], cwd: str) -> str | None:
-    """Why a person must decide a command line whose words name the engine (its launcher by
-    real path, the bare word ``wev``, or ``-m wev_skills``) followed by a sensitive command.
-
-    One pass over the words: ``--config`` positions are found once, so a long line costs
-    time in proportion to its length."""
+def _mentions(words: Sequence[str], cwd: str) -> Iterator[tuple[str | None, str | None]]:
+    """For each engine reference: ``(reason shown, reason of the command it names)``. A
+    ``--config`` after the reference makes the shown reason ``engine_config``."""
     configs = [i for i, word in enumerate(words) if _abbreviates(word, CONFIG_OPTION)]
     last_config = configs[-1] if configs else -1
     for index in range(len(words)):
         tail = _tail(words, index, cwd)
         if not tail:
             continue
+        command = _command_reason(tail)
         follows = last_config >= len(words) - len(tail)
-        code = REASON_CONFIG if follows else _command_reason(tail)
-        if code is not None:
-            return code
-    return None
+        yield (REASON_CONFIG if follows else command), command
+
+
+def mentioned_reason(words: Sequence[str], cwd: str) -> str | None:
+    """Why a person must decide a command line whose words name the engine (its launcher by
+    real path, the bare word ``wev``, or ``-m wev_skills``) followed by a sensitive command.
+
+    ``--config`` positions are found once, so a long line costs time in proportion to its
+    length times the engine references in it."""
+    return next((shown for shown, _ in _mentions(words, cwd) if shown is not None), None)
+
+
+def mentioned_codes(words: Sequence[str], cwd: str) -> frozenset[str]:
+    """Every reason over every engine reference of the line, shown or not: the
+    ``person_only`` marker must not depend on which reason is shown first."""
+    return frozenset(code for pair in _mentions(words, cwd) for code in pair if code)
