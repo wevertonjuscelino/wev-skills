@@ -124,7 +124,7 @@ atual; estados sem identificação de repositório ou pertencentes a outro proje
 
 ## Lições decididas pela nota
 
-`wev specialists score <id>` pode decidir lições sem uma pessoa, rodando os casos guardados do [guia de avaliação](evaluation.pt-BR.md) com e sem uma lição candidata. Status: implementado e testado com falsos; o caminho real de `claude -p` está implementado mas não testado até o dono rodá-lo. O comando é só humano (o Claude Code pergunta, os outros harnesses negam, um agente nunca o executa) porque gasta tokens.
+`wev specialists score <id>` pode decidir lições sem uma pessoa, rodando os casos guardados do [guia de avaliação](evaluation.pt-BR.md) com e sem uma lição candidata. Status: implementado e testado com falsos; o caminho real de `claude -p` está implementado mas não testado até o dono rodá-lo. O comando é só humano (o Claude Code pergunta, os outros harnesses negam, um agente nunca o executa) porque gasta tokens. Com `specialists.score_on_finish` verdadeiro, `run finish` inicia as mesmas execuções sem assistência sem esse portão, e por isso a chave vem desligada.
 
 - Uma lição entra como `active` com `accepted_by` `score` (valor reservado como `engine`) somente quando nenhum caso perde um passe e o total sobe. Empate fica `proposed`. A ablação aposenta uma lição ativa aceita por nota pela mesma regra. Cada decisão grava um evento de auditoria (`specialists.auto_accept` ou `specialists.auto_retire`) antes do arquivo do especialista.
 - A aceitação ou aposentadoria de uma pessoa é final diante da nota. Uma lição que a nota aposentou volta como `proposed` no próximo `specialists learn`.

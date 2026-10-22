@@ -112,7 +112,7 @@ without a repository identity and runs belonging to another project are ignored.
 
 ## Lessons decided by score
 
-`wev specialists score <id>` can decide lessons without a person, by running the stored cases of [the evaluation guide](evaluation.md) with and without a candidate lesson. Status: implemented and tested with fakes; the real `claude -p` path is implemented but untested until the owner runs it. The command is person-only (Claude Code asks, other harnesses deny, an agent never runs it) because it spends tokens.
+`wev specialists score <id>` can decide lessons without a person, by running the stored cases of [the evaluation guide](evaluation.md) with and without a candidate lesson. Status: implemented and tested with fakes; the real `claude -p` path is implemented but untested until the owner runs it. The command is person-only (Claude Code asks, other harnesses deny, an agent never runs it) because it spends tokens. With `specialists.score_on_finish` true, `run finish` starts the same unattended runs without that gate, which is why the key is off by default.
 
 - A lesson enters as `active` with `accepted_by` `score` (a value reserved like `engine`) only when no case loses a pass and the total rises. A tie stays `proposed`. Ablation retires a score-accepted active lesson on the same rule. Each decision writes an audit event (`specialists.auto_accept` or `specialists.auto_retire`) before the specialist file.
 - A person's acceptance or retirement is final against score. A lesson that score retired comes back as `proposed` at the next `specialists learn`.
