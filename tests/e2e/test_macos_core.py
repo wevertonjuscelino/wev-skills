@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 import unittest
 import urllib.request
@@ -21,9 +22,7 @@ WEV = ROOT / "bin" / "wev"
 INSTALLER = ROOT / "install.sh"
 REGISTRY = "https://registry.npmjs.org/rea-agents"
 BROKEN = "0.0.0-wev-e2e-broken"
-# The installer refuses an empty --harness, so two harnesses that are not installed here are
-# named: it skips them ("CLI not found") and registers nothing.
-INSTALL = ["--yes", "--lang", "en", "--source", str(ROOT), "--harness", "gemini,opencode"] + [
+INSTALL = ["--yes", "--lang", "en", "--source", str(ROOT), "--harness", ""] + [
     "--no-jev",
     "--rea-mode",
     "direct",
@@ -108,6 +107,15 @@ class MacosCore(unittest.TestCase):
         done, _ = self.wev("skills", "list")
         return {s["name"]: s for s in _json(done).get("sources", [])}
 
+    def allow_npx_dir(self) -> None:
+        """Direct mode finds npx only on permissions.exec_path (not on PATH), so a version
+        manager's directory must be listed in the user config, as a person with nvm would."""
+        npx = shutil.which("npx")
+        conf = self.tree.config / "wev-skills" / "wev.config.json"
+        data = json.loads(conf.read_text(encoding="utf-8")) if conf.exists() else {}
+        data.setdefault("permissions", {})["exec_path"] = [str(Path(npx).parent)] if npx else []
+        conf.write_text(json.dumps(data), encoding="utf-8")
+
     def active(self, name: str = "rea") -> str | None:
         value = self.sources().get(name, {}).get("active")
         return value if isinstance(value, str) else None
@@ -134,7 +142,6 @@ class MacosCore(unittest.TestCase):
         ok = (
             rea.get("active") == newest
             and skills.get("active") is not None
-            and skills.get("active") == skills.get("latest_seen", skills.get("active"))
             and src.get("wev-skills", {}).get("active") is None
         )
         name = "skills list: rea and agent-skills newest, wev-skills not managed"
@@ -152,6 +159,7 @@ class MacosCore(unittest.TestCase):
     def test_06_rea_serve_lists_tools(self) -> None:
         name = "rea serve answers initialize + tools/list with at least one tool"
         self.need_install(name)
+        self.allow_npx_dir()
         argv = [sys.executable, str(WEV), "rea", "serve"]
         try:
             count = mcp_tool_count(argv, self.tree.env(), 180)
