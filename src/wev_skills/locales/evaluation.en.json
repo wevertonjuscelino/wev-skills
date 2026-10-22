@@ -116,5 +116,7 @@
   "evaluation.workspace.base_missing": "Case {id}: the base commit {commit} does not exist in this repository.",
   "evaluation.workspace.add_failed": "Case {id}: could not create the workspace: {error}",
   "evaluation.cases.at_base": "Also run each check at its base commit; every check must fail there.",
-  "evaluation.cases.passes_at_base": "These cases pass at their base commit, so they prove nothing: {ids}"
+  "evaluation.cases.passes_at_base": "These cases pass at their base commit, so they prove nothing: {ids}",
+  "evaluation.workspace.symlink": "Case {id}: {path!r} would be written through a symlink in the workspace; refused.",
+  "evaluation.cases.check_broken": "These checks could not run to a verdict (timed out or failed to start): {ids}"
 }

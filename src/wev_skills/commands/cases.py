@@ -8,6 +8,7 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.commands import Subparsers
 from wev_skills.commands._scope import resolve_scope
+from wev_skills.core import wiring
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.evaluation import cases, workspace
@@ -18,16 +19,29 @@ AT_BASE_TIMEOUT_SECONDS = 600.0
 
 def _check_at_base(scope: Any, loaded: tuple[cases.Case, ...]) -> list[dict[str, Any]]:
     runner = SubprocessRunner()
+    policy = wiring.build_grantless_policy(scope.config, scope.root)
     scratch = scope.state_dir / "scoring"
     results = []
     for case in loaded:
         with workspace.case_workspace(runner, scope.root, case, scratch) as path:
-            result = workspace.run_check(runner, case, scope.root, path, AT_BASE_TIMEOUT_SECONDS)
-        results.append({"id": case.id, "fails_at_base": not workspace.passed(result)})
-    bad = [str(r["id"]) for r in results if not r["fails_at_base"]]
-    if bad:
-        message = i18n.t("evaluation.cases.passes_at_base", ids=", ".join(bad))
-        raise ValidationError("case_passes_at_base", message, {"cases": results})
+            result = workspace.run_check(
+                runner, policy, case, scope.root, path, AT_BASE_TIMEOUT_SECONDS
+            )
+        results.append(
+            {
+                "id": case.id,
+                "fails_at_base": not workspace.passed(result),
+                "timed_out": result.timed_out,
+                "broken": workspace.not_started(result),
+            }
+        )
+    for key, code, text in (
+        ("broken", "case_check_broken", "evaluation.cases.check_broken"),
+        ("fails_at_base", "case_passes_at_base", "evaluation.cases.passes_at_base"),
+    ):
+        bad = [str(r["id"]) for r in results if (r[key] if key == "broken" else not r[key])]
+        if bad:
+            raise ValidationError(code, i18n.t(text, ids=", ".join(bad)), {"cases": results})
     return results
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import uuid
 from collections.abc import Iterator
@@ -9,10 +10,15 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from wev_skills import i18n
-from wev_skills.core.contracts import RawCommandResult
-from wev_skills.core.errors import NotFound, StateConflict
+from wev_skills.core.contracts import Mode, RawCommandResult, RiskLevel
+from wev_skills.core.errors import NotFound, StateConflict, ValidationError
 from wev_skills.core.ports import Runner
 from wev_skills.evaluation.cases import CASES_DIR, GIT_TIMEOUT_SECONDS, Case
+from wev_skills.security.paths import resolve_within
+from wev_skills.security.permissions import PermissionPolicy
+
+CHECK_ENV_KEYS = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
+EXIT_NOT_STARTED = 127  # SubprocessRunner's code for a command that could not start
 
 
 def _git(runner: Runner, root: Path, *args: str) -> RawCommandResult:
@@ -39,16 +45,41 @@ def case_workspace(runner: Runner, root: Path, case: Case, scratch: Path) -> Ite
         shutil.rmtree(path, ignore_errors=True)  # remove can fail on a dead worktree
 
 
+def _refuse_symlinks(workspace: Path, name: str, case: Case) -> Path:
+    """The destination of ``name`` inside ``workspace``; no existing component may be a symlink."""
+    probe = workspace
+    for part in Path(name).parts:
+        probe = probe / part
+        if probe.is_symlink():
+            message = i18n.t("evaluation.workspace.symlink", id=case.id, path=name)
+            raise ValidationError("case_workspace_symlink", message, {"id": case.id})
+    return resolve_within(workspace, name)
+
+
 def run_check(
-    runner: Runner, case: Case, root: Path, workspace: Path, timeout: float
+    runner: Runner,
+    policy: PermissionPolicy,
+    case: Case,
+    root: Path,
+    workspace: Path,
+    timeout: float,
 ) -> RawCommandResult:
-    """Copy the case's stored files into ``workspace`` and run its check there."""
+    """Gate the check, copy the case's stored files into ``workspace`` and run it there."""
+    # cwd is the root, not the workspace: the workspace sits under the protected state
+    # directory, where the policy would call every relative token (even "python3") protected.
+    policy.enforce_command(case.check, str(root), Mode.EXECUTE, RiskLevel.LOW, consume=False)
     store = root / CASES_DIR / case.id
     for name in case.files:
-        target = workspace / name
+        target = _refuse_symlinks(workspace, name, case)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(store / name, target)
-    return runner.run(case.check, str(workspace), timeout, None)
+    env = {key: os.environ[key] for key in CHECK_ENV_KEYS if key in os.environ}
+    return runner.run(case.check, str(workspace), timeout, env)
+
+
+def not_started(result: RawCommandResult) -> bool:
+    """The check never ran to a verdict: it timed out or could not be started."""
+    return result.timed_out or result.exit_code == EXIT_NOT_STARTED
 
 
 def passed(result: RawCommandResult) -> bool:
