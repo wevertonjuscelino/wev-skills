@@ -114,5 +114,7 @@
   "agents.specialists.lessons_changed": "As lições de {specialist} mudaram desde a leitura; nada foi decidido",
   "agents.specialists.score_both": "A lição {lesson} está nas listas de aceitas e de aposentadas das decisões do score",
   "agents.specialists.score_new": "A lição {lesson} não é uma lição de modelo proposta pelo engine; um score só pode adicionar essas",
-  "agents.specialists.operator_reserved": "O nome de operador {operator} é reservado para lições que nenhuma pessoa decidiu; rode o comando com outro usuário"
+  "agents.specialists.operator_reserved": "O nome de operador {operator} é reservado para lições que nenhuma pessoa decidiu; rode o comando com outro usuário",
+  "agents.specialists.score": "Pontuar um especialista contra os casos commitados e aceitar ou aposentar lições pela pontuação (gasta tokens)",
+  "agents.specialists.scores": "Mostrar o histórico de pontuações, a mais recente por último"
 }

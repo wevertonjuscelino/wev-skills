@@ -141,6 +141,7 @@ class EngineCommandTests(HookCase):
             "specialists accept project-test lesson-0123",
             "specialists retire project-test lesson-0123",
             "run adopt --run r1",
+            "specialists score project-test",
             "run start --objective x --mode execute",
             "run finish",
             "agent create --template base --id z1 --out a.json",
@@ -157,6 +158,14 @@ class EngineCommandTests(HookCase):
             for program in (str(WEV), f"{os.sys.executable} -m wev_skills"):
                 with self.subTest(args=args, program=program[-12:]):
                     self.assertEqual(self.decision(f"{program} {args}"), ASK)
+
+    def test_scoring_asks_with_its_own_reason_and_is_not_person_only(self) -> None:
+        from wev_skills.adapters.claude_code import engine_cli
+
+        reason = engine_cli.operator_reason(("specialists", "score", "x"))
+        self.assertEqual(reason, "engine_score")
+        self.assertNotIn(reason, engine_cli.PERSON_ONLY_REASONS)
+        self.assertIsNone(engine_cli.operator_reason(("specialists", "scores")))
 
     def test_read_only_engine_commands_are_left_alone(self) -> None:
         self.start(mode="plan")

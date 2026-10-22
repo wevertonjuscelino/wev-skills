@@ -16,9 +16,6 @@ from wev_skills.core.errors import ValidationError
 from wev_skills.core.ports import SubprocessRunner
 from wev_skills.evaluation import cases, workspace
 
-# Replaced by the configured score_timeout_seconds once that setting exists.
-AT_BASE_TIMEOUT_SECONDS = 600.0
-
 
 def _check_at_base(scope: Any, loaded: tuple[cases.Case, ...]) -> list[dict[str, Any]]:
     runner = SubprocessRunner()
@@ -42,7 +39,12 @@ def _run_all(
     for case in loaded:
         with workspace.case_workspace(runner, scope.root, case, scratch) as path:
             result = workspace.run_check(
-                runner, policy, case, scope.root, path, AT_BASE_TIMEOUT_SECONDS
+                runner,
+                policy,
+                case,
+                scope.root,
+                path,
+                scope.config.specialists.score_timeout_seconds,
             )
         results.append(
             {

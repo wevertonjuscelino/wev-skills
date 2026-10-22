@@ -48,5 +48,6 @@
   "hooks.reason.engine_jev_key": "This wev command writes the JEV API key to your per-user key file; only the person sets the key, from the installer or their own terminal.",
   "hooks.reason.engine_rea": "This wev command changes how the rea reverse-engineering server runs (its mode, its container image or its registration in your harnesses); a person decides.",
   "hooks.reason.engine_skills": "This wev command installs, switches or rolls back a third-party skill version, or links skills into your harnesses (it fetches code from the network into your data directory); a person decides.",
-  "hooks.reason.engine_harness": "This wev command installs or removes the wev package in a harness (it registers plugins and hooks in that harness's configuration); a person decides."
+  "hooks.reason.engine_harness": "This wev command installs or removes the wev package in a harness (it registers plugins and hooks in that harness's configuration); a person decides.",
+  "hooks.reason.engine_score": "This wev command runs the specialist unattended against the committed cases through the claude CLI, which spends tokens (bounded by score_max_runs); a person decides."
 }
