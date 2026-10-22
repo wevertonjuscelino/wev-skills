@@ -4,8 +4,9 @@
 FROM python:3.14-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl ca-certificates nodejs npm \
-    && apt-get clean
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --shell /bin/bash runner
 ENV PYTHONDONTWRITEBYTECODE=1
-USER runner
 WORKDIR /home/runner
+USER runner

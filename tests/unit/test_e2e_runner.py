@@ -241,6 +241,16 @@ class SupportCase(unittest.TestCase):
         self.assertEqual(env["LANG"], "C.UTF-8")
         self.assertEqual(env["HOME"], str(tree.home))
 
+    def test_container_exec_runs_under_timeout_with_the_xdg_layout(self) -> None:
+        from tests.e2e._docker import ContainerHost, docker_env
+
+        host = ContainerHost.__new__(ContainerHost)
+        host.name = "box"
+        argv = host._wrapped(["wev", "version"], 90)
+        self.assertEqual(argv[-5:], ["timeout", "--kill-after=5", "90", "wev", "version"][-5:])
+        self.assertIn("XDG_DATA_HOME=/tmp/wev-xdg/data", argv)
+        self.assertEqual(docker_env({"DOCKER_HOST": "unix:///x"})["DOCKER_HOST"], "unix:///x")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,6 +31,12 @@ SCENARIOS: Mapping[str, str] = {
     "macos-core": "network only (npm registry, GitHub releases); no account",
     "linux-core": "network + one docker build (minutes); no account",
     "macos-isolated": "network + one docker build (minutes); no account",
+    "claude": "Claude Code account + tokens: uses your real Claude login in an isolated HOME",
+    "codex": "Codex account + tokens: uses your real Codex login in an isolated HOME",
+    "gemini": "you install the Gemini CLI first (not present today); a Gemini account + tokens",
+    "opencode": "you install the OpenCode CLI first (not present today); no account",
+    "jev": "one real jev ask call to api.typesafe.ai with a key you type yourself",
+    "update-daily": "network (npm registry); no account",
 }
 LABEL = "macOS: tested with isolated HOME, not a clean machine"
 OpenTty = Callable[[], TextIO | None]

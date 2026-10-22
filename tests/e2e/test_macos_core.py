@@ -19,23 +19,26 @@ INSTALLER = ROOT / "install.sh"
 class LocalHost:
     """This Mac, with HOME and the XDG roots inside a temporary tree."""
 
-    def __init__(self) -> None:
-        self.tree: Tree | None = Tree()
+    def __init__(self, tree: Tree | None = None) -> None:
+        self.tree: Tree | None = tree or Tree()
         self._tree = self.tree
         self.source = str(ROOT)
+
+    def env(self) -> dict[str, str]:
+        return self._tree.env()
 
     def cleanup(self) -> None:
         self._tree.cleanup()
 
     def run_wev(self, args: Sequence[str], timeout: float) -> Done:
-        return run([sys.executable, str(WEV), *args], timeout, self._tree.env())
+        return run([sys.executable, str(WEV), *args], timeout, self.env())
 
     def run_install(self, args: Sequence[str], timeout: float) -> Done:
-        return run(["bash", str(INSTALLER), *args], timeout, self._tree.env())
+        return run(["bash", str(INSTALLER), *args], timeout, self.env())
 
     def tool_count(self, timeout: float) -> int:
         argv = [sys.executable, str(WEV), "rea", "serve"]
-        return mcp_tool_count(argv, self._tree.env(), timeout)
+        return mcp_tool_count(argv, self.env(), timeout)
 
     def home_entries(self) -> frozenset[str]:
         return self._tree.listing()

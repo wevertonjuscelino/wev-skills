@@ -116,7 +116,8 @@ class Checks(unittest.TestCase):
             self.fail(f"{self.name}: {detail[-800:]}")
 
     def skip(self, cmd: str, reason: str) -> None:
-        report_line(self.scenario, self.name, cmd, None, f"skipped: {self.scrubbed(reason)}")
+        reason = self.scrubbed(reason)
+        report_line(self.scenario, self.name, cmd, None, f"skipped: {reason}")
         self.skipTest(reason)
 
     def wev(self, *args: str, timeout: float = SHORT) -> tuple[Done, str]:

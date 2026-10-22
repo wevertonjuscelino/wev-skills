@@ -25,6 +25,13 @@ class E2eDockerfileTests(unittest.TestCase):
         self.assertTrue(users)
         self.assertNotIn(users[-1], ("root", "0"))
 
+    def test_apt_installs_no_recommends_and_there_is_no_add(self) -> None:
+        self.assertIn("--no-install-recommends", TEXT)
+        self.assertFalse([line for line in LINES if line.startswith("ADD ")])
+
+    def test_user_is_the_last_instruction(self) -> None:
+        self.assertTrue(LINES[-1].startswith("USER "))
+
     def test_it_installs_the_stock_dependencies_and_holds_no_secret(self) -> None:
         for package in ("git", "curl", "nodejs", "npm"):
             self.assertRegex(TEXT, rf"\b{package}\b")

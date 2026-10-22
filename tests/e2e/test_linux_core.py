@@ -23,14 +23,10 @@ class LinuxCore(_core.CoreChecks):
         if cls.blocked:
             return
         cls.container = _docker.ContainerHost(_docker.build_image())
+        cls.addClassCleanup(cls.container.stop)
         cls.host = cls.container
         cls.before = cls.host.home_entries()
         cls.registry = _core.fetch_registry()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        if not cls.blocked:
-            cls.container.stop()
 
     @_core.named("installer's dependency check passes on a stock image")
     def test_01b_dependency_check_passes(self) -> None:

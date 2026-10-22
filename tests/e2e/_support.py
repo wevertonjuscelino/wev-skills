@@ -76,6 +76,21 @@ class Tree:
         self._tmp.cleanup()
 
 
+class FixedTree(Tree):
+    """The same layout at a fixed place (`.wev/e2e-home/` in the clone, gitignored), kept between
+    runs: the scenarios that need a login or a key the person provides once."""
+
+    def __init__(self, root: Path | None = None) -> None:
+        self.root = root or ROOT / ".wev" / "e2e-home"
+        self.home, self.config = self.root / "home", self.root / "config"
+        self.data, self.state = self.root / "data", self.root / "state"
+        for path in (self.home, self.config, self.data, self.state):
+            path.mkdir(parents=True, exist_ok=True)
+
+    def cleanup(self) -> None:
+        """Nothing: what the person set up here stays."""
+
+
 def scrub(text: str, tree: Tree | None = None) -> str:
     """Redact secrets and replace machine paths, so a report can be committed."""
     out = redact(text).replace(str(ROOT), "<clone>")
