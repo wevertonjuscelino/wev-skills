@@ -39,15 +39,50 @@ Execução de ponta a ponta de 2026-10-22: a rota de fonte local do instalador p
 
 Confira `python3 --version` antes de usar o plugin. Interpretadores antigos não são suportados, e os hooks podem sair sem verificar comandos quando o Python é antigo demais. Windows não é suportado.
 
-## Início rápido
+## Instalação
 
-Instalação guiada (faz algumas perguntas e depois registra o wev-skills, as skills de terceiros e os harnesses que você escolher; implementada e testada com CLIs de harness falsas e uma fonte local, ainda não executada na rota de download nem nos harnesses reais). A partir de um clone:
+Um comando no macOS ou no Linux. Ele faz algumas perguntas e deixa tudo pronto:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh | bash
+```
+
+Prefere ler antes? É um arquivo só, com menos de 400 linhas:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh -o install.sh
+less install.sh
 bash install.sh
 ```
 
-Depois que o dono publicá-la (apenas documentado): `curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh | bash`. Só no Claude Code, pelo repositório publicado como marketplace (apenas documentado, não executado): `/plugin install wev-skills --marketplace wevertonjuscelino/wev-skills`. Flags, o que grava e a desinstalação estão no [guia de instalação](docs/guides/installation.pt-BR.md#instalação-rápida).
+**O que acontece, passo a passo:**
+
+1. **Idioma**: inglês ou português.
+2. **Licença**: mostra a licença PolyForm Noncommercial (só uso não comercial) e pergunta se pode continuar. Se você disser não, nada é instalado.
+3. **Verificação do sistema**: macOS ou Linux, `git`, `curl`, Python 3.14 ou mais novo, Node e npm. Se faltar algum, mostra o único comando que o instala na sua máquina e só o roda se você disser sim.
+4. **Harnesses**: encontra Claude Code, Codex, Gemini CLI e OpenCode na sua máquina e pergunta em quais instalar.
+5. **wev-skills**: baixa a última release.
+6. **JEV** (opcional): se você tem uma chave TypeSafe/JEV, digite no prompt oculto. Ela fica num arquivo de chave em `~/.config/wev-skills/` (modo 600) e é testada com uma chamada. Com JEV, o wev usa a própria orquestração; sem JEV, cada harness usa a sua, e as proteções continuam ligadas nos dois casos.
+7. **Skills de terceiros**: instala a versão mais nova do [rea](https://github.com/morluto/rea) e do [agent-skills](https://github.com/addyosmani/agent-skills), cada um verificado antes de ser ativado.
+8. **Modo do rea**: isolado (num contêiner Docker, sugerido quando o Docker é encontrado) ou direto (na sua máquina, com as suas permissões).
+9. **Resumo**: o que foi instalado e onde, o que foi pulado e por quê, e os passos que só você pode fazer.
+
+**Passos que só você pode fazer** (o resumo mostra): confiar nos hooks no Codex quando ele perguntar; rodar `gemini extensions link <caminho>` no Gemini CLI; rodar a linha `codex mcp add rea -- ...` mostrada para o Codex ter as ferramentas do rea.
+
+**Depois:** o wev procura versões novas de si mesmo e das skills de terceiros na primeira vez que você abre o Claude Code no dia, e pergunta antes de atualizar; uma versão nova que falha na verificação não é ativada, e `wev skills rollback <nome>` volta para a anterior.
+
+| Para | Rode |
+|---|---|
+| Mudar as respostas | o mesmo comando de novo |
+| Instalar sem perguntas | `bash install.sh --yes` (acrescente `--jev`, `--harness claude,codex` ou `--rea-mode direct` se precisar) |
+| Desinstalar | `bash install.sh --uninstall` (pergunta antes de apagar o arquivo da chave; `--purge` apaga também) |
+| Ver todas as opções | `bash install.sh --help` |
+
+Status: implementado e testado com CLIs de harness falsas e uma fonte local, e de ponta a ponta no macOS com `HOME` isolado a partir de uma fonte local (13 de 13 verificações). A rota de download, o Linux e os harnesses reais (Claude Code, Codex, Gemini CLI, OpenCode) ainda não foram executados. Detalhes, flags e o que o instalador grava: [guia de instalação](docs/guides/installation.pt-BR.md#instalação-rápida).
+
+## Início rápido
+
+Instalou com o comando de [Instalação](#instalação)? Vá direto para a sessão do plugin abaixo. Só no Claude Code, pelo repositório publicado como marketplace (apenas documentado, não executado): `/plugin install wev-skills --marketplace wevertonjuscelino/wev-skills`.
 
 Ou à mão: clone o repositório público e localize a CLI. Estes comandos de clone são o passo de instalação de quem lê e não foram executados durante esta revisão da documentação:
 
