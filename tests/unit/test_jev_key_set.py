@@ -66,6 +66,18 @@ class WriteEnvKeyTest(_Case):
         write_env_key(self.file, KEY)
         self.assertEqual(self.file.read_bytes(), f"# c\nOTHER=1\n{VAR}={KEY}\n".encode())
 
+    def test_later_key_lines_dropped_and_crlf_kept(self) -> None:
+        self.seed(f"A=1\r\n# {VAR}=comment\r\n{VAR}=old\r\nB=2\r\nexport {VAR}=older\r\n")
+        write_env_key(self.file, KEY)
+        expected = f"A=1\r\n# {VAR}=comment\r\n{VAR}={KEY}\r\nB=2\r\n"
+        self.assertEqual(self.file.read_bytes(), expected.encode("utf-8"))
+
+    def test_existing_world_readable_file_ends_private(self) -> None:
+        self.seed("A=1\n")
+        os.chmod(self.file, 0o644)
+        write_env_key(self.file, KEY)
+        self.assertEqual(stat.S_IMODE(self.file.stat().st_mode), 0o600)
+
     def test_modes_on_a_fresh_directory(self) -> None:
         write_env_key(self.file, KEY)
         self.assertEqual(stat.S_IMODE(self.file.stat().st_mode), 0o600)
@@ -75,7 +87,8 @@ class WriteEnvKeyTest(_Case):
         with self.assertRaises(ValidationError) as caught:
             write_env_key(self.file, key)
         self.assertEqual(caught.exception.code, code)
-        self.assertNotIn(KEY, caught.exception.message)
+        if key:
+            self.assertNotIn(key, caught.exception.message)
 
     def test_symlinked_file_refused(self) -> None:
         self.seed("")
@@ -95,7 +108,9 @@ class WriteEnvKeyTest(_Case):
         self.assertEqual(list(real.iterdir()), [])
 
     def test_invalid_keys_refused(self) -> None:
-        for bad in ("", "a b", "a\tb", "a\nb", "a\x00b", "a\x7fb", "k ", "x" * 513, "é" * 257):
+        bad_keys = ("", "a b", "a\tb", "a\nb", "a\x00b", "a\x7fb", "k ", "x" * 513,
+                    "é" * 257, "key\U0001f511", "ключ", '"abc"', "'abc'")  # fmt: skip
+        for bad in bad_keys:
             with self.subTest(key=repr(bad)[:20]):
                 self.assert_refused("jev_key_invalid", bad)
         self.assertFalse(self.file.exists())
@@ -112,7 +127,7 @@ class WriteEnvKeyTest(_Case):
 
 
 class KeySetCommandTest(_Case):
-    def run_cli(self, stdin: io.StringIO) -> tuple[int, str, str]:
+    def run_cli(self, stdin: io.TextIOBase) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()
         with (
             contextlib.redirect_stdout(out),
@@ -130,6 +145,22 @@ class KeySetCommandTest(_Case):
         self.assertEqual(payload, {"written": str(self.file), "key_source": "env_file",
                                    "usable": True})  # fmt: skip
         self.assertEqual(resolve_api_key({}, self.file, lambda: None), ApiKey(KEY, "env_file"))
+
+    def test_env_var_shadows_the_written_key(self) -> None:
+        with mock.patch.dict(os.environ, {VAR: "ts-env-key"}):
+            code, out, err = self.run_cli(io.StringIO(KEY + "\n"))
+        self.assertEqual(code, 0, err)
+        self.assertNotIn(KEY, out + err)
+        self.assertNotIn("ts-env-key", out + err)
+        payload = json.loads(out)
+        self.assertEqual((payload["key_source"], payload["shadowed_by_env"]), ("env", True))
+
+    def test_undecodable_stdin_refused(self) -> None:
+        stdin = io.TextIOWrapper(io.BytesIO(b"ab\xffcd\n"), encoding="utf-8")
+        code, out, err = self.run_cli(stdin)
+        self.assertEqual(code, 2)
+        self.assertIn("jev_key_invalid", out + err)
+        self.assertFalse(self.file.exists())
 
     def test_only_the_trailing_newline_is_stripped(self) -> None:
         code, out, err = self.run_cli(io.StringIO(KEY + " \n"))

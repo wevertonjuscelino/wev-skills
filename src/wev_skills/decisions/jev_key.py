@@ -73,19 +73,24 @@ def read_env_file(path: Path) -> dict[str, str]:
 
 
 def _check_key(key: str) -> None:
-    too_long = len(key.encode("utf-8")) > MAX_KEY_BYTES
-    if not key or too_long or not key.isprintable() or any(ch.isspace() for ch in key):
+    # ASCII: the HTTP header must be latin-1; a quoted key would read back without its quotes.
+    readable = key.isascii() and key.isprintable() and _unquote(key) == key
+    if not key or len(key) > MAX_KEY_BYTES or not readable or any(ch.isspace() for ch in key):
         raise ValidationError("jev_key_invalid", i18n.t("decisions.jev.key_invalid"))
 
 
 def _with_key(text: str, key: str) -> str:
-    """``text`` with its ``ENV_VAR`` lines replaced by ``key`` (or one appended); the rest kept."""
-    line = f"{ENV_VAR}={key}\n"
+    """``text`` with its first ``ENV_VAR`` line set to ``key`` and later ones dropped (or one
+    appended); every other line is kept, and so is the replaced line's ending."""
     lines = text.splitlines(keepends=True)
-    found = [(_parse_line(old) or ("", ""))[0] == ENV_VAR for old in lines]
-    if any(found):
-        return "".join(line if hit else old for old, hit in zip(lines, found, strict=True))
-    return text + ("\n" if text and not text.endswith("\n") else "") + line
+    hits = [i for i, old in enumerate(lines) if (_parse_line(old) or ("", ""))[0] == ENV_VAR]
+    if not hits:
+        return text + ("\n" if text and not text.endswith("\n") else "") + f"{ENV_VAR}={key}\n"
+    first = lines[hits[0]]
+    ending = "\r\n" if first.endswith("\r\n") else "\n"
+    kept = [old for i, old in enumerate(lines) if i not in hits[1:]]
+    kept[hits[0]] = f"{ENV_VAR}={key}{ending}"
+    return "".join(kept)
 
 
 def write_env_key(path: Path, key: str) -> None:

@@ -121,11 +121,15 @@ def _run_status(args: argparse.Namespace) -> dict[str, Any]:
 def _run_key_set(args: argparse.Namespace) -> dict[str, Any]:
     if sys.stdin.isatty():
         raise ValidationError("key_stdin_tty", i18n.t("jev.error.key_stdin_tty"))
-    key = sys.stdin.readline().removesuffix("\n").removesuffix("\r")
+    try:
+        key = sys.stdin.readline().removesuffix("\n").removesuffix("\r")
+    except UnicodeDecodeError:
+        raise ValidationError("jev_key_invalid", i18n.t("decisions.jev.key_invalid")) from None
     path = env_file_path()
     write_env_key(path, key)
-    usable = _builtin_status(True)["usable"]
-    return {"written": str(path), "key_source": "env_file", "usable": usable}
+    status = _builtin_status(True)
+    payload = {"written": str(path), "key_source": status["key_source"], "usable": status["usable"]}
+    return {**payload, "shadowed_by_env": True} if status["key_source"] == "env" else payload
 
 
 def _read_questions(path: str) -> dict[str, Any]:
