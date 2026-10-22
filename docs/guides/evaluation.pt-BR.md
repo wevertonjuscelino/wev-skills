@@ -127,14 +127,15 @@ Escreva fixtures que exercitem um mecanismo, diga em `description` o que elas ex
 "$WEV_HOME/bin/wev" cases list                  # os casos e o digest que fixa o conjunto
 "$WEV_HOME/bin/wev" cases validate              # só o esquema
 "$WEV_HOME/bin/wev" cases validate --at-base    # cada verificação deve falhar no commit-base
-"$WEV_HOME/bin/wev" specialists score project-engineer   # só humano; roda o claude sem assistência
-"$WEV_HOME/bin/wev" specialists scores [project-engineer]   # histórico em .wev/scores.jsonl
+"$WEV_HOME/bin/wev" specialists score wev-engineer   # só humano; roda o claude sem assistência
+"$WEV_HOME/bin/wev" specialists scores [wev-engineer]   # histórico em .wev/scores.jsonl
 ```
 
 - `validate --at-base` roda cada verificação em um checkout temporário do commit-base (fora de `.wev`) com timeout de `specialists.score_timeout_seconds`, e recusa com `case_passes_at_base` ou `case_check_broken`.
 - `specialists score` exige os casos commitados e limpos (`cases_uncommitted`, `cases_status_failed`, `cases_changed`), ao menos um caso para o agente (`score_no_cases`) e uma linha de base que caiba em `score_max_runs` (`score_over_cap`, saída 6). Outras recusas: `lessons_changed` (saída 5; outra nota ou decisão mudou as lições do especialista nesse meio-tempo), `plugin_missing` (saída 2; falta o manifesto do plugin ou o arquivo de hooks), `git_config_changed` (saída 5) e `score_agent_failed` (saída 8; uma execução de agente que falha não decide nada, enquanto um timeout conta como falha). Imprime um relatório com o id da nota, o digest dos casos, a linha de base, as lições aceitas e aposentadas, as lições de modelo escritas na execução (`new`), as execuções usadas e planejadas e o que foi pulado ou adiado.
 - A catraca: uma lição candidata entra quando nenhum caso perde um passe e o total sobe; empate fica `proposed`; a ablação aposenta uma lição ativa aceita por nota do mesmo modo. Cada caso roda `score_samples` vezes. Uma correlação entre uma lição e um passe não prova que a lição o causou.
 - Com `specialists.score_on_finish` verdadeiro (padrão false), o `run finish` de um agente inicia a pontuação sem assistência sem o portão só-humano do `specialists score`, e por isso a chave vem desligada. Ele então pontua cada especialista do projeto que encerrou uma tarefa, uma vez, na chamada que leva uma execução registrada a done. Uma falha vai para `score_errors` e nunca desfaz o fim.
+- Uma execução da nota pode demorar muito mais do que uma chamada Bash de um agente permite (a ferramenta Bash do Claude Code interrompe um comando após 2 minutos por padrão, 10 no máximo), então rode-a, e o `run finish` com `score_on_finish`, em um terminal ou em segundo plano; uma execução interrompida deixa tokens gastos e um diretório temporário `wev-scoring-*` para trás. Antes da primeira execução de agente ela imprime em stderr o número de execuções previstas e o limite.
 - As verificações dos casos passam pela política de comandos do motor sem concessões e com ambiente limpo. A execução não assistida, o filtro de lições e a impressão digital do diretório git estão em [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md), "Execução não assistida da nota". **Confirme no primeiro `wev specialists score` real que os hooks do wev disparam sob `--restricted`, `-p` e `dontAsk`**; nada verificou isso ainda. Um caso aprovado também pode ser burlado editando código que o teste guardado importa (risco residual no SECURITY.pt-BR.md).
 
 ## Os limites da avaliação roteirizada
