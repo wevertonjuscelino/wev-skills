@@ -12,5 +12,16 @@
   "harness.skipped.gemini_context": "gemini contextFileName: nenhum arquivo de contexto é enviado, então o campo fica de fora",
   "harness.error.not_empty": "O diretório de exportação {path} não está vazio; use um diretório vazio ou novo.",
   "harness.skipped.gemini_hooks_shape": "gemini hooks/hooks.json: o wrapper {\"hooks\": ...} no topo é inferido da forma do settings.json (a única que a nota documenta), e se os hooks de extensão exigem confiança na pasta é desconhecido; nenhum suporte é afirmado até a execução ponta a ponta",
-  "harness.skipped.opencode_guard": "guarda do opencode: plugins/wev-guard.js é um // wev-placeholder sem guarda; não instale até uma tarefa posterior entregá-lo"
+  "harness.skipped.opencode_guard": "guarda do opencode: plugins/wev-guard.js é um // wev-placeholder sem guarda; não instale até uma tarefa posterior entregá-lo",
+  "harness.install.help": "Instala o pacote wev em um harness (somente codex) e registra o que foi escrito em um manifesto.",
+  "harness.uninstall.help": "Desfaz o harness install: cancela o registro e remove apenas os arquivos listados no manifesto.",
+  "harness.install.target": "Harness onde instalar (codex).",
+  "harness.install.wev": "Caminho absoluto do launcher wev que os hooks e as skills chamam (padrão: bin/wev deste clone).",
+  "harness.uninstall.target": "Harness de onde desinstalar (codex).",
+  "harness.error.not_installable": "Não é possível instalar em {target}: só o codex tem instalador.",
+  "harness.error.cli_failed": "O comando do harness falhou: {command} ({detail})",
+  "harness.error.placeholder": "Recusando instalar {path}: é um placeholder (primeira linha // wev-placeholder), não um recurso entregue.",
+  "harness.error.not_installed": "Nada a desinstalar: não há manifesto para {target}.",
+  "harness.next.codex_trust": "O Codex só executa um hook não revisado depois que você confia nele: inicie o codex e revise e confie nos hooks do wev-skills quando ele pedir. Até lá os hooks de guarda não rodam.",
+  "harness.next.codex_check": "Confira que as skills estão visíveis com: codex debug prompt-input"
 }

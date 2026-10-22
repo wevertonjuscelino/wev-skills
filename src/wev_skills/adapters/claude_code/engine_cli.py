@@ -7,7 +7,8 @@ directory shadows the package).
 
 The engine gates its own commands, so most are left to it. The ones listed here change what
 the run allows (a decision of the operator, an approval request, a new or finished run,
-another configuration, a file written by ``agent``, a remote start or stop), and the two
+another configuration, a file written by ``agent``, a remote start or stop, an install into
+or an uninstall from a harness), and the two
 ``jev`` commands that send a file's content to the JEV service (``jev batch`` also writes its
 ``--out`` file). The hook answers ``ask`` for them so that Claude Code's permission prompt,
 which a person answers, stands in front of them.
@@ -45,6 +46,8 @@ RUN_COMMANDS = frozenset(
      ("remote", "start"), ("remote", "stop")}
 )  # fmt: skip
 JEV_COMMANDS = frozenset({("jev", "ask"), ("jev", "batch")})
+HARNESS_COMMANDS = frozenset({("harness", "install"), ("harness", "uninstall")})
+"""``harness export`` only writes into a directory the person names, so it is left to the engine."""
 """``jev status`` sends nothing and writes nothing, so it is left to the engine."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"
@@ -55,6 +58,7 @@ REASON_RUN = "engine_run"
 REASON_REQUEST = "engine_request"
 REASON_CONFIG = "engine_config"
 REASON_JEV = "engine_jev"
+REASON_HARNESS = "engine_harness"
 
 
 def _real_program(program: str, cwd: str) -> str | None:
@@ -114,6 +118,8 @@ def _command_reason(args: Sequence[str]) -> str | None:
         return REASON_OPERATOR if reopens else REASON_REQUEST
     if words in JEV_COMMANDS:
         return REASON_JEV
+    if words in HARNESS_COMMANDS:
+        return REASON_HARNESS
     return REASON_RUN if words in RUN_COMMANDS else None
 
 

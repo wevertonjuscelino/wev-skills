@@ -43,5 +43,6 @@
   "hooks.reason.ask_as_warning": "o wev perguntaria antes deste comando; este harness não consegue perguntar, então ele foi permitido: {reason}",
   "hooks.reason.unknown_target": "Este comando indica um caminho por meio de uma variável, então o alvo não pode ser conhecido aqui, e há uma execução wev ativa em {root}. Ele pode tocar a árvore dessa execução, então uma pessoa decide.",
   "orch.budget.warning": "A execução consumiu ao menos 80% do orçamento do motor; revise o escopo restante.",
-  "orch.budget.stop": "Orçamento da execução esgotado ou o trabalho solicitado excederia o limite; inicie outra execução com limites revisados."
+  "orch.budget.stop": "Orçamento da execução esgotado ou o trabalho solicitado excederia o limite; inicie outra execução com limites revisados.",
+  "hooks.reason.engine_harness": "Este comando wev instala ou remove o pacote wev em um harness (registra plugins e hooks na configuração dele); uma pessoa decide."
 }

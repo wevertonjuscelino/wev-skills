@@ -12,5 +12,16 @@
   "harness.skipped.gemini_context": "gemini contextFileName: no context file is shipped, so it is left out",
   "harness.error.not_empty": "The export directory {path} is not empty; use an empty or new directory.",
   "harness.skipped.gemini_hooks_shape": "gemini hooks/hooks.json: the top-level {\"hooks\": ...} wrapper is inferred from the settings.json form (the only form the note documents), and whether extension hooks need folder trust is unknown; no support is claimed until the end-to-end run",
-  "harness.skipped.opencode_guard": "opencode guard: plugins/wev-guard.js is a // wev-placeholder with no guard; do not install until a later task ships it"
+  "harness.skipped.opencode_guard": "opencode guard: plugins/wev-guard.js is a // wev-placeholder with no guard; do not install until a later task ships it",
+  "harness.install.help": "Install the wev package into a harness (codex only) and record what was written in a manifest.",
+  "harness.uninstall.help": "Undo harness install: unregister and remove only the files the manifest lists.",
+  "harness.install.target": "Harness to install into (codex).",
+  "harness.install.wev": "Absolute path of the wev launcher the hooks and skills call (default: this clone's bin/wev).",
+  "harness.uninstall.target": "Harness to uninstall from (codex).",
+  "harness.error.not_installable": "Cannot install into {target}: only codex has an installer.",
+  "harness.error.cli_failed": "The harness command failed: {command} ({detail})",
+  "harness.error.placeholder": "Refusing to install {path}: it is a placeholder (first line // wev-placeholder), not a shipped feature.",
+  "harness.error.not_installed": "Nothing to uninstall: no manifest for {target}.",
+  "harness.next.codex_trust": "Codex runs an unreviewed hook only after you trust it: start codex and review and trust the wev-skills hooks when it asks. Until then the guard hooks do not run.",
+  "harness.next.codex_check": "Check the skills are visible with: codex debug prompt-input"
 }

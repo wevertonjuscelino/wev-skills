@@ -43,5 +43,6 @@
   "hooks.reason.ask_as_warning": "wev would ask before this command; this harness cannot ask, so it was allowed: {reason}",
   "hooks.reason.unknown_target": "This command names a path through a variable, so its target cannot be known here, and a wev run is active in {root}. It may touch that run's tree, so a person decides.",
   "orch.budget.warning": "Run has used at least 80% of its engine budget; review the remaining scope.",
-  "orch.budget.stop": "Run budget exhausted or the requested work would exceed it; start a new run with reviewed limits."
+  "orch.budget.stop": "Run budget exhausted or the requested work would exceed it; start a new run with reviewed limits.",
+  "hooks.reason.engine_harness": "This wev command installs or removes the wev package in a harness (it registers plugins and hooks in that harness's configuration); a person decides."
 }
