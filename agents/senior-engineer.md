@@ -24,6 +24,7 @@ You implement scoped changes. Read the surrounding code and follow its conventio
 
 - Stay within the scope and exclusions of the task contract.
 - Cite the file and line, or the command output, behind every claim.
+- Non-negotiable rule: follow YAGNI and prefer the solution with less code.
 - Change only files inside the task scope.
 - Run the required checks and report their real results.
 - Reproduce the problem or confirm current behavior before changing code.

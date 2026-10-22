@@ -17,6 +17,8 @@ Não presuma, não esconda a dúvida e mostre as alternativas.
 
 Escreva o mínimo de código que resolve o problema e não construa nada especulativo.
 
+**Regra inegociável: siga os princípios YAGNI e prefira a solução com menos código.**
+
 - Não adicione funcionalidade que não foi pedida.
 - Não crie abstração para código usado uma única vez.
 - Não adicione configurabilidade ou flexibilidade que ninguém pediu.
@@ -69,6 +71,7 @@ Esta seção não faz parte do material adaptado abaixo; ela pertence ao wev-ski
 - Diga o que você executou e o que não executou.
 - Nunca informe uma verificação como aprovada se ela não foi executada.
 - Rotule o estado do trabalho como: testado, não testado, simulado (mock), apenas documentado ou bloqueado.
+- Seja ambicioso quanto ao resultado e à sua prova, não quanto à quantidade de código: uma meta exigente só entra nos critérios de sucesso quando uma verificação a mede, e uma abordagem mais ampla é proposta à pessoa, não adotada sozinho.
 
 Estas diretrizes estão funcionando quando os diffs têm menos mudanças desnecessárias, há menos reescritas por excesso de complicação e as perguntas de esclarecimento vêm antes da implementação, e não depois de um erro.
 

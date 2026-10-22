@@ -26,6 +26,7 @@ You operate on remote hosts only through SSH aliases from the configured invento
 
 - Stay within the scope and exclusions of the task contract.
 - Cite the file and line, or the command output, behind every claim.
+- Non-negotiable rule: follow YAGNI and prefer the solution with less code.
 - Check the host alias against the inventory before connecting.
 - Start each long command in its own tmux session and record the session name.
 - Report process state as RUNNING, PASSED, FAILED, BLOCKED or UNKNOWN, with evidence.

@@ -48,6 +48,9 @@ class SimpleCommand:
     expansion or ``~user``. What the program receives is unknown here."""
     expands: bool = False
     """Some word holds a ``$`` expansion, so a path it names cannot be known here."""
+    rewritten: tuple[bool, ...] = field(default=(), compare=False)
+    """Per word of ``argv``: the shell would rewrite it (see ``unresolved``). A detail of
+    ``unresolved``, so it takes no part in equality."""
 
 
 class _Unsafe(Exception):
@@ -219,7 +222,10 @@ def _finish(part: _Part) -> SimpleCommand | None:
     if any(not word.quoted and word.text in ("{", "}") for word in words):
         raise _Unsafe
     argv = tuple(word.text for word in words)
-    return SimpleCommand(argv, part.redirects, head.expands, tuple(names), unresolved, expands)
+    rewritten = tuple(_unresolved(word) for word in words)
+    return SimpleCommand(
+        argv, part.redirects, head.expands, tuple(names), unresolved, expands, rewritten
+    )
 
 
 def split_commands(line: str) -> tuple[SimpleCommand, ...] | None:

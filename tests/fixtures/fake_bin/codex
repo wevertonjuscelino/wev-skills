@@ -1,0 +1,5 @@
+#!/bin/sh
+# Fake codex CLI: logs argv to $FAKE_LOG, exits 1 when FAKE_FAIL names "codex".
+printf 'codex %s\n' "$*" >> "$FAKE_LOG"
+case ",${FAKE_FAIL:-}," in *,codex,*) exit 1 ;; esac
+exit 0

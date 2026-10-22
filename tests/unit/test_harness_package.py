@@ -1,0 +1,233 @@
+import contextlib
+import io
+import json
+import shlex
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from wev_skills import cli
+from wev_skills.adapters import harness_package
+from wev_skills.adapters.harness_package import (
+    SKILL_NOTICE,
+    build_package,
+    render_skill_text,
+    skipped_notes,
+)
+from wev_skills.core.errors import StateConflict, ValidationError
+from wev_skills.core.wiring import REPO_ROOT
+
+WEV = REPO_ROOT / "bin" / "wev"
+SPACED = Path("/tmp/my clone's dir/bin/wev")
+SKILL_FILES = {
+    p.relative_to(REPO_ROOT / "skills").as_posix()
+    for p in (REPO_ROOT / "skills").rglob("*")
+    if p.is_file()
+}
+AGENT_IDS = {p.stem for p in (REPO_ROOT / "agents").glob("*.md")}
+
+
+def _tree(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+def _files(root: Path) -> set[str]:
+    return set(_tree(root))
+
+
+def _hook_commands(path: Path) -> list[str]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return [h["command"] for groups in data["hooks"].values() for g in groups for h in g["hooks"]]
+
+
+class RenderTests(unittest.TestCase):
+    def test_render_replaces_every_placeholder(self) -> None:
+        for name in sorted((REPO_ROOT / "skills").glob("*/SKILL.md")):
+            text = render_skill_text(name.read_text(encoding="utf-8"), WEV)
+            self.assertNotIn("CLAUDE_PLUGIN_ROOT", text, name)
+        self.assertEqual(len(list((REPO_ROOT / "skills").glob("*/SKILL.md"))), 8)
+
+    def test_render_quotes_a_path_with_spaces(self) -> None:
+        out = render_skill_text('run "${CLAUDE_PLUGIN_ROOT}/bin/wev" eval list', SPACED)
+        self.assertEqual(shlex.split(out), ["run", str(SPACED), "eval", "list"])
+        out = render_skill_text("run ${CLAUDE_PLUGIN_ROOT}/bin/wev eval", SPACED)
+        self.assertEqual(shlex.split(out), ["run", str(SPACED), "eval"])
+        out = render_skill_text("see ${CLAUDE_PLUGIN_ROOT}/examples/plan.json", SPACED)
+        self.assertEqual(shlex.split(out), ["see", f"{SPACED.parent.parent}/examples/plan.json"])
+
+
+class LayoutTests(unittest.TestCase):
+    def _build(self, target: str, wev: Path = WEV) -> tuple[Path, list[Path]]:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        out = Path(tmp.name) / "pkg"
+        return out, build_package(target, out, wev)
+
+    def _skills(self) -> set[str]:
+        return {f"skills/{f}" for f in SKILL_FILES}
+
+    def test_codex_layout(self) -> None:
+        out, written = self._build("codex")
+        self.assertEqual(_files(out), {".codex-plugin/plugin.json", "hooks.json"} | self._skills())
+        self.assertEqual({p.relative_to(out).as_posix() for p in written}, _files(out))
+        manifest = json.loads((out / ".codex-plugin/plugin.json").read_text())
+        self.assertEqual(manifest["skills"], "./skills/")
+        self.assertEqual(manifest["hooks"], "./hooks.json")
+        self.assertRegex(manifest["version"], r"^\d+\.\d+\.\d+")
+        hooks = json.loads((out / "hooks.json").read_text())["hooks"]
+        self.assertEqual(set(hooks), {"SessionStart", "PreToolUse"})
+        self.assertEqual(hooks["PreToolUse"][0]["matcher"], "Bash")
+
+    def test_gemini_layout(self) -> None:
+        out, _ = self._build("gemini")
+        agents = {f"agents/{i}.md" for i in AGENT_IDS}
+        self.assertEqual(
+            _files(out), {"gemini-extension.json", "hooks/hooks.json"} | self._skills() | agents
+        )
+        manifest = json.loads((out / "gemini-extension.json").read_text())
+        self.assertEqual(manifest["name"], "wev-skills")
+        self.assertNotIn("contextFileName", manifest)
+        hooks = json.loads((out / "hooks/hooks.json").read_text())["hooks"]
+        self.assertEqual(set(hooks), {"SessionStart", "BeforeTool"})
+        self.assertEqual(hooks["BeforeTool"][0]["matcher"], "run_shell_command")
+        agent = (out / "agents/architect.md").read_text()
+        self.assertTrue(agent.startswith('---\nname: "architect"\ndescription: "'))
+
+    def test_opencode_layout(self) -> None:
+        out, _ = self._build("opencode")
+        agents = {f"agents/{i}.md" for i in AGENT_IDS}
+        expected = {"plugins/wev-guard.js", "opencode.json"} | self._skills() | agents
+        self.assertEqual(_files(out), expected)
+        agent = (out / "agents/architect.md").read_text()
+        self.assertIn("mode: subagent", agent.split("---")[1])
+        self.assertIn("spawnSync", (out / "plugins/wev-guard.js").read_text())
+
+    def test_hook_commands_use_the_export_interpreter_and_absolute_wev(self) -> None:
+        for python in (sys.executable, "/opt/my py's/python3"):
+            for target, path in (("codex", "hooks.json"), ("gemini", "hooks/hooks.json")):
+                with self.subTest(python=python, target=target):
+                    with mock.patch.object(sys, "executable", python):
+                        out, _ = self._build(target, SPACED)
+                    commands = _hook_commands(out / path)
+                    self.assertEqual(len(commands), 2)
+                    for command in commands:
+                        argv = shlex.split(command)
+                        self.assertEqual(argv[:2], [python, str(SPACED)])
+                        self.assertEqual(argv[-2:], ["--harness", target])
+
+    def _rea_commands(self, target: str, wev: Path) -> list[list[str]]:
+        out, _ = self._build(target, wev)
+        if target == "gemini":
+            server = json.loads((out / "gemini-extension.json").read_text())["mcpServers"]["rea"]
+            return [[server["command"], *server["args"]]]
+        if target == "opencode":
+            return [json.loads((out / "opencode.json").read_text())["mcp"]["rea"]["command"]]
+        return []
+
+    def test_mcp_entries_use_the_pinned_interpreter_absolute_wev_and_rea_serve(self) -> None:
+        for python in (sys.executable, "/opt/my py's/python3"):
+            for target in ("gemini", "opencode"):
+                with self.subTest(python=python, target=target):
+                    with mock.patch.object(sys, "executable", python):
+                        commands = self._rea_commands(target, SPACED)
+                    self.assertEqual(commands, [[python, str(SPACED), "rea", "serve"]])
+                    self.assertTrue(Path(commands[0][1]).is_absolute())
+
+    def test_no_mcp_entry_points_at_npx(self) -> None:
+        self.assertEqual(self._rea_commands("codex", WEV), [])  # codex registers nothing
+        for target in harness_package.TARGETS:
+            out, _ = self._build(target)
+            for path in out.rglob("*.json"):
+                with self.subTest(target=target, path=path.name):
+                    self.assertNotIn("npx", path.read_text(encoding="utf-8"))
+        for target in ("gemini", "opencode"):
+            self.assertFalse(
+                any("npx" in part for c in self._rea_commands(target, WEV) for part in c)
+            )
+
+    def test_gemini_manifest_declares_only_the_rea_server(self) -> None:
+        out, _ = self._build("gemini")
+        servers = json.loads((out / "gemini-extension.json").read_text())["mcpServers"]
+        self.assertEqual(list(servers), ["rea"])
+
+    def test_codex_skips_mcp_with_an_honest_note(self) -> None:
+        out, _ = self._build("codex")
+        manifest = json.loads((out / ".codex-plugin/plugin.json").read_text())
+        self.assertNotIn("mcpServers", manifest)
+        self.assertTrue(any("codex mcp" in n for n in skipped_notes("codex")))
+
+    def test_exported_skills_start_with_the_harness_notice(self) -> None:
+        notice = (
+            "On this harness the wev guard cannot ask a person: a command it would ask about "
+            "runs with a warning, and human-operator commands are denied."
+        )
+        self.assertTrue(SKILL_NOTICE.startswith(notice))
+        for command in ("approval request --reopen-denied", "harness install|uninstall"):
+            self.assertIn(command, SKILL_NOTICE)
+        for target in ("codex", "gemini", "opencode"):
+            out, _ = self._build(target)
+            for name in sorted((out / "skills").glob("*/SKILL.md")):
+                with self.subTest(target=target, skill=name.parent.name):
+                    text = name.read_text(encoding="utf-8")
+                    end = text.index("\n---\n", 3) + len("\n---\n")
+                    self.assertEqual(text.count(SKILL_NOTICE), 1)
+                    self.assertTrue(text[end:].startswith(f"\n{SKILL_NOTICE}\n"))
+            reference = next((out / "skills").glob("*/references/*"))
+            self.assertNotIn(SKILL_NOTICE, reference.read_text(encoding="utf-8"))
+        for source in (REPO_ROOT / "skills").glob("*/SKILL.md"):
+            self.assertNotIn(SKILL_NOTICE, source.read_text(encoding="utf-8"))
+
+    def test_dotfiles_and_caches_in_skills_are_not_exported(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "skills" / "wev-x"
+            (skill / "__pycache__").mkdir(parents=True)
+            (skill / "SKILL.md").write_text("---\nname: wev-x\n---\n\n# X\n")
+            (skill / ".DS_Store").write_bytes(b"\x00\x87\xff")
+            (skill / "__pycache__" / "m.pyc").write_bytes(b"\xff")
+            written: list[Path] = []
+            with mock.patch.object(harness_package, "REPO_ROOT", root):
+                harness_package._write_skills(root / "out", WEV, written)
+            self.assertEqual([p.relative_to(root / "out").as_posix() for p in written],
+                             ["skills/wev-x/SKILL.md"])  # fmt: skip
+
+    def test_export_is_deterministic(self) -> None:
+        for target in ("codex", "gemini", "opencode"):
+            first, _ = self._build(target)
+            second, _ = self._build(target)
+            self.assertEqual(_tree(first), _tree(second))
+
+    def test_skipped_notes_state_the_limits(self) -> None:
+        self.assertFalse(any("placeholder" in n for n in skipped_notes("opencode")))
+        self.assertTrue(any("inferred" in n for n in skipped_notes("gemini")))
+        self.assertTrue(any("not injected on OpenCode" in n for n in skipped_notes("opencode")))
+
+    def test_non_empty_out_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "keep.txt").write_text("x")
+            with self.assertRaises(StateConflict):
+                build_package("codex", Path(tmp), WEV)
+            self.assertEqual(_files(Path(tmp)), {"keep.txt"})
+
+    def test_unknown_target_is_refused(self) -> None:
+        with self.assertRaises(ValidationError):
+            self._build("emacs")
+
+
+class ExportCommandTests(unittest.TestCase):
+    def test_export_prints_files_and_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = cli.main(["harness", "export", "--target", "codex", "--out", tmp + "/o"])
+            self.assertEqual(code, 0)
+            data = json.loads(buf.getvalue())
+            self.assertEqual(data["target"], "codex")
+            self.assertTrue(all(Path(f).is_file() for f in data["files"]))
+            self.assertTrue(any("subagents not exported for codex" in s for s in data["skipped"]))
+
+
+if __name__ == "__main__":
+    unittest.main()

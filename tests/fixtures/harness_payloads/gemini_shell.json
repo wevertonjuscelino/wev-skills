@@ -1,0 +1,1 @@
+{"session_id": "s1", "transcript_path": "/tmp/t.json", "cwd": "/tmp/work", "hook_event_name": "BeforeTool", "timestamp": "2026-10-21T00:00:00Z", "tool_name": "run_shell_command", "tool_input": {"command": "ls -la"}}

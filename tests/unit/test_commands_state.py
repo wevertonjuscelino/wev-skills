@@ -41,7 +41,13 @@ class StateCommandTests(unittest.TestCase):
     def test_list_is_empty_without_runs(self) -> None:
         code, out, _ = self.wev("state", "list")
         self.assertEqual(code, 0)
-        expected = {"state_dir": str(self.state_dir), "active": None, "latest": None, "runs": []}
+        expected = {
+            "state_dir": str(self.state_dir),
+            "active": None,
+            "active_registered": False,
+            "latest": None,
+            "runs": [],
+        }
         self.assertEqual(json.loads(out), expected)
 
     def test_list_summarizes_runs_and_names_the_latest(self) -> None:

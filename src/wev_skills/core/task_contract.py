@@ -21,7 +21,7 @@ from wev_skills.core.discovery import default_check
 from wev_skills.core.steps import suggestions_of
 from wev_skills.state.model import RunState
 
-CONSTRAINT_KEYS = ("scope", "exec", "report")
+CONSTRAINT_KEYS = ("scope", "exec", "report", "simplicity")
 NONE_MARK = "-"
 
 

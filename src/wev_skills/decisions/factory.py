@@ -6,11 +6,12 @@ from collections.abc import Callable
 from functools import partial
 
 from wev_skills import i18n
-from wev_skills.config import Config
+from wev_skills.config import BUILTIN, Config
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.ports import Runner
 from wev_skills.decisions import DecisionProvider
 from wev_skills.decisions.jev import JevProvider
+from wev_skills.decisions.jev_http import LazyAsker
 from wev_skills.decisions.jev_program import resolve_jev_program
 from wev_skills.decisions.local import LocalPolicyProvider
 
@@ -20,7 +21,8 @@ def build_provider(
 ) -> DecisionProvider:
     """``config.decision.provider`` is ``local`` or ``jev``; JEV always wraps a local policy.
 
-    The JEV program is resolved on ``permissions.exec_path`` (or taken as an absolute path
+    With ``decision.jev.command`` left at ``builtin`` JEV is asked over HTTPS; any other value
+    is a program. The program is resolved on ``permissions.exec_path`` (or taken as an absolute path
     outside ``root``, default the working directory) each time it is asked.
     """
     local = LocalPolicyProvider(config.limits, config.harness)
@@ -29,6 +31,7 @@ def build_provider(
         return local
     if name == "jev":
         jev = config.decision.jev
+        asker = LazyAsker(jev.timeout_seconds) if jev.command == BUILTIN else None
         resolver = partial(resolve_jev_program, exec_path=config.permissions.exec_path, root=root)
         return JevProvider(
             runner,
@@ -37,6 +40,7 @@ def build_provider(
             jev.timeout_seconds,
             redactor=redactor,
             program_resolver=resolver,
+            asker=asker,
         )
     raise ValidationError(
         "unknown_provider",

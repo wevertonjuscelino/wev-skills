@@ -18,7 +18,7 @@ from tests.fixtures.operator_prompt import at_terminal
 from wev_skills import cli
 from wev_skills.commands import remote as remote_cmd
 from wev_skills.config import RemoteHost, config_digest, parse_config
-from wev_skills.core import wiring
+from wev_skills.core import active, wiring
 from wev_skills.core.contracts import (
     Classification,
     Complexity,
@@ -98,6 +98,7 @@ class CliBase(unittest.TestCase):
         self.state_dir = self.repo / ".wev"
         store = StateStore(run_dir(self.state_dir, RUN_ID))
         store.create("objective", mode, RUN_ID, pinned.to_dict(), config_digest(pinned), "test")
+        active.register_run(self.repo, self.state_dir, RUN_ID)
         level = Classification(Complexity.SIMPLE, risk, 0.0, False, (), "test")
         plan = Plan("objective", (PlanTask("T-1", "remote check", "run it"),))
 

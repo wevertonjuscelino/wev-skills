@@ -12,6 +12,8 @@ Request: $ARGUMENTS
 
 Answer the user in the language they write; when they write Portuguese, pass `--lang pt-BR` before the command group. Commands use `"${CLAUDE_PLUGIN_ROOT}/bin/wev"`. Outside a plugin the same commands work as `wev` when it is on PATH, or as `python3 -m wev_skills` with the package importable.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
 ## How it works
 
 The engine connects with the system `ssh` client using non-interactive options with strict host-key checking, so it can only use what the operator already set up. It starts the command inside a tmux session on the host, keeps a log and an exit-status file under `~/.wev/remote` there, and reads the status or the log tail later. Each command is judged by the same security policy as local commands.

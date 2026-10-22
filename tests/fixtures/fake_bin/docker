@@ -1,0 +1,9 @@
+#!/bin/sh
+# Fake docker: logs argv to $FAKE_LOG. "docker info" succeeds; "docker build" exits 1 when
+# FAKE_FAIL names "docker-build"; "docker image inspect" says the image is absent.
+printf 'docker %s\n' "$*" >> "$FAKE_LOG"
+case "$1" in
+  build) case ",${FAKE_FAIL:-}," in *,docker-build,*) echo "fake docker: build failed" >&2; exit 1 ;; esac ;;
+  image) exit 1 ;;
+esac
+exit 0

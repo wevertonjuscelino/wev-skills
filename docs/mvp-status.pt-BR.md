@@ -31,6 +31,16 @@ A entrevista de objetivo e os especialistas de projeto foram acrescentados depoi
 
 Testes focados de CLI, persistência, aprendizado, roteamento e orçamento cobrem esses acréscimos. O resultado da suíte completa pertence ao commit posterior e deve ser consultado na saída de CI/checks dele, não inferido dos números históricos acima. Entrevistas conduzidas por modelos e especialistas exportados numa sessão real continuam sem validação. A [revisão local de segurança](security-review-2026-10-13.pt-BR.md) registra as correções de permissões na escrita incremental e helpers Git explícitos, com os limites restantes.
 
+Os adaptadores de harness para Codex, Gemini CLI e OpenCode (`wev harness export|install|uninstall`, `wev hook ... --harness`) foram acrescentados depois. Status: implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e). O plugin do OpenCode foi testado sob node com um `wev` falso e nunca rodou dentro do OpenCode. Eles não acrescentam linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#outros-harnesses).
+
+As atualizações de skills de terceiros (`wev skills ...`, o hook da verificação diária) foram acrescentadas depois. Situação: implementado e testado com um registro local falso, um npx falso e tarballs locais; os registros reais, os downloads e o servidor rea real não são executados nesta alteração (parte e2e). Elas não acrescentam linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#atualizações-de-skills-de-terceiros).
+
+A integração com o rea (`wev rea serve|status|mode|build-image`, a imagem de contêiner `wev-rea`, o registro no Claude Code, Gemini CLI e OpenCode) foi acrescentada depois. Situação: implementado e testado com executáveis `npx` e `docker` falsos (testes unitários); o servidor rea real, o build real do contêiner e os carregadores reais dos harnesses não são executados nesta alteração (parte e2e). A skill `wev-reverse` está apenas documentada. Ela não acrescenta linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa).
+
+O instalador (`install.sh`), o nível de configuração do usuário (`~/.config/wev-skills/wev.config.json` lido abaixo do arquivo do repositório) e o `wev jev key set` foram acrescentados depois. Situação: implementado e testado com CLIs de harness falsas e uma fonte local (testes unitários, offline). A rota de download (API de releases e `git clone` da tag), um `claude plugin install` real, Codex, Gemini CLI e OpenCode reais, um teste real do JEV e o caminho interativo de instalação de dependências não são executados nesta mudança (parte e2e); a linha `curl | bash` é apenas documentada até o dono publicar o script. Veja o [guia de instalação](guides/installation.pt-BR.md#instalação-rápida) e o [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#instalador).
+
+Execução de ponta a ponta de 2026-10-22 ([relatório](../evals/reports/e2e-2026-10-22.md)), por área. Instalador, rota de fonte local: testado de ponta a ponta no macOS com HOME isolado (não uma máquina limpa); 13 de 13 verificações passaram contra o registro npm e as releases do GitHub reais, cobrindo instalação, nova execução, atualização, reversão (estado semeado), instalação quebrada, `rea serve` em modo direto e desinstalação `--purge`. Instalador, rota de download: não executada. Linux: contêiner em branco, ainda não executado (pulado, daemon do Docker parado). Modo isolado e imagem do rea: não executados (mesmo motivo). Claude Code, Codex, Gemini CLI, OpenCode, JEV ao vivo e a verificação diária de atualização: não executados contra o harness ou serviço real (cenários implementados mas não testados). Nenhuma alegação de "compatível com" é feita para qualquer harness.
+
 ## Resumo
 
 | # | Critério | Situação |
@@ -84,6 +94,7 @@ Nos comandos abaixo, `PYTHONPATH=src` está definido e o diretório de trabalho 
 ### 5. O roteamento tem interface documentada e implementação funcional: Atendido
 
 - Comando: `python3 -m unittest tests.unit.test_models_router tests.unit.test_decisions_local tests.unit.test_decisions_jev tests.unit.test_decisions_factory tests.unit.test_routing_catalog`. Resultado: `OK`. Interface: arquitetura 4.2 e 4.4.
+- O cliente HTTP embutido do JEV (padrão, `decision.jev.command` é `builtin`) e `wev jev status|ask|batch`: implementados e testados contra um servidor falso local. O serviço real da TypeSafe não foi executado nesta mudança.
 - Falta: o adaptador do JEV é testado com um cliente falso e com o formato de resposta registrado; o JEV foi chamado de verdade três vezes com entradas sintéticas (uma classificação, duas seleções de ferramentas, 2026-10-13), e as respostas da seleção de ferramentas não foram salvas como fixtures. O roteamento e a seleção de ferramentas são heurísticas cuja utilidade não foi medida.
 
 ### 6. A criação e a validação de agentes têm testes: Atendido

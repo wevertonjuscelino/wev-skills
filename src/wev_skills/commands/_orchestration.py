@@ -18,10 +18,10 @@ from pathlib import Path
 from wev_skills import i18n
 from wev_skills.config import Config, ResolvedConfig, find_repo_root, resolve_config
 from wev_skills.core import active, wiring
-from wev_skills.core.engine import NEW_RUN_STEP
+from wev_skills.core.engine import NEW_RUN_STEP, refuse_finished
 from wev_skills.core.errors import NotFound, StateConflict, ValidationError
 from wev_skills.core.orchestrator import Orchestrator
-from wev_skills.state.model import RunState
+from wev_skills.state.model import Phase, RunState
 from wev_skills.state.store import StateStore, active_run, new_run_id, run_dir
 
 
@@ -75,11 +75,29 @@ def _pinned(args: argparse.Namespace, location: Location, state: RunState) -> tu
     return active.pinned_config(state), state.config_source
 
 
-def orchestrator_for(args: argparse.Namespace) -> Orchestrator:
-    """The orchestrator of ``--run`` or of the active run, wired from its pinned configuration."""
+def _require_policy_run(state: RunState, state_dir: Path, finished_ok: bool) -> None:
+    """An open run must be registered; a finished one is refused unless accepted."""
+    if state.phase is not Phase.DONE:
+        active.require_registered(state_dir, state.run_id)
+    elif not finished_ok:
+        refuse_finished(state)
+
+
+def orchestrator_for(
+    args: argparse.Namespace, reads: bool = False, finished_ok: bool = False
+) -> Orchestrator:
+    """The orchestrator of ``--run`` or of the active run, wired from its pinned configuration.
+
+    Unless the command only ``reads``, a run that is not finished must be in the per-user
+    registry (``active.require_registered``): its pinned configuration is the policy. The
+    phase comes from the run's own file, so a finished run is refused here, before anything
+    else happens, unless the command accepts one (``finished_ok``: report, finish, ...).
+    """
     location = locate(args)
     run_id = resolve_run_id(args, location)
     state = StateStore(run_dir(location.state_dir, run_id)).load()
+    if not reads:
+        _require_policy_run(state, location.state_dir, finished_ok)
     config, source = _pinned(args, location, state)
     services = wiring.build_services(config, location.root, source=source)
     timeout = config.limits.lock_timeout_seconds
@@ -102,7 +120,9 @@ def new_orchestrator(args: argparse.Namespace, run_id: str | None) -> tuple[Orch
         raise StateConflict("run_active", message, details)
     root = find_repo_root(cwd)
     resolved = resolve_config(args.config, root)
-    services = wiring.build_services(resolved.config, root, source=resolved.source)
+    services = wiring.build_services(
+        resolved.config, root, source=resolved.source, sources=resolved.sources
+    )
     chosen = run_id if run_id is not None else new_run_id(services.clock)
     timeout = resolved.config.limits.lock_timeout_seconds
     store = StateStore(run_dir(services.state_dir, chosen), services.clock, timeout)

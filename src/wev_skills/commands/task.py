@@ -21,7 +21,7 @@ EVIDENCE_KEY = "evidence"
 
 
 def _next(args: argparse.Namespace) -> dict[str, Any]:
-    return orchestrator_for(args).next_tasks()
+    return orchestrator_for(args, finished_ok=True).next_tasks()
 
 
 def _start(args: argparse.Namespace) -> dict[str, Any]:

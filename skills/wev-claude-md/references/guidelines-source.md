@@ -5,7 +5,7 @@
 Five short sections, shipped as templates in English and Brazilian Portuguese:
 
 1. Think before coding: state assumptions, present alternative readings of a request instead of choosing one silently, say when a simpler approach exists, and stop to ask when something is unclear.
-2. Simplicity first: write the least code that solves the problem; no unrequested features, no abstraction for single-use code, no speculative configurability, no handling of impossible cases.
+2. Simplicity first: write the least code that solves the problem; no unrequested features, no abstraction for single-use code, no speculative configurability, no handling of impossible cases. It opens with an explicit, non-negotiable rule: follow YAGNI and prefer the solution with less code.
 3. Surgical changes: touch only what the task requires; match existing style; mention unrelated dead code instead of deleting it; remove only what your own change made unused. Every changed line should trace to the request.
 4. Goal-driven execution: turn a task into a verifiable goal (a failing test that then passes, tests green before and after a refactor) and state a short plan with a check per step.
 5. Evidence before claims: say what was run and what was not; never report a check as passed if it did not run; label work as tested, untested, mocked, documented only or blocked. This section is original to wev-skills.

@@ -20,6 +20,19 @@ Where things live:
 - Configuration: `--config FILE` if given, else `<repository root>/wev.config.json` if it exists, else the defaults. The effective configuration is pinned in the run state by `run start`. A later command with a different `--config` is refused (exit 2, `config_pinned`); drop the option, or finish the run and start another to use a different file. `config show` prints the configuration these rules give for the working directory (the run's pinned one while a run is active), with `config_source`, and `config validate FILE` checks a file; both print `warnings`, for example when `decision.provider` is `jev` and the program is not found on `permissions.exec_path`. The `language` key of a config file sets the message language below `--lang` and `WEV_LANG` and above `LANG`.
 - One run may be active per repository. Commands without `--run` act on it. A second `run start` while one is active is refused (`run_active`) and names `run finish`. A run's mode never changes after `run start`; to change it, finish the run and start another.
 
+**Non-negotiable rule: follow YAGNI and prefer the solution with less code.** It applies to everything you write or change through this skill.
+
+## First step: check JEV
+
+Before anything else in a session, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" jev status` and read `orchestration` in its answer.
+
+- `"wev"`: follow the flow below as written.
+- `"harness"`: do not run `run start` or the task commands. Plan and track the work with the harness's own tools.
+  - When `key_error` is set, tell the user what it says.
+  - When `key_error` is null, JEV is simply not configured. Tell the user once how to turn it on: set `decision.provider` to `jev` in the config (`wev.config.json` or the run's `--config`), and provide a key through `TYPESAFE_API_KEY`, the file `~/.config/wev-skills/.env` (mode 600) or the keychain item `typesafe-api-key`.
+
+The Bash guard hook stays active in both modes: without a run it judges each command under the built-in default policy. Approvals and loop detection need a run, so they are not in use in `harness` mode.
+
 ## Choose a mode
 
 The first word of the request may be a mode. Without one, use `auto`.
@@ -49,9 +62,17 @@ The answer holds `classification` (complexity, risk), `strategy`, `discovery` an
 
 Tell the user the flow and its reasons in one or two sentences.
 
+When the request involves a running system (a web app, a binary, a bundle, an app), also run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" rea status` and use the `wev-reverse` skill before `plan set`, so the plan rests on evidence.
+
+A run started with `run start --from-intake` may carry an `outcome`: what the user wants to happen after the goal is reached. Work toward the goal. When a broader approach would serve that outcome better, propose it to the user in one sentence and wait; never widen the scope on your own.
+
 ### 2. Plan (planned and gated flows)
 
 Write a plan file with the tasks, their files, dependencies, acceptance criteria and checks, then store it. Write the checks so they can actually prove each criterion (see "Verify" for what the engine will and will not accept): a check object ties one command to the criteria it proves. The format is in [references/plan-format.md](references/plan-format.md); a complete sample is at `${CLAUDE_PLUGIN_ROOT}/examples/plan.example.json`. Keep tasks that edit the same file in a dependency chain, because the engine never offers overlapping tasks together.
+
+Before storing the plan, make it deeper, not bigger. For each task answer in a line or two: what a leading practitioner of this kind of work would do that the request does not ask for; which primary material they would start from (the failing log, the raw data, the source, not a summary of it), named by path, log or URL in the task's `objective` so it reaches the contract; which methods and tools they would use; and which command, not you and not the user, would show the result is right. Turn each answer into an acceptance criterion or a check, or drop it. A demanding target is welcome when a check measures it (for example a timing under a threshold); a goal no command can measure stays out of the criteria. YAGNI still decides the code: depth raises the bar for evidence, not the amount of code.
+
+In a `planned` or `gated` flow you may also widen the review. Restate the objective as the actions it serves rather than the artifact it produces, and pick at most two agents from `agent list` whose work brings a field the task touches (for example `security-auditor` for code that parses input). Each must produce something checkable: a check, a reproduction, or findings with file references. Asking an agent to sound like a role adds nothing. Run them in step 5, before `task review`.
 
 ```
 "${CLAUDE_PLUGIN_ROOT}/bin/wev" plan set --file plan.json
@@ -84,7 +105,7 @@ Only a tool the agent may use can be restored.
 
 Hand each contract to exactly one agent:
 
-- For real work, delegate to the plugin subagent named by the contract's `agent_id`, as `wev-skills:<agent_id>` (for example `wev-skills:code-reviewer`). Paste the whole contract into the prompt. If the subagent does not exist, use a general-purpose subagent and paste the agent's instructions from `agent show <agent_id>`.
+- For real work, delegate to the plugin subagent named by the contract's `agent_id`, as `wev-skills:<agent_id>` (for example `wev-skills:code-reviewer`). Paste the whole contract into the prompt. The engine copies only the plan task into the contract, so the primary sources reach the subagent only when the task's `objective` names them; do not replace them with your own summary. If the subagent does not exist, use a general-purpose subagent and paste the agent's instructions from `agent show <agent_id>`.
 - For trivial work in a `direct` flow, do it yourself in the main session.
 - Start only tasks that `task next` offered. Run tasks in parallel only when several were offered together.
 
@@ -123,7 +144,7 @@ This runs the task's checks and stores the evidence. Then record the outcome the
 
 How to satisfy this honestly: write checks that fail before the work and pass after it, tie each to the criterion it proves, and run `task check` after the final edit. Expect the baseline to expose a check that passed already. Do not add a no-op check or touch a file to move the fingerprint.
 
-When a criterion cannot be proved by a command, pass manual evidence with `--evidence-file FILE`, a JSON object with an `evidence` list. Each item names the criterion in `kind` and a `ref` that is an existing file under the run's log directory, under the run's evidence directory (`<state dir>/runs/<id>/evidence/`) or one of the files the task lists in the plan; any other existing file is refused and the error says so. To show a file or an output, run it through `exec` and reference the log. The report labels it as supplied by the agent.
+When no command can prove a criterion, first tell the user what access would let one prove it (logs, a test machine, a dataset, an account they must set up) and ask for it. Only when that access is not available, pass manual evidence with `--evidence-file FILE`, a JSON object with an `evidence` list. Each item names the criterion in `kind` and a `ref` that is an existing file under the run's log directory, under the run's evidence directory (`<state dir>/runs/<id>/evidence/`) or one of the files the task lists in the plan; any other existing file is refused and the error says so. To show a file or an output, run it through `exec` and reference the log. The report labels it as supplied by the agent.
 
 Other statuses are `partial`, `blocked`, `failed` and `not_executed`; use them when they are the truth, and add `--blocker` for blocked work. `failed` needs a running task. If a check fails, fix the cause and check again; do not record `verified` around it, and never say a check passed that did not run.
 
@@ -134,6 +155,8 @@ Every `task start` counts as an attempt. After a failed attempt the answer carri
 `next_step` can be an instruction instead of a command: a pending approval; a denied gate ("denied by the operator"; the operator reopens it with `approval request --reopen-denied`, never with a grant command); plan mode once the plan is set ("ready for human review"); a check on a tree nothing changed in (do the work, or mark the task `read_only` in the plan with `--amend --reason`). A stale approval (the check that needed it was replaced and `task check` now reports `all_met`) no longer blocks `next_step`; it is listed under `stale_approvals`.
 
 ### 5. Review
+
+If you chose extra reviewing agents in step 2, run them once the task's work is checked: delegate each one with the task contract and the diff, and tell it not to delegate further. A check one of them proposes joins the task with `plan set --amend --reason <text>`, so `task check` runs it; findings with file references go into the `--summary` of `task review`, naming the agent that produced them. An unresolved finding is a `reject`.
 
 When the strategy sets `needs_independent_review`, `task record` answers with a `task review` command naming a reviewer. Run the review with a different agent than the one that did the work (usually `wev-skills:code-reviewer`), give it the diff and the acceptance criteria, then record its verdict:
 
@@ -174,7 +197,7 @@ The plugin registers three Claude Code hooks (`hooks/hooks.json`). They look for
 
 - SessionStart (after context compaction or resume) and UserPromptSubmit add the brief of the active run to the context: objective, phase, one line per task, the current task's acceptance criteria, pending approvals and the next step, sanitized and fenced. The per-prompt brief is capped at `harness.plan_reminder_max_chars` (default 600) and can be turned off with `harness.plan_reminder` false. Print it yourself with `run brief`. It is recorded state, not verified against the repository; run `run resume` before relying on it.
 - PreToolUse on Bash judges the command under the run's pinned configuration, mode and risk and answers `deny` or `ask`; it never approves anything by itself (it never answers `allow`) and does not read the approval store. The person's answer in Claude Code's permission prompt is the human gate. It sends the engine's own sensitive commands to the human when it can read the command line (the operator commands, `approval request` with or without `--reopen-denied`, `run start`, `run finish`, any command with `--config`, `agent create`, `agent export`, `remote start`, `remote stop`), recognized by words directly, behind a known wrapper (`nohup`, `nice`, `timeout`, `env` and the like), in an inline `sh -c`, `bash -c` or `zsh -c`, or as arguments handed to another program. It also asks for abbreviated `rm` options, `git rm -r`/`-f`, `git clean` that is not a dry run, `rsync --delete*` and a recursive reader given a directory that holds a protected path (a heuristic over a fixed list, capped at 20,000 entries). It cannot see inside a script file or a program: a script that types into a pseudo-terminal (for example `python3 pty_type.py`) names nothing on the command line it reads, so it is not asked about. Environment-assignment prefixes, unresolved shell expansions and wrappers it cannot analyze give `ask`, or `deny` in plan mode. A command the policy denies is denied with the reason; do not work around a denial.
-- The hooks do not fail open once a run is known: a problem (unreadable state, internal error) becomes `ask`, not silence. They stay silent only when no run exists. The work it does is capped. `bin/wev` exits quietly for hook subcommands on Python older than 3.10, and then nothing is checked; the stock macOS `/usr/bin/python3` is 3.9, so the `python3` on `PATH` must be 3.10 or newer (`python3 --version`).
+- The hooks do not fail open once a run is known: a problem (unreadable state, internal error) becomes `ask`, not silence. Without a run, the brief hooks stay silent and the Bash hook judges commands under the built-in default policy. The work it does is capped. `bin/wev` exits quietly for hook subcommands on Python older than 3.10, and then nothing is checked; the stock macOS `/usr/bin/python3` is 3.9, so the `python3` on `PATH` must be 3.10 or newer (`python3 --version`).
 
 Limits: the hook sees only the Bash tool, not Edit or Write. The engine is a guardrail for a fallible agent and a recorder of decisions, not a security boundary against an adversarial agent in the same user account. Without the plugin's hooks, approvals are records only. The hooks have not been exercised in a real Claude Code session.
 

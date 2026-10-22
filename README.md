@@ -25,9 +25,11 @@ The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Co
 | Project specialists, bounded experience and run budgets | Implemented and tested | Engine records only; advisory lessons; command units, not tokens or money |
 | Skills, hooks and plugin manifests | Implemented and tested | Format and subprocess tests; live integration untested |
 | Optional JEV, SSH/tmux and evaluation adapters | Simulated with mocks | A recorded JEV response and simulated remote hosts |
+| Codex, Gemini CLI and OpenCode: package export, install, uninstall, hook codecs | Implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part) | A policy ask becomes allow plus a warning there; see [SECURITY.md](SECURITY.md) |
+| rea (third-party reverse-engineering MCP server): `wev rea` (serve, status, mode, build-image), container image, per-harness registration | Implemented and tested with fake `npx` and `docker` executables (unit tests); the real rea server, the real container build and the real harness loaders are not run in this change (e2e part). The `wev-reverse` skill is documented only | rea says it is "not a sandbox"; see [SECURITY.md](SECURITY.md#rea-reverse-engineering-server) |
 | Other agent environments and Windows support | Documented only / blocked | Future adapters; POSIX file locks today |
 
-Detailed acceptance evidence is in [MVP status](docs/mvp-status.md). The [local security review of 2026-10-13](docs/security-review-2026-10-13.md) records findings and scope; it is an internal review, not a certification.
+End-to-end run of 2026-10-22: the installer's local-source route passed 13 of 13 checks on macOS with an isolated HOME (not a clean machine); the Linux and Docker scenarios were skipped and no harness scenario has run. See [End-to-end tests](docs/guides/installation.md#end-to-end-tests) and [the report](evals/reports/e2e-2026-10-22.md). Detailed acceptance evidence is in [MVP status](docs/mvp-status.md). The [local security review of 2026-10-13](docs/security-review-2026-10-13.md) records findings and scope; it is an internal review, not a certification.
 
 ## Requirements
 
@@ -39,7 +41,15 @@ Check `python3 --version` before using the plugin. Older interpreters are unsupp
 
 ## Quick start
 
-Clone the public repository and locate its CLI. These clone commands are the reader's installation step and were not executed during this documentation review:
+Guided install (asks a few questions, then registers wev-skills, the third-party skills and the harnesses you pick; implemented and tested with fake harness CLIs and a local source, not run against the download route or the real harnesses yet). From a clone:
+
+```sh
+bash install.sh
+```
+
+After the owner publishes it (documented only): `curl -fsSL https://raw.githubusercontent.com/wevertonjuscelino/wev-skills/main/install.sh | bash`. Claude Code only, from the published repository as a marketplace (documented only, not run): `/plugin install wev-skills --marketplace wevertonjuscelino/wev-skills`. Flags, writes and uninstall are in the [installation guide](docs/guides/installation.md#quick-install).
+
+Or by hand: clone the public repository and locate its CLI. These clone commands are the reader's installation step and were not executed during this documentation review:
 
 ```sh
 git clone https://github.com/wevertonjuscelino/wev-skills.git
@@ -83,9 +93,14 @@ Objective intake is documented in [the interview guide](docs/guides/intake.md). 
 | JSON agent specs, templates, inheritance and permission ceilings | [Creating agents](docs/guides/creating-agents.md) | `wev-agent-builder` |
 | Deterministic evaluation of harness mechanics | [Evaluation](docs/guides/evaluation.md) | `wev-harness-evaluation` |
 | Inventory-based SSH and task-owned tmux sessions | [Remote operations](docs/guides/remote-ops.md) | `wev-remote-ops` |
+| Evidence-backed reverse engineering with the rea tools (change plan or clean-room specification) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Managed project guidelines in `CLAUDE.md` | [Guidelines skill](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Bilingual README checks | [README standard](skills/wev-readme/SKILL.md) | `wev-readme` |
+| Skills, guard hooks and agents for Codex, Gemini CLI and OpenCode | [Installation: Codex, Gemini CLI and OpenCode](docs/guides/installation.md#codex-gemini-cli-and-opencode) | CLI `wev harness` |
 | Reviewed upstream updates and conflict reconciliation | [Maintenance policy](skills/wev-skill-maintenance/references/policy.md) | `wev-skill-maintenance` |
+| Install, check daily, update, roll back and freeze third-party skills | [Installation: third-party skills](docs/guides/installation.md#third-party-skills-install-daily-check-update-rollback-freeze) | CLI `wev skills` |
+
+Harnesses: Claude Code uses the plugin; Codex, Gemini CLI and OpenCode get the skills and the guard through `wev harness install --target <name>`.
 
 Configuration, local decisions and the optional third-party JEV provider are documented in [configuration and providers](docs/guides/configuration-and-providers.md). Skills instruct the agent; engine code enforces task transitions and verification rules ([ADR 0002](docs/architecture/decisions/0002-engine-enforces-skills-instruct.md)).
 

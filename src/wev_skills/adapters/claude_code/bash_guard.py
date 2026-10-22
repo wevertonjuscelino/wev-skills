@@ -15,13 +15,14 @@ from __future__ import annotations
 import os
 import shlex
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from wev_skills import i18n
 from wev_skills.adapters.claude_code import engine_cli
 from wev_skills.core.contracts import Mode, PermissionDecision, PermissionOutcome, RiskLevel
 from wev_skills.security import commands, git_rules, untrusted
+from wev_skills.security.paths import place_within
 from wev_skills.security.permissions import PermissionPolicy
 from wev_skills.security.redact import redact
 from wev_skills.security.shell import SimpleCommand, split_commands
@@ -54,6 +55,8 @@ class HookVerdict:
 
     decision: str = NO_OPINION
     reason: str = ""
+    fail_safe: bool = False  # the guard could not judge (error, forged state), not a policy ask
+    person_only: bool = False  # an ask only a person may answer; a harness that cannot ask denies
 
 
 @dataclass(frozen=True)
@@ -116,8 +119,7 @@ def git_directory(argv: Sequence[str], cwd: str) -> str:
 
 
 def _inside(root: str, path: str) -> bool:
-    real_root, real = os.path.realpath(root), os.path.realpath(path)
-    return real == real_root or real.startswith(real_root.rstrip(os.sep) + os.sep)
+    return place_within(os.path.realpath(path), os.path.realpath(root))
 
 
 def _from_policy(decision: PermissionDecision, part: SimpleCommand, compound: bool) -> HookVerdict:
@@ -143,7 +145,20 @@ def _engine_verdicts(argv: Sequence[str], cwd: str) -> list[HookVerdict]:
     views = _maximal(commands.expand(tuple(argv)).commands)
     codes = (engine_cli.mentioned_reason(view, cwd) for view in views)
     found = next((code for code in codes if code is not None), None)
-    return [_ask(found)] if found is not None else []
+    if found is None:
+        return []
+    every = {code for view in views for code in engine_cli.mentioned_codes(view, cwd)}
+    return [replace(_ask(found), person_only=bool(every & engine_cli.PERSON_ONLY_REASONS))]
+
+
+def _program_rewritten(part: SimpleCommand) -> bool:
+    """The shell rewrites a word in program position: the first word, or any word a wrapper
+    may run (``nohup $CC``), so which program runs is unknown. A harness that cannot ask
+    denies; a rewritten argument (``rm -rf $D``) stays a policy ask."""
+    argv, flags = part.argv, part.rewritten
+    views = commands.expand(argv).commands
+    starts = {len(argv) - len(v) for v in views if len(v) <= len(argv) and argv[-len(v) :] == v}
+    return any(start < len(flags) and flags[start] for start in starts)
 
 
 def _program_verdicts(
@@ -153,7 +168,8 @@ def _program_verdicts(
     argv, mode = part.argv, context.mode
     found = _engine_verdicts(argv, cwd)
     if part.dynamic or part.unresolved:
-        found.append(_ask("unresolved", command=shown(argv)))
+        unresolved = _ask("unresolved", command=shown(argv))
+        found.append(replace(unresolved, fail_safe=_program_rewritten(part)))
     elif engine_cli.engine_args(argv, cwd) is not None:
         return found
     name = commands.program_name(argv)
@@ -252,7 +268,7 @@ def decide_command(command: str, context: GuardContext) -> HookVerdict:
     parts = split_bounded(command)
     if parts is None:
         key = "too_large" if len(command) > MAX_COMMAND_CHARS else "untokenizable"
-        return _ask(key)
+        return replace(_ask(key), fail_safe=True)  # a harness that cannot ask denies
     compound = len(parts) > 1 or any(part.redirects for part in parts)
     verdicts: list[HookVerdict] = []
     cwd: str | None = context.cwd
@@ -261,6 +277,9 @@ def decide_command(command: str, context: GuardContext) -> HookVerdict:
         cwd = next_directory(part.argv, cwd)
     if context.mode is Mode.PLAN and compound and any(_needs_shell(p, context.cwd) for p in parts):
         verdicts.append(_ask("plan_shell"))
-    return max(
+    worst = max(
         verdicts, key=lambda verdict: SEVERITY.index(verdict.decision), default=HookVerdict()
     )
+    # the shown reason stays the first worst one; the marker survives a tie of asks
+    person_only = worst.decision == ASK and any(verdict.person_only for verdict in verdicts)
+    return replace(worst, person_only=person_only) if person_only else worst

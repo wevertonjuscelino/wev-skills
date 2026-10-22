@@ -51,6 +51,35 @@ class JevCase(unittest.TestCase):
         self.assertIn(why, c.reasons[0])
 
 
+class AskerTests(unittest.TestCase):
+    def test_asker_receives_redacted_state(self) -> None:
+        token = "ghp_" + "a" * 36
+        seen: list[str] = []
+
+        def asker(questions: Mapping[str, object], state: str) -> str:
+            seen.append(state)
+            return "{}"
+
+        built = JevProvider(
+            SubprocessRunner(),
+            LocalPolicyProvider(LimitsConfig()),
+            redactor=lambda text: text.replace(token, "[REDACTED]"),
+            asker=asker,
+        )
+        built.ask({"q": {}}, f"state with {token}")
+        self.assertEqual(seen, ["state with [REDACTED]"])
+
+    def test_asker_replaces_the_program_path(self) -> None:
+        built = JevProvider(
+            SubprocessRunner(),
+            LocalPolicyProvider(LimitsConfig()),
+            command="no-such-program",
+            redactor=redact,
+            asker=lambda questions, state: "answers",
+        )
+        self.assertEqual(built.ask({"q": {}}, "s"), "answers")
+
+
 class SuccessTests(JevCase):
     def test_recorded_real_response_end_to_end(self) -> None:
         c = self.run_mode("ok")

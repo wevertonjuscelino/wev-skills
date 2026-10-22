@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from wev_skills import schema
+from wev_skills.config_files import GIT_MARKER
+from wev_skills.config_files import deep_merge as deep_merge
+from wev_skills.config_files import find_repo_root as find_repo_root
+from wev_skills.config_files import read_json_object as read_json_object
+from wev_skills.config_files import user_config_home as user_config_home
 from wev_skills.core._codec import Serializable
 from wev_skills.core.errors import NotFound, ValidationError
 
@@ -26,8 +31,7 @@ DEFAULT_TASK_TIMEOUT_SECONDS = 3600.0
 """Shared by ``LimitsConfig`` and the guard's own limits so the two cannot drift."""
 CONFIG_FILE_NAME = "wev.config.json"
 SOURCE_DEFAULTS = "defaults"
-GIT_MARKER = ".git"
-USER_CONFIG_DIR = "wev-skills"
+SOURCE_JOIN = " + "
 DEFAULT_PROJECT_DIR = "wev-specialists"
 RESERVED_PROJECT_DIRS = frozenset({GIT_MARKER, ".claude"})
 UNTRUSTED_PROGRAMS = frozenset(
@@ -44,9 +48,13 @@ DEFAULT_EXEC_PATH = (
 )
 
 
+BUILTIN = "builtin"
+"""The value of ``decision.jev.command`` that selects the built-in HTTPS client."""
+
+
 @dataclass(frozen=True)
 class JevConfig(Serializable):
-    command: str = "jev"
+    command: str = BUILTIN
     timeout_seconds: float = 10.0
 
 
@@ -196,39 +204,6 @@ DEFAULT_CONFIG: dict[str, Any] = Config().to_dict()
 """Plain-dict defaults. Treat as read-only: ``parse_config`` always works on copies."""
 
 
-def deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a new dict: nested mappings merge, everything else is replaced by ``override``."""
-    merged: dict[str, Any] = copy.deepcopy(dict(base))
-    for key, value in override.items():
-        current = merged.get(key)
-        if isinstance(current, dict) and isinstance(value, Mapping):
-            merged[key] = deep_merge(current, value)
-        else:
-            merged[key] = copy.deepcopy(value)
-    return merged
-
-
-def read_json_object(path: str) -> dict[str, Any]:
-    try:
-        with open(path, encoding="utf-8") as handle:
-            data = json.load(handle)
-    except FileNotFoundError as exc:
-        raise NotFound("file_not_found", f"file not found: {path}", {"path": path}) from exc
-    except (OSError, UnicodeDecodeError) as exc:
-        raise ValidationError(
-            "file_unreadable", f"cannot read {path}: {exc}", {"path": path}
-        ) from exc
-    except json.JSONDecodeError as exc:
-        raise ValidationError(
-            "invalid_json", f"{path} is not valid JSON: {exc}", {"path": path}
-        ) from exc
-    if not isinstance(data, dict):
-        raise ValidationError(
-            "invalid_config", f"{path}: top level must be an object", {"path": path}
-        )
-    return data
-
-
 def validate_config_data(data: Mapping[str, Any]) -> list[str]:
     """Schema errors plus cross-field checks for a complete config document."""
     errors = schema.validate(dict(data), schema.load("config"))
@@ -266,18 +241,6 @@ def config_digest(config: Config) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def find_repo_root(cwd: str | os.PathLike[str]) -> Path:
-    """The nearest ancestor of ``cwd`` holding a ``.git`` entry; ``cwd`` itself outside one.
-
-    Read from the filesystem, without running git, so it also works where git is missing.
-    """
-    start = Path(cwd).resolve()
-    for directory in (start, *start.parents):
-        if (directory / GIT_MARKER).exists():
-            return directory
-    return start
-
-
 @dataclass(frozen=True)
 class ResolvedConfig:
     """A configuration as written (state directory not yet protected) and where it came from."""
@@ -285,52 +248,68 @@ class ResolvedConfig:
     config: Config
     source: str
     digest: str
+    sources: tuple[str, ...] = ()
+    """The files merged, lowest precedence first (user, then repository); empty for defaults."""
+
+
+def user_config_path() -> Path:
+    return user_config_home() / CONFIG_FILE_NAME
+
+
+def _tier_files(root: str | os.PathLike[str]) -> tuple[str, ...]:
+    """The user file (a regular file, never a symlink) then the repository file, if present."""
+    user, repo = user_config_path(), Path(root) / CONFIG_FILE_NAME
+    found = [user] if user.is_file() and not user.is_symlink() else []
+    return tuple(str(path) for path in (*found, *([repo] if repo.is_file() else [])))
+
+
+def _parse_tiers(files: tuple[str, ...]) -> Config:
+    """Defaults, then each file in turn; the merged object is validated once."""
+    if len(files) < 2:
+        return parse_config(files[0] if files else None)
+    try:
+        return parse_config(files[0], read_json_object(files[1]))
+    except ValidationError as exc:
+        if exc.code != "invalid_config":
+            raise
+        joined = SOURCE_JOIN.join(files)
+        raise ValidationError(
+            exc.code, f"{exc.message} ({joined})", {**exc.details, "path": joined}
+        ) from exc
 
 
 def resolve_config(explicit: str | None, root: str | os.PathLike[str]) -> ResolvedConfig:
-    """``explicit`` when given, else ``<root>/wev.config.json`` when it exists, else defaults."""
-    candidate = Path(root) / CONFIG_FILE_NAME
-    if explicit is not None:
-        config, source = parse_config(explicit), os.path.abspath(explicit)
-    elif candidate.is_file():
-        config, source = parse_config(str(candidate)), str(candidate)
-    else:
-        config, source = parse_config(None), SOURCE_DEFAULTS
+    """``explicit`` alone when given, else the user file under the repository's, else defaults."""
+    files = (os.path.abspath(explicit),) if explicit is not None else _tier_files(root)
+    source = SOURCE_JOIN.join(files) or SOURCE_DEFAULTS
+    config = parse_config(explicit) if explicit is not None else _parse_tiers(files)
     errors = trust_errors(config, root)
     if errors:
         details = {"errors": errors, "path": source}
         raise ValidationError("invalid_config", f"invalid configuration: {errors[0]}", details)
-    return ResolvedConfig(config, source, config_digest(config))
+    return ResolvedConfig(config, source, config_digest(config), files)
 
 
-def explicit_language(source: str) -> str | None:
-    """The ``language`` the config file at ``source`` sets itself, else ``None``.
+def explicit_language(path: str) -> str | None:
+    """The ``language`` the config file at ``path`` sets itself, else ``None``.
 
-    The built-in default, a missing or unreadable file and a file without the key all give
-    ``None``: only a language somebody wrote counts against the ``LANG`` environment.
+    A missing or unreadable file and a file without the key give ``None``: only a language
+    somebody wrote counts against the ``LANG`` environment.
     """
-    if source == SOURCE_DEFAULTS:
-        return None
     try:
-        value = read_json_object(source).get("language")
+        value = read_json_object(path).get("language")
     except NotFound, ValidationError:
         return None
     return value if isinstance(value, str) else None
 
 
 def pinned_snapshot(pinned: ResolvedConfig) -> dict[str, Any]:
-    """The configuration a run stores. ``language`` is kept only when the file set it, so the
-    run can tell an explicit language from the default."""
+    """The configuration a run stores. ``language`` is kept only when a file set it (the last
+    one wins), so the run can tell an explicit language from the default."""
     snapshot = pinned.config.to_dict()
-    if explicit_language(pinned.source) is None:
+    if not any(explicit_language(path) for path in pinned.sources):
         snapshot.pop("language", None)
     return snapshot
-
-
-def user_config_home() -> Path:
-    """``$XDG_CONFIG_HOME/wev-skills``, or ``~/.config/wev-skills``."""
-    configured = os.environ.get("XDG_CONFIG_HOME", "").strip()
-    return (Path(configured) if configured else Path.home() / ".config") / USER_CONFIG_DIR
 
 
 def _inside(base: Path, path: Path) -> bool:
@@ -344,20 +323,27 @@ def trust_errors(config: Config, root: str | os.PathLike[str]) -> list[str]:
     absolute path outside ``root``; ``agents.directories`` stay inside ``root`` or the
     user's configuration directory. A file in the repository must not pick what runs.
     """
-    base, errors = Path(root).resolve(), []
-    command = config.decision.jev.command
-    bare = os.sep not in command and "/" not in command and not any(c.isspace() for c in command)
-    name = os.path.basename(command).rstrip("0123456789.").lower()
-    if name in UNTRUSTED_PROGRAMS or not (bare or os.path.isabs(command)):
-        errors.append("/decision/jev/command: must be a program name or an absolute path")
-    elif not bare and _inside(base, Path(command).resolve()):
-        errors.append("/decision/jev/command: must not point inside the repository")
+    base, errors = Path(root).resolve(), _command_errors(config.decision.jev.command, Path(root))
     allowed = (base, user_config_home().resolve())
     for index, entry in enumerate(config.agents.directories):
         resolved = (base / entry).resolve()
         if not any(_inside(place, resolved) for place in allowed):
             errors.append(f"/agents/directories/{index}: must be inside the repository root")
     return [*errors, *_project_dir_errors(config, base)]
+
+
+def _command_errors(command: str, root: Path) -> list[str]:
+    """The built-in client names no program, so only a program name is checked."""
+    if command == BUILTIN:
+        return []
+    base = root.resolve()
+    bare = os.sep not in command and "/" not in command and not any(c.isspace() for c in command)
+    name = os.path.basename(command).rstrip("0123456789.").lower()
+    if name in UNTRUSTED_PROGRAMS or not (bare or os.path.isabs(command)):
+        return ["/decision/jev/command: must be a program name or an absolute path"]
+    if not bare and _inside(base, Path(command).resolve()):
+        return ["/decision/jev/command: must not point inside the repository"]
+    return []
 
 
 def _project_dir_errors(config: Config, base: Path) -> list[str]:

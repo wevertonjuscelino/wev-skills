@@ -12,7 +12,7 @@ from wev_skills.core.textsafe import clean_text
 from wev_skills.security.redact import redact
 
 REQUIRED = ("goal", "done", "scope", "kind")
-FIELDS = (*REQUIRED, "constraints")
+FIELDS = (*REQUIRED, "constraints", "outcome")
 SOURCES = ("request", "answer", "assumption")
 KINDS = ("feature", "bugfix", "investigation", "operations", "documentation", "refactor")
 QUESTIONS_PER_ROUND = 3
@@ -58,6 +58,7 @@ class Brief(Serializable):
     constraints: str
     assumptions: tuple[FieldValue, ...]
     intake_rounds: int
+    outcome: str = ""
 
 
 def _error(code: str, **details: object) -> ValidationError:
@@ -133,6 +134,7 @@ def finish(record: IntakeRecord) -> tuple[IntakeRecord, Brief]:
         values.get("constraints", ("",))[0],
         tuple(item for item in record.fields if item.source == "assumption"),
         record.rounds_used,
+        values.get("outcome", ("",))[0],
     )
     return replace(record, complete=True), brief
 

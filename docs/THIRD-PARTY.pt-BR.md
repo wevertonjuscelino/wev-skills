@@ -27,9 +27,25 @@ Ideias e convenções estudadas, não copiadas. Os detalhes estão em [research/
 |---|---|---|---|
 | addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Commit `1be8e34187e34647bb83adc3a1323b26ae6f6abe` (2026-10-10) | MIT. "Copyright (c) 2025 Addy Osmani" | Convenções compatíveis para `SKILL.md`, agentes no estilo de personas, manifestos de plugin e camadas de avaliação. Apenas inspiração arquitetural |
 | "An Empirical Study of Harness Design for Coding Agents", arXiv:2609.20804, https://arxiv.org/abs/2609.20804 | v1, enviado em 17 set 2026 | Não verificada. A página do arXiv não foi examinada quanto a uma licença de reuso, e nenhum texto ou figura do artigo é reproduzido | Fonte de hipóteses testáveis sobre gerenciamento de contexto, planejamento e interface de ferramentas. As conclusões são tratadas como hipóteses, não como garantias |
+| Felix Rieseberg, "How to be more ambitious: A tutorial for humans with models", https://felixrieseberg.com/how-to-be-more-ambitious-a-tutorial-for-humans-with-models/ | Publicado em 13 out 2026; lido em 2026-10-21 | Não verificada. Nenhum texto do artigo é reproduzido | Só inspiração: os passos de plano mais profundo e revisão mais ampla de `skills/wev-orchestrate/SKILL.md`, o pedido de acesso para verificar e o campo opcional `outcome` do intake foram escritos com as palavras deste projeto |
 | Especificação Agent Skills, https://agentskills.io/specification | Sem versão fixada; consultada por uma rodada de pesquisa em 2026-10-13 | Não verificada | O formato de arquivo de skill que as skills do wev-skills seguem |
 
 As páginas da documentação oficial do Claude Code (ver [research/sources.md](research/sources.md)) foram consultadas para conhecer as interfaces. Nenhum texto delas é reproduzido.
+
+## Dependências instaladas
+
+Não incorporadas: nenhum arquivo desses projetos está neste repositório. `wev skills install` os coloca em `$XDG_DATA_HOME/wev-skills/third-party/` a pedido do usuário, e a versão é resolvida na hora da instalação (o release mais novo; veja o [guia de instalação](guides/installation.pt-BR.md#skills-de-terceiros-instalar-verificação-diária-atualizar-reverter-congelar)). O `agent-skills` é baixado como tarball do GitHub; para o `rea` o wev não baixa nada, registra a versão e o `npx` busca o pacote no cache do npm durante a verificação de saúde.
+
+| Fonte | Versão | Licença | Uso |
+|---|---|---|---|
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases em https://github.com/morluto/rea) | Resolvida na instalação (`dist-tags.latest`) | MIT | `wev skills show rea` imprime o argv que inicia seu servidor MCP; o wev o inicia na verificação de saúde e por `wev rea serve` (veja o [guia de instalação](guides/installation.pt-BR.md#rea-modos-imagem-e-registro)) |
+| addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolvida na instalação (release mais novo) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills ligadas aos diretórios de skills do usuário por `wev skills activate` |
+
+Tanto o `rea` (`morluto/rea`) quanto o `agent-skills` (`addyosmani/agent-skills`) são MIT segundo o `license.spdx_id` da API do GitHub, conferido em 2026-10-20 e 2026-10-22. Essa é a licença do repositório, não os metadados do pacote npm. A linha de copyright do agent-skills é "Copyright (c) 2025 Addy Osmani". Nenhuma afiliação com os autores desses projetos nem endosso por eles é sugerido.
+
+O rea traz um `DISCLAIMER.md` (uso lícito apenas; a pessoa carrega a autorização e a responsabilidade legal). O wev não reproduz nada dele; o resumo está em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#rea-servidor-de-engenharia-reversa), e `docs/research/rea-integration.md` registra o que foi lido.
+
+Imagem base: `docker/rea/Dockerfile` parte de `node:24-slim`, a imagem oficial `node` do Docker Hub. A imagem é baixada por `wev rea build-image` a pedido do usuário; nenhuma camada dela fica neste repositório. Os termos de licença dela não foram conferidos para esta entrada.
 
 ## Regra para adicionar arquivos de terceiros
 

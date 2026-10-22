@@ -10,6 +10,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/wev\" skills check --daily",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

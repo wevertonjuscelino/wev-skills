@@ -27,9 +27,25 @@ Ideas and conventions studied, not copied. Details are in [research/agent-skills
 |---|---|---|---|
 | addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Commit `1be8e34187e34647bb83adc3a1323b26ae6f6abe` (2026-10-10) | MIT. "Copyright (c) 2025 Addy Osmani" | Compatible conventions for `SKILL.md`, persona-style agents, plugin manifests and eval tiers. Architectural inspiration only |
 | "An Empirical Study of Harness Design for Coding Agents", arXiv:2609.20804, https://arxiv.org/abs/2609.20804 | v1, submitted 17 Sep 2026 | Not checked. The arXiv listing was not examined for a reuse license, and no text or figure from the paper is reproduced | Source of testable hypotheses about context management, planning and tool interface. Findings are treated as hypotheses, not guarantees |
+| Felix Rieseberg, "How to be more ambitious: A tutorial for humans with models", https://felixrieseberg.com/how-to-be-more-ambitious-a-tutorial-for-humans-with-models/ | Published 13 Oct 2026; read 2026-10-21 | Not checked. No text from the article is reproduced | Inspiration only: the deeper-plan and wider-review steps of `skills/wev-orchestrate/SKILL.md`, the request for verification access, and the optional intake `outcome` field are written in this project's own words |
 | Agent Skills specification, https://agentskills.io/specification | Not pinned; consulted by a research pass on 2026-10-13 | Not checked | The skill file format that wev-skills's skills follow |
 
 Official Claude Code documentation pages (see [research/sources.md](research/sources.md)) were consulted to learn interfaces. No text from them is reproduced.
+
+## Installed dependencies
+
+Not vendored: no file of these projects is in this repository. `wev skills install` puts them under `$XDG_DATA_HOME/wev-skills/third-party/` at the user's request, and the version is resolved at install time (the newest release, see the [installation guide](guides/installation.md#third-party-skills-install-daily-check-update-rollback-freeze)). `agent-skills` is downloaded as a GitHub tarball; for `rea` wev downloads nothing, it records the version and `npx` fetches the package into npm's cache during the health check.
+
+| Source | Version | License | Use |
+|---|---|---|---|
+| `rea-agents`, https://www.npmjs.com/package/rea-agents (releases at https://github.com/morluto/rea) | Resolved at install time (`dist-tags.latest`) | MIT | `wev skills show rea` prints the argv that starts its MCP server; wev starts it for the health check and through `wev rea serve` (see the [installation guide](guides/installation.md#rea-modes-image-registration)) |
+| addyosmani/agent-skills, https://github.com/addyosmani/agent-skills | Resolved at install time (latest release) | MIT, "Copyright (c) 2025 Addy Osmani" | Skills linked into the user's skill directories by `wev skills activate` |
+
+Both `rea` (`morluto/rea`) and `agent-skills` (`addyosmani/agent-skills`) are MIT per the GitHub API `license.spdx_id`, checked on 2026-10-20 and 2026-10-22. That is the repository's license, not the npm package metadata. The agent-skills copyright line is "Copyright (c) 2025 Addy Osmani". No affiliation with or endorsement by the authors of these projects is implied.
+
+rea ships a `DISCLAIMER.md` (lawful use only; the person carries authorization and legal responsibility). wev reproduces none of it; the summary is in [SECURITY.md](../SECURITY.md#rea-reverse-engineering-server), and `docs/research/rea-integration.md` records what was read.
+
+Base image: `docker/rea/Dockerfile` starts from `node:24-slim`, the official `node` image on Docker Hub. The image is pulled by `wev rea build-image` at the user's request; no layer of it is stored in this repository. Its license terms were not checked for this entry.
 
 ## Rule for adding third-party files
 
