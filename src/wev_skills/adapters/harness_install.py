@@ -131,13 +131,15 @@ def _roll_back(runner: Runner, done: tuple[tuple[str, ...], ...], error: BaseExc
         error.details["undo_failed"] = failed
 
 
-def _remove_files(files: tuple[str, ...], root: Path) -> None:
-    """Unlink the listed files, then drop the empty directories wev made (package, root)."""
+def _remove_files(files: tuple[str, ...], root: Path, extra: Path | None = None) -> None:
+    """Unlink the listed files, then drop the empty directories wev made (package, root, the
+    harness directory and ``extra``)."""
     package = root / "package"
     for name in files:
         Path(name).unlink(missing_ok=True)
     inner = {p for name in files for p in Path(name).parents if p.is_relative_to(package)}
-    for directory in sorted(inner | {package, root}, key=lambda p: len(p.parts), reverse=True):
+    outer = {package, root, root.parent, *([extra] if extra else [])}
+    for directory in sorted(inner | outer, key=lambda p: len(p.parts), reverse=True):
         try:
             directory.rmdir()  # only an empty directory goes: a file of the person stays
         except OSError:
@@ -158,9 +160,28 @@ def _check_placeholders(files: list[Path]) -> None:
             raise ValidationError("harness_placeholder", message, {"path": str(path)})
 
 
-def _build(target: str, root: Path, wev_path: Path) -> tuple[str, ...]:
+def _refuse_symlinks(destination: Path, package: Path) -> None:
+    """A symlink at the package or inside it would make the copy write elsewhere."""
+    if not _confined(str(destination), package):
+        raise _unsafe(destination)
+    current = destination.parent
+    while True:
+        if current.is_symlink():
+            raise _unsafe(current)
+        if current == package:
+            return
+        current = current.parent
+
+
+def _unsafe(path: Path) -> ValidationError:
+    message = i18n.t("harness.error.symlink", path=str(path))
+    return ValidationError("harness_symlink", message, {"path": str(path)})
+
+
+def _build(target: str, root: Path, wev_path: Path, written: list[str]) -> None:
     """Build in a staging directory, then copy into the package, so a file of the person
-    already in the package never blocks the build. Returns the package files written."""
+    already in the package never blocks the build. ``written`` records each copied file as
+    it is copied, so a failure part-way can still be rolled back."""
     package = root / "package"
     ensure_private_dir(root)
     staging = Path(tempfile.mkdtemp(dir=root, prefix=".staging-"))
@@ -170,14 +191,14 @@ def _build(target: str, root: Path, wev_path: Path) -> tuple[str, ...]:
         atomic_write_text(market, _marketplace_text())
         built = [*built, market]
         _check_placeholders(built)
-        written: list[str] = []
-        for source in built:
-            destination = package / source.relative_to(staging)
+        targets = [package / source.relative_to(staging) for source in built]
+        for destination in targets:
+            _refuse_symlinks(destination, package)
+        for source, destination in zip(built, targets, strict=True):
             atomic_write_text(destination, source.read_text(encoding="utf-8"))
             written.append(str(destination))
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-    return tuple(written)
 
 
 def _codex_registrations(package: Path) -> tuple[tuple[str, ...], ...]:
@@ -201,29 +222,51 @@ def _register(runner: Runner, registrations: tuple[tuple[str, ...], ...]) -> Non
         raise
 
 
+def _rollback_failures(
+    runner: Runner, registrations: tuple[tuple[str, ...], ...], error: OSError
+) -> RemoteError:
+    """The OSError as a RemoteError (exit 8) that lists the inverses that failed."""
+    message = i18n.t("harness.error.manifest_write", error=str(error))
+    wrapped = RemoteError("harness_manifest_write", message)
+    _roll_back(runner, registrations, wrapped)
+    return wrapped
+
+
+def _undo_previous(runner: Runner, previous: Manifest, root: Path) -> None:
+    failed = _undo(runner, previous.registrations, strict=False)
+    if failed:  # keep the old manifest and files: the person can retry the uninstall
+        message = i18n.t("harness.error.undo_previous", command=" ".join(failed[0]))
+        raise RemoteError("harness_undo_failed", message, {"undo_failed": failed})
+    _remove_files(previous.files, root)
+    (root / "manifest.json").unlink(missing_ok=True)  # it would list undone registrations
+
+
 def install(target: str, runner: Runner, data_home: Path, wev_path: Path) -> Manifest:
     """Build and register the package; on any failure undo what this call did."""
     _check_target(target)
     root = _root(data_home, target)
+    base = data_home / PACKAGE_NAME
+    created_base = None if base.exists() else base
     previous = _read(root)
     if previous is not None:
-        _undo(runner, previous.registrations, strict=False)
-        _remove_files(previous.files, root)
-        (root / "manifest.json").unlink(missing_ok=True)  # it now lists undone registrations
-    files: tuple[str, ...] = ()
+        _undo_previous(runner, previous, root)
+    files: list[str] = []
     try:
-        files = _build(target, root, wev_path)
+        _build(target, root, wev_path, files)
         registrations = _codex_registrations(root / "package")
         _register(runner, registrations)
     except BaseException:
-        _remove_files(files, root)
+        _remove_files(tuple(files), root, created_base)
         raise
-    manifest = Manifest(target, files, registrations)
+    manifest = Manifest(target, tuple(files), registrations)
     try:
         _write(root, manifest)
-    except BaseException as exc:
-        _roll_back(runner, registrations, exc)
-        _remove_files(files, root)
+    except OSError as exc:
+        wrapped = _rollback_failures(runner, registrations, exc)
+        _remove_files(tuple(files), root, created_base)
+        raise wrapped from exc
+    except BaseException:
+        _remove_files(tuple(files), root, created_base)
         raise
     return manifest
 
@@ -237,6 +280,6 @@ def uninstall(target: str, runner: Runner, data_home: Path) -> Manifest:
         message = i18n.t("harness.error.not_installed", target=target)
         raise NotFound("harness_not_installed", message)
     _undo(runner, manifest.registrations, strict=True)
-    (root / "manifest.json").unlink()
     _remove_files(manifest.files, root)
+    (root / "manifest.json").unlink()
     return manifest

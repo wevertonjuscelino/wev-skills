@@ -233,7 +233,7 @@ class FixRoundTests(InstallBase):
 
     def test_manifest_write_failure_undoes_both_registrations_newest_first(self) -> None:
         (self.root / "manifest.json").mkdir(parents=True)  # cannot be replaced by a file
-        with self.assertRaises(OSError):
+        with self.assertRaises(RemoteError):
             self.install()
         self.assertEqual(
             self.calls()[2:],
@@ -247,6 +247,83 @@ class FixRoundTests(InstallBase):
             self.install()
         failed = caught.exception.details["undo_failed"]
         self.assertEqual(failed, [["codex", "plugin", "marketplace", "remove", MKT]])
+
+
+class SecondFixTests(InstallBase):
+    def test_a_symlinked_directory_inside_the_package_is_refused(self) -> None:
+        outside = self.data / "outside"
+        outside.mkdir(parents=True)
+        package = self.root / "package"
+        package.mkdir(parents=True)
+        (package / "skills").symlink_to(outside)
+        with self.assertRaises(ValidationError) as caught:
+            self.install()
+        self.assertIn("skills", str(caught.exception))
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(self.calls(), [])
+
+    def test_a_symlinked_package_is_refused(self) -> None:
+        outside = self.data / "outside"
+        outside.mkdir(parents=True)
+        self.root.mkdir(parents=True)
+        (self.root / "package").symlink_to(outside)
+        with self.assertRaises(ValidationError):
+            self.install()
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(self.calls(), [])
+
+    def test_a_partial_copy_is_removed_on_failure(self) -> None:
+        (self.root / "package" / "hooks.json").mkdir(parents=True)  # the copy cannot replace it
+        with self.assertRaises(OSError):
+            self.install()
+        self.assertEqual(self.files(), set())
+        self.assertEqual(self.calls(), [])
+
+    def test_manifest_write_failure_reports_failed_inverses(self) -> None:
+        (self.root / "manifest.json").mkdir(parents=True)
+        self.fail_on("plugin marketplace remove")
+        with self.assertRaises(RemoteError) as caught:
+            self.install()
+        self.assertEqual(caught.exception.exit_code, 8)
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+        failed = caught.exception.details["undo_failed"]
+        self.assertEqual(failed, [["codex", "plugin", "marketplace", "remove", MKT]])
+
+    def test_reinstall_keeps_the_old_manifest_when_an_undo_fails(self) -> None:
+        self.install()
+        self.fail_on("plugin remove")
+        with self.assertRaises(RemoteError) as caught:
+            self.install()
+        self.assertEqual(
+            caught.exception.details["undo_failed"], [["codex", "plugin", "remove", PLUGIN]]
+        )
+        self.assertTrue((self.root / "manifest.json").is_file())
+        self.assertTrue((self.root / "package" / "hooks.json").is_file())
+
+    def test_uninstall_keeps_the_manifest_when_a_removal_fails(self) -> None:
+        self.install()
+        hooks = self.root / "package" / "hooks.json"
+        hooks.unlink()
+        hooks.mkdir()  # unlink of a directory fails
+        with self.assertRaises(OSError):
+            uninstall("codex", FakeCodexRunner(), self.data)
+        self.assertTrue((self.root / "manifest.json").is_file())
+
+    def test_failed_first_install_removes_the_directories_wev_made(self) -> None:
+        self.data.mkdir()
+        self.fail_on("plugin add")
+        with self.assertRaises(RemoteError):
+            self.install()
+        self.assertFalse((self.data / "wev-skills").exists())
+        self.assertTrue(self.data.is_dir())
+
+    def test_failed_first_install_keeps_a_wev_skills_directory_that_existed(self) -> None:
+        (self.data / "wev-skills").mkdir(parents=True)
+        self.fail_on("plugin add")
+        with self.assertRaises(RemoteError):
+            self.install()
+        self.assertTrue((self.data / "wev-skills").is_dir())
+        self.assertFalse((self.data / "wev-skills" / "harness").exists())
 
 
 class UninstallTests(InstallBase):
