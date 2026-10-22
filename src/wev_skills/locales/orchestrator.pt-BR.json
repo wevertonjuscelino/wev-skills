@@ -160,6 +160,7 @@
   "orch.error.no_active_run": "Nenhuma execução ativa em {state_dir}: todas foram encerradas, ou nenhuma foi iniciada. Inicie uma com 'wev run start' ou indique uma execução encerrada com --run.",
   "orch.decision.finished": "Execução encerrada ({outcome}); o lembrete do plano e os hooks deixam de agir sobre ela.",
   "orch.finish.complete": "completa",
+  "orch.finish.score_failed": "a pontuação falhou ({error}); veja o log de auditoria",
   "orch.finish.incomplete": "incompleta",
   "orch.run.brief.help": "Mostra um resumo compacto em texto puro da execução ativa: objetivo, fase, uma linha por tarefa, critérios de aceitação da tarefa atual, aprovações pendentes e o próximo passo.",
   "orch.run.finish.help": "Marca uma execução como encerrada, qualquer que seja o resultado, para que deixe de ser a execução ativa. O registro é mantido e ainda pode ser lido.",

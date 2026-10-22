@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import Any
 
 from wev_skills import i18n
+from wev_skills.agents import project
 from wev_skills.cli import CommandResult
 from wev_skills.commands import Subparsers
 from wev_skills.commands._fence import fence_discovery
@@ -21,7 +22,7 @@ from wev_skills.commands._orchestration import (
 from wev_skills.commands.decide import add_signal_args, signals_from
 from wev_skills.core import active, run_start
 from wev_skills.core.contracts import Mode
-from wev_skills.core.errors import StateConflict, ValidationError
+from wev_skills.core.errors import StateConflict, ValidationError, WevError
 from wev_skills.core.orchestrator import START_MODES, Orchestrator
 from wev_skills.core.report_markdown import render_markdown
 from wev_skills.intake.store import load_brief
@@ -81,7 +82,36 @@ def _brief(args: argparse.Namespace) -> CommandResult:
 
 
 def _finish(args: argparse.Namespace) -> dict[str, Any]:
-    return orchestrator_for(args, finished_ok=True).finish()
+    orchestrator = orchestrator_for(args, finished_ok=True)
+    payload = orchestrator.finish()
+    if orchestrator.services.config.specialists.score_on_finish:
+        payload = {**payload, **_score_used_specialists(orchestrator)}
+    return payload
+
+
+def _score_used_specialists(orchestrator: Orchestrator) -> dict[str, Any]:
+    """Score each project specialist that ended a task of the run. The run is already done:
+    a score that fails is reported, never raised."""
+    from wev_skills.commands import _scoring  # imported only when the owner opted in
+    from wev_skills.commands._scope import RUN_SOURCE_PREFIX, Scope
+
+    services = orchestrator.services
+    state = orchestrator.load()
+    known = {spec.id for spec in project.list_specs(services.root, services.config)}
+    used = sorted({r.agent_id for r in state.tasks.values() if r.agent_id in known})
+    source = f"{RUN_SOURCE_PREFIX}{state.run_id}"
+    scope = Scope(services.root, services.config, source, services.state_dir)
+    scores: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
+    for agent_id in used:
+        try:
+            scores.append(_scoring.score(scope, agent_id).to_dict())
+        except WevError as error:
+            errors.append({"specialist": agent_id, "code": error.code, "message": error.message})
+        except Exception as error:  # noqa: BLE001 - the finish is done; report, do not undo
+            message = i18n.t("orch.finish.score_failed", error=type(error).__name__)
+            errors.append({"specialist": agent_id, "code": "score_failed", "message": message})
+    return {"scores": scores, "score_errors": errors}
 
 
 def _adopt(args: argparse.Namespace) -> dict[str, Any]:
