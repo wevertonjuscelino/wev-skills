@@ -87,7 +87,14 @@ def case_set_digest(root: Path) -> str:
 def ensure_committed(runner: Runner, root: Path) -> None:
     """Refuse a case set with uncommitted or untracked changes: the pin must name a commit."""
     argv = ("git", "status", "--porcelain", "--untracked-files=all", "--", CASES_DIR.as_posix())
-    out = runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, None).stdout.strip()
+    result = runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, None)
+    if result.exit_code != 0 or result.timed_out:
+        raise StateConflict(
+            "cases_status_failed",
+            i18n.t("evaluation.cases.status_failed"),
+            {"exit_code": result.exit_code, "timed_out": result.timed_out},
+        )
+    out = result.stdout.strip()
     if out:
         raise StateConflict(
             "cases_uncommitted", i18n.t("evaluation.cases.uncommitted"), {"changes": out}

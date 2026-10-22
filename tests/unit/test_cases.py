@@ -1,7 +1,9 @@
+import hashlib
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from wev_skills.core.contracts import RawCommandResult
 from wev_skills.core.errors import StateConflict, ValidationError
@@ -37,12 +39,12 @@ def write_case(root: Path, **over: object) -> None:
 
 
 class FakeRunner:
-    def __init__(self, stdout: str) -> None:
-        self.stdout, self.argv = stdout, ()
+    def __init__(self, stdout: str, exit_code: int = 0, timed_out: bool = False) -> None:
+        self.stdout, self.exit_code, self.timed_out, self.argv = stdout, exit_code, timed_out, ()
 
     def run(self, argv, cwd, timeout, env):  # type: ignore[no-untyped-def]
         self.argv = tuple(argv)
-        return RawCommandResult(tuple(argv), 0, self.stdout, "", 1)
+        return RawCommandResult(tuple(argv), self.exit_code, self.stdout, "", 1, self.timed_out)
 
 
 class CasesTest(unittest.TestCase):
@@ -95,14 +97,14 @@ class CasesTest(unittest.TestCase):
         write(self.root, "evals/cases/a/f", "two")
         self.assertNotEqual(before, cases.case_set_digest(self.root))
 
-    def test_digest_ignores_order_of_creation(self) -> None:
-        other = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: __import__("shutil").rmtree(other))
-        for rel in ("evals/cases/a/f", "evals/cases/b/g"):
-            write(self.root, rel)
-        for rel in ("evals/cases/b/g", "evals/cases/a/f"):
-            write(other, rel)
-        self.assertEqual(cases.case_set_digest(self.root), cases.case_set_digest(other))
+    def test_digest_is_pinned_and_independent_of_listing_order(self) -> None:
+        write(self.root, "evals/cases/b/g", "two")
+        write(self.root, "evals/cases/a/f", "one")
+        expected = hashlib.sha256(b"a/f\0one\0b/g\0two\0").hexdigest()
+        original = Path.rglob
+        reversed_listing = lambda self, pattern: reversed(list(original(self, pattern)))  # noqa: E731
+        with mock.patch.object(Path, "rglob", reversed_listing):
+            self.assertEqual(cases.case_set_digest(self.root), expected)
 
     def test_uncommitted_case_is_refused(self) -> None:
         runner = FakeRunner("?? evals/cases/a.json\n")
@@ -111,6 +113,16 @@ class CasesTest(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "cases_uncommitted")
         self.assertIn("--untracked-files=all", runner.argv)
         cases.ensure_committed(FakeRunner(""), self.root)
+
+    def test_failed_git_is_not_a_clean_case_set(self) -> None:
+        for runner in (
+            FakeRunner("", exit_code=128),
+            FakeRunner("", exit_code=None),
+            FakeRunner("", timed_out=True),
+        ):  # type: ignore[arg-type]
+            with self.assertRaises(StateConflict) as ctx:
+                cases.ensure_committed(runner, self.root)
+            self.assertEqual(ctx.exception.code, "cases_status_failed")
 
 
 if __name__ == "__main__":

@@ -111,5 +111,6 @@
   "evaluation.cases.id_mismatch": "o id {id!r} deve ser igual ao nome do arquivo",
   "evaluation.cases.path_escape": "o caminho {path!r} sai da pasta do caso",
   "evaluation.cases.file_missing": "o arquivo listado {path!r} não está na pasta do caso",
-  "evaluation.cases.uncommitted": "O conjunto de casos em evals/cases tem alterações não commitadas ou não rastreadas; faça o commit antes."
+  "evaluation.cases.uncommitted": "O conjunto de casos em evals/cases tem alterações não commitadas ou não rastreadas; faça o commit antes.",
+  "evaluation.cases.status_failed": "Não foi possível conferir o conjunto de casos com o git (não é um repositório, git ausente, tempo esgotado ou erro); o pin não é confiável."
 }
