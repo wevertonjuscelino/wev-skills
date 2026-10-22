@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import tarfile
+import time
 import urllib.request
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
@@ -23,6 +24,7 @@ ALLOWED_HOSTS: dict[str, frozenset[str]] = {
     "github": frozenset({"api.github.com", "codeload.github.com", "github.com"}),
     "npm": frozenset({"registry.npmjs.org"}),
 }
+MAX_MEMBERS = 10_000
 NPM_REF = "npm-ref.json"
 
 
@@ -44,69 +46,79 @@ class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+CHUNK = 64 * 1024
+
+
 def download(url: str, timeout: float) -> bytes:
+    """The body of ``url``; ``timeout`` bounds the whole download, not each socket read."""
+    deadline = time.monotonic() + timeout
     request = urllib.request.Request(url, headers={"User-Agent": "wev-skills"})  # noqa: S310
     opener = urllib.request.build_opener(_CheckedRedirects)
+    chunks: list[bytes] = []
+    size = 0
     with opener.open(request, timeout=timeout) as response:
-        body: bytes = response.read(MAX_ARCHIVE + 1)
-    if len(body) > MAX_ARCHIVE:
-        raise CheckFailed("too_large")
-    return body
-
-
-def _inside(root: PurePosixPath, target: PurePosixPath) -> bool:
-    parts: list[str] = []
-    for part in (root / target).parts[len(root.parts) :]:
-        if part == "..":
-            if not parts:
-                return False
-            parts.pop()
-        elif part != ".":
-            parts.append(part)
-    return True
+        while chunk := response.read1(CHUNK):
+            chunks.append(chunk)
+            size += len(chunk)
+            if size > MAX_ARCHIVE:
+                raise CheckFailed("too_large")
+            if time.monotonic() > deadline:
+                raise CheckFailed("timed_out")
+    return b"".join(chunks)
 
 
 def _check_member(member: tarfile.TarInfo) -> None:
     name = PurePosixPath(member.name)
     unsafe = name.is_absolute() or ".." in name.parts or member.isdev() or member.isfifo()
-    root = PurePosixPath("/root")
-    if member.issym():
+    if member.issym() or member.islnk():
         link = PurePosixPath(member.linkname)
-        unsafe = unsafe or link.is_absolute() or not _inside(root, name.parent / link)
-    elif member.islnk():
-        link = PurePosixPath(member.linkname)
-        unsafe = unsafe or link.is_absolute() or not _inside(root, link)
+        unsafe = unsafe or link.is_absolute() or ".." in link.parts
     if unsafe:
         raise CheckFailed("unsafe_member")
 
 
 def _check_members(archive: tarfile.TarFile) -> None:
+    """Walk the headers one by one, stopping at the first limit, before anything is written."""
     total = 0
-    for member in archive.getmembers():
+    for count, member in enumerate(archive, start=1):
+        if count > MAX_MEMBERS:
+            raise CheckFailed("too_many_members")
         _check_member(member)
         total += max(member.size, 0)
         if total > MAX_ARCHIVE:
             raise CheckFailed("too_large")
 
 
-def _unpack(data: bytes, work: Path) -> None:
+def _single_top(work: Path) -> Path:
+    """GitHub wraps the files in one directory; anything else is not a release tarball."""
+    entries = list(work.iterdir())
+    if any(entry.is_symlink() for entry in entries):
+        raise CheckFailed("unsafe_member")
+    if len(entries) != 1 or not entries[0].is_dir():
+        raise CheckFailed("bad_archive")
+    return entries[0]
+
+
+def _check_links(top: Path) -> None:
+    """Every link must land strictly inside ``top``, the directory that becomes the version."""
+    base = top.resolve()
+    for path in top.rglob("*"):
+        if path.is_symlink():
+            target = path.resolve()
+            if target == base or not target.is_relative_to(base):
+                raise CheckFailed("unsafe_member")
+
+
+def _unpack(data: bytes, work: Path) -> Path:
     try:
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
             _check_members(archive)
             archive.extractall(path=work, filter="data")
     except (tarfile.TarError, OSError, EOFError) as exc:
         raise CheckFailed("bad_archive") from exc
-    base = work.resolve()
-    for path in work.rglob("*"):
-        if path.is_symlink() and not path.resolve().is_relative_to(base):
-            raise CheckFailed("unsafe_member")
-
-
-def _place(work: Path, target: Path) -> None:
-    """Move the archive's single top-level directory (GitHub adds one) to ``target``."""
-    entries = list(work.iterdir())
-    only = entries[0] if len(entries) == 1 and entries[0].is_dir() else work
-    os.replace(only, target)
+    top = _single_top(work)
+    _check_links(top)
+    return top
 
 
 def _target(source: Source, version: str, home: Path) -> Path:
@@ -121,14 +133,18 @@ def _target(source: Source, version: str, home: Path) -> Path:
 def _install_github(release: Release, target: Path, opener: Opener) -> None:
     if release.tarball is None or not _allowed("github", release.tarball):
         raise CheckFailed("bad_tarball_url")
-    data = opener(release.tarball, DOWNLOAD_TIMEOUT)
+    try:
+        data = opener(release.tarball, DOWNLOAD_TIMEOUT)
+    except CheckFailed:
+        raise
+    except OSError as exc:  # URLError, HTTPError, timeouts
+        raise CheckFailed("unreachable") from exc
     if len(data) > MAX_ARCHIVE:
         raise CheckFailed("too_large")
     work = target.with_name(f"{target.name}.tmp-{os.getpid()}")
     try:
         work.mkdir(parents=True)
-        _unpack(data, work)
-        _place(work, target)
+        os.replace(_unpack(data, work), target)
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

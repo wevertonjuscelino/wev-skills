@@ -67,7 +67,7 @@ def fetch(url: str, timeout: float) -> bytes:
     return body
 
 
-def _get_json(opener: Opener, url: str) -> object:
+def get_json(opener: Opener, url: str) -> object:
     try:
         return json.loads(opener(url, REQUEST_TIMEOUT))
     except CheckFailed:
@@ -98,7 +98,7 @@ def _version(value: str) -> str:
 
 
 def _npm(src: Source, opener: Opener, base: str) -> Release:
-    doc = _get_json(opener, f"{base}/{src.package}")
+    doc = get_json(opener, f"{base}/{src.package}")
     version = _version(_text(doc, "dist-tags", "latest"))
     try:
         tarball: str | None = _text(doc, "versions", version, "dist", "tarball")
@@ -108,7 +108,7 @@ def _npm(src: Source, opener: Opener, base: str) -> Release:
 
 
 def _github_head(src: Source, opener: Opener, base: str) -> Release:
-    doc = _get_json(opener, f"{base}/repos/{src.package}/commits/HEAD")
+    doc = get_json(opener, f"{base}/repos/{src.package}/commits/HEAD")
     sha = _version(_text(doc, "sha"))
     return Release(
         sha[:12],
@@ -119,7 +119,7 @@ def _github_head(src: Source, opener: Opener, base: str) -> Release:
 
 def _github(src: Source, opener: Opener, base: str) -> Release:
     try:
-        doc = _get_json(opener, f"{base}/repos/{src.package}/releases/latest")
+        doc = get_json(opener, f"{base}/repos/{src.package}/releases/latest")
     except CheckFailed as exc:
         if exc.code != "http_404":
             raise

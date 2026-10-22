@@ -8,11 +8,14 @@ import json
 import os
 import tarfile
 import tempfile
+import time
 import unittest
+import urllib.error
 from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
+from tests.fixtures.fake_registry_server import fake_registry
 from wev_skills import cli
 from wev_skills.third_party import check, fetch, sources
 
@@ -96,6 +99,83 @@ class FetchCase(unittest.TestCase):
         for label, build in cases.items():
             with self.subTest(label):
                 self.refused(tarball(build), "unsafe_member")
+
+    def test_links_cannot_alias_the_source_directory(self) -> None:
+        def top_is_link(a: tarfile.TarFile) -> None:
+            add_link(a, "top", ".")
+            add_file(a, "top/x")
+
+        def up(a: tarfile.TarFile) -> None:
+            add_file(a, "top/f")
+            add_link(a, "top/l", "..")
+
+        def chained(a: tarfile.TarFile) -> None:
+            add_file(a, "top/f")
+            add_link(a, "top/d", ".")
+            add_link(a, "top/e", "d/../..")
+
+        def self_link(a: tarfile.TarFile) -> None:
+            add_file(a, "top/f")
+            add_link(a, "top/d", ".")
+
+        for build in (top_is_link, up, chained, self_link):
+            with self.subTest(build.__name__):
+                self.refused(tarball(build), "unsafe_member")
+
+    def test_benign_relative_link_is_kept(self) -> None:
+        def build(archive: tarfile.TarFile) -> None:
+            add_file(archive, "top/b")
+            add_link(archive, "top/a", "b")
+
+        self.assertEqual((self.install(tarball(build)) / "a").resolve().name, "b")
+
+    def test_summed_sizes_over_the_cap_refused(self) -> None:
+        def build(archive: tarfile.TarFile) -> None:
+            add_file(archive, "top/a", b"y" * 6)
+            add_file(archive, "top/b", b"y" * 6)
+
+        with mock.patch.object(fetch, "MAX_ARCHIVE", 10):
+            self.refused(tarball(build), "too_large")
+
+    def test_too_many_members_refused(self) -> None:
+        def build(archive: tarfile.TarFile) -> None:
+            for index in range(fetch.MAX_MEMBERS + 1):
+                info = tarfile.TarInfo(f"top/d{index}")
+                info.type = tarfile.DIRTYPE
+                archive.addfile(info)
+
+        self.refused(tarball(build), "too_many_members")
+
+    def test_two_top_level_entries_refused(self) -> None:
+        def build(archive: tarfile.TarFile) -> None:
+            add_file(archive, "one/a")
+            add_file(archive, "two/b")
+
+        self.refused(tarball(build), "bad_archive")
+
+    def test_network_errors_become_unreachable(self) -> None:
+        for error in (urllib.error.URLError("x"), TimeoutError(), ConnectionResetError()):
+            with self.subTest(error=type(error).__name__):
+
+                def opener(_url: str, _timeout: float, error: OSError = error) -> bytes:
+                    raise error
+
+                release = check.Release("v1.0.0", "https://c", URL)
+                with self.assertRaises(check.CheckFailed) as caught:
+                    fetch.install_version(GH, release, self.home, opener, Runner())  # type: ignore[arg-type]
+                self.assertEqual(caught.exception.code, "unreachable")
+
+    def test_download_stops_at_the_wall_clock_deadline_when_a_server_drips(self) -> None:
+        with fake_registry({"/a.tgz": (200, b"x" * 50, 0.2)}) as fake:
+            started = time.monotonic()
+            with self.assertRaises(check.CheckFailed) as caught:
+                fetch.download(f"{fake.url}/a.tgz", 0.6)
+        self.assertEqual(caught.exception.code, "timed_out")
+        self.assertLess(time.monotonic() - started, 3)
+
+    def test_download_returns_the_body(self) -> None:
+        with fake_registry({"/a.tgz": (200, b"abc")}) as fake:
+            self.assertEqual(fetch.download(f"{fake.url}/a.tgz", 5), b"abc")
 
     def test_device_member_refused(self) -> None:
         def build(archive: tarfile.TarFile) -> None:
@@ -207,6 +287,16 @@ class InstallCliCase(unittest.TestCase):
             code, _ = self.run_main("skills", "install", "agent-skills", "--version", "v1")
         self.assertEqual(code, 8)
         self.assertEqual(self.run_main("skills", "install", "nope")[0], 2)
+
+    def test_npm_version_must_exist_on_the_registry(self) -> None:
+        routes = {"/rea-agents/2.0.0": (200, b"{}")}
+        with fake_registry(routes) as fake, mock.patch.dict(check.BASE_URLS, {"npm": fake.url}):
+            code, payload = self.run_main("skills", "install", "rea", "--version", "2.0.0")
+            self.assertEqual((code, payload["version"]), (0, "2.0.0"))
+            code, _ = self.run_main("skills", "install", "rea", "--version", "9.9.9")
+        self.assertEqual(code, 8)
+        base = self.dir / "data/wev-skills/third-party/rea"
+        self.assertEqual([p.name for p in base.iterdir()], ["2.0.0"])
 
     def test_install_defaults_to_latest(self) -> None:
         release = check.Release("v9.9.9", "https://c", "https://codeload.github.com/x")

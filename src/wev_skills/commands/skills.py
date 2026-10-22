@@ -119,8 +119,13 @@ def _release_for(src: Source, version: str | None) -> check_mod.Release:
         return check_mod.latest(src, check_mod.fetch)
     if not state_mod.VERSION_RE.fullmatch(version):
         raise ValidationError("bad_version", i18n.t("skills.error.bad_version", version=version))
+    link = src.changelog.format(version=version)
+    if src.kind == "npm":  # the registry must know the version before a ref is written
+        base = check_mod.BASE_URLS["npm"]
+        check_mod.get_json(check_mod.fetch, f"{base}/{src.package}/{version}")
+        return check_mod.Release(version, link, None)
     tarball = f"{check_mod.BASE_URLS['github']}/repos/{src.package}/tarball/{version}"
-    return check_mod.Release(version, src.changelog.format(version=version), tarball)
+    return check_mod.Release(version, link, tarball)
 
 
 def _run_install(args: argparse.Namespace) -> dict[str, Any]:
