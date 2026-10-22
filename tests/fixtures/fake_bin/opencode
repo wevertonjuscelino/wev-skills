@@ -1,0 +1,5 @@
+#!/bin/sh
+# Fake opencode CLI: logs argv to $FAKE_LOG, exits 1 when FAKE_FAIL names "opencode".
+printf 'opencode %s\n' "$*" >> "$FAKE_LOG"
+case ",${FAKE_FAIL:-}," in *,opencode,*) exit 1 ;; esac
+exit 0
