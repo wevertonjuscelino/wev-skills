@@ -27,29 +27,38 @@ GIT_HARDENING = ("-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null")
 GIT_ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
 
 
-def _git(runner: Runner, root: Path, *args: str) -> RawCommandResult:
+def run_git(runner: Runner, root: Path, *args: str) -> RawCommandResult:
     env = {key: os.environ[key] for key in ("PATH", "HOME") if key in os.environ} | GIT_ENV
     argv = ("git", *GIT_HARDENING, *args)
     return runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, env)
 
 
+class GitTampered(StateConflict):
+    """The shared git directory changed while an agent ran; nothing may use git until reviewed."""
+
+
 @contextmanager
 def case_workspace(runner: Runner, root: Path, case: Case, scratch: Path) -> Iterator[Path]:
     """Check out ``case.base_commit`` detached under ``scratch``; always remove it on exit."""
-    found = _git(runner, root, "cat-file", "-e", f"{case.base_commit}^{{commit}}")
+    found = run_git(runner, root, "cat-file", "-e", f"{case.base_commit}^{{commit}}")
     if found.exit_code != 0:
         message = i18n.t("evaluation.workspace.base_missing", id=case.id, commit=case.base_commit)
         raise NotFound("case_base_missing", message, {"id": case.id})
     path = scratch / f"{case.id}-{uuid.uuid4().hex[:8]}"
     scratch.mkdir(parents=True, exist_ok=True)
-    added = _git(runner, root, "worktree", "add", "--detach", str(path), case.base_commit)
+    added = run_git(runner, root, "worktree", "add", "--detach", str(path), case.base_commit)
     if added.exit_code != 0:
         message = i18n.t("evaluation.workspace.add_failed", id=case.id, error=added.stderr.strip())
         raise StateConflict("case_workspace_failed", message, {"id": case.id})
+    tampered = False
     try:
         yield path
+    except GitTampered:
+        tampered = True
+        raise
     finally:
-        _git(runner, root, "worktree", "remove", "--force", str(path))
+        if not tampered:  # after tampering no git call is made, the directory is just deleted
+            run_git(runner, root, "worktree", "remove", "--force", str(path))
         shutil.rmtree(path, ignore_errors=True)  # remove can fail on a dead worktree
 
 

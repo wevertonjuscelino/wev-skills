@@ -23,6 +23,7 @@ from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, Valida
 from wev_skills.core.fsutil import append_line
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.evaluation import cases as case_store
+from wev_skills.evaluation.gitguard import tamper_guard
 from wev_skills.evaluation.ratchet import improves
 from wev_skills.evaluation.score_pass import Pass
 from wev_skills.evaluation.score_runs import Setup
@@ -69,16 +70,6 @@ def _refuse_if_baseline_over_cap(config: Config, cases: int) -> None:
         raise GuardTripped(
             "score_over_cap", message, {"planned": needed, "cap": cfg.score_max_runs}
         )
-
-
-def _git_config(runner: Runner, root: Path) -> bytes:
-    """The bytes of the repository's ``.git/config`` (the common dir, for a linked worktree)."""
-    argv = ("git", "rev-parse", "--git-common-dir")
-    out = runner.run(argv, str(root), case_store.GIT_TIMEOUT_SECONDS, None).stdout.strip()
-    try:
-        return (root / out / "config").read_bytes()
-    except OSError:
-        return b""
 
 
 @dataclass(frozen=True)
@@ -135,7 +126,13 @@ def _decided(
 
 
 def _in_scratch(
-    root: Path, config: Config, runner: Runner, agent: AgentRunner, spec: AgentSpec, score_id: str
+    root: Path,
+    config: Config,
+    runner: Runner,
+    agent: AgentRunner,
+    spec: AgentSpec,
+    score_id: str,
+    guard: Callable[[], None],
 ) -> Outcome:
     """Measure ``spec`` in a scratch directory outside the state dir, always removed."""
     cfg = config.specialists
@@ -145,7 +142,14 @@ def _in_scratch(
     scratch = Path(tempfile.mkdtemp(prefix="wev-scoring-"))
     try:
         setup = Setup(
-            root, runner, policy, agent, scratch, cfg.score_samples, cfg.score_timeout_seconds
+            root,
+            runner,
+            policy,
+            agent,
+            scratch,
+            cfg.score_samples,
+            cfg.score_timeout_seconds,
+            guard,
         )
         return _measure(setup, config, resolved, cases, score_id)
     finally:
@@ -179,10 +183,9 @@ def score_specialist(
         raise ValidationError("score_no_cases", i18n.t("evaluation.scoring.no_cases"))
     _refuse_if_baseline_over_cap(config, len(cases))
     score_id = f"score-{uuid.uuid4().hex[:12]}"
-    git_config = _git_config(runner, root)
-    outcome = _in_scratch(root, config, runner, agent, spec, score_id)
-    if _git_config(runner, root) != git_config:
-        raise StateConflict("git_config_changed", i18n.t("evaluation.scoring.git_config_changed"))
+    guard = tamper_guard(runner, root)
+    outcome = _in_scratch(root, config, runner, agent, spec, score_id, guard)
+    guard()
     if case_store.case_set_digest(root) != digest:
         raise StateConflict("cases_changed", i18n.t("evaluation.scoring.cases_changed"))
     _decided(root, config, spec, outcome, _audit(audit, agent_id, digest, outcome))

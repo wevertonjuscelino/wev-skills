@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,6 +32,8 @@ class Setup:
     scratch: Path
     samples: int
     timeout: float
+    guard: Callable[[], None]
+    """Called right after every agent run, before any git call; raises if git was tampered."""
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,7 @@ def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure 
     with case_workspace(setup.runner, setup.root, case, setup.scratch) as path:
         before = snapshot.take(path)
         ran = setup.agent.run_agent(path, spec, case.objective, setup.timeout)
+        setup.guard()
         after = snapshot.take(path)  # before run_check copies the case files in
         if not ran.ok and not ran.timed_out:
             error = clean_text(ran.output, ERROR_CHARS)
@@ -61,10 +64,13 @@ def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure 
                 "score_agent_failed",
                 i18n.t("evaluation.scoring.agent_failed", case=case.id, error=error),
             )
-        result = run_check(setup.runner, setup.policy, case, setup.root, path, setup.timeout)
-    if passed(result):
-        return True, None
-    output = (result.stdout + result.stderr)[-CONTEXT_CHARS:]
+        if ran.timed_out:  # partial work does not count: no check, a fail
+            output = i18n.t("evaluation.scoring.agent_timed_out")
+        else:
+            result = run_check(setup.runner, setup.policy, case, setup.root, path, setup.timeout)
+            if passed(result):
+                return True, None
+            output = (result.stdout + result.stderr)[-CONTEXT_CHARS:]
     return False, Failure(case, output, snapshot.diff(before, after)[:CONTEXT_CHARS])
 
 

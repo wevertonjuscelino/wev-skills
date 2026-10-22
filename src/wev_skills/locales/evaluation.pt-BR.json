@@ -126,5 +126,6 @@
   "evaluation.scoring.cases_changed": "O conjunto de casos mudou durante a pontuação; nenhuma lição foi decidida",
   "evaluation.scoring.agent_failed": "O agente falhou no caso {case} ({error}); nada foi decidido",
   "evaluation.scoring.git_config_changed": "O .git/config do repositório mudou durante a pontuação; nada foi decidido",
-  "evaluation.scoring.bad_history": "Uma linha do histórico de pontuações não é JSON válido"
+  "evaluation.scoring.bad_history": "Uma linha do histórico de pontuações não é JSON válido",
+  "evaluation.scoring.agent_timed_out": "O agente excedeu o tempo antes de terminar; a verificação não foi executada."
 }

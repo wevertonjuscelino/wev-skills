@@ -1,7 +1,10 @@
+import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import unittest
 from collections.abc import Callable
 from dataclasses import replace
@@ -307,6 +310,51 @@ class ScoringTest(unittest.TestCase):
         agent.outcome = AgentRunResult(False, "slow", True)
         self.assertEqual(self.score(agent).baseline, {"c1": 0})
 
+    def test_a_timed_out_agent_fails_even_when_its_work_would_pass(self) -> None:
+        self.add_cases("c1")
+        agent = FakeAgent(lambda s: {"c1"}, ('{"lesson": "write the fix file"}',))
+        agent.outcome = AgentRunResult(False, "slow", True)
+        report = self.score(agent)
+        self.assertEqual(report.baseline, {"c1": 0})
+        self.assertIn("timed out", agent.prompts[0])
+        self.assertIn("+++ b/fix-c1.txt", agent.prompts[0])  # the partial work reaches the diff
+
+    def test_a_hook_planted_by_the_agent_stops_the_run_before_any_git_call(self) -> None:
+        self.add_cases("c1")
+        item = lesson("do x")
+        self.experience(item)
+        calls: list[tuple[str, ...]] = []
+        paths: list[Path] = []
+        marks: list[int] = []
+
+        class Recording(SubprocessRunner):
+            def run(self, argv, cwd, timeout, env):  # type: ignore[no-untyped-def]
+                calls.append(tuple(argv))
+                return super().run(argv, cwd, timeout, env)
+
+        agent = FakeAgent(lambda s: set())
+
+        def plant() -> None:
+            marks.append(len(calls))
+            paths.extend(self.scratch_dirs())
+            (self.root / ".git" / "hooks" / "post-checkout").write_text("#!/bin/sh\ntouch /x\n")
+
+        agent.on_run = plant
+        with self.assertRaises(StateConflict) as ctx:
+            score_specialist(self.root, self.config, Recording(), agent, AGENT, self.audit)
+        self.assertEqual(ctx.exception.code, "git_config_changed")
+        self.assertEqual(len(calls), marks[0])  # not one git call after the agent ran
+        self.assertTrue(paths)
+        self.assertFalse(any(p.exists() for p in paths))
+        self.assertEqual(self.stored()[item.id], item)
+
+    def scratch_dirs(self) -> list[Path]:
+        return [
+            child
+            for base in Path(tempfile.gettempdir()).glob("wev-scoring-*")
+            for child in base.iterdir()
+        ]
+
     def test_a_candidate_the_render_cap_hides_is_skipped_not_run(self) -> None:
         self.add_cases("c1")
         self.limits(max_lessons_rendered=1)
@@ -370,6 +418,56 @@ class ScoringTest(unittest.TestCase):
             (state / SCORES_FILE).write_text("{oops\n")
             with self.assertRaises(ValidationError):
                 specialists._scores(args)
+
+
+class SnapshotCapsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def take_with_timeout(self) -> snapshot.Snapshot:
+        found: list[snapshot.Snapshot] = []
+        thread = threading.Thread(target=lambda: found.append(snapshot.take(self.tmp)), daemon=True)
+        thread.start()
+        thread.join(10)
+        self.assertFalse(thread.is_alive(), "snapshot.take hung")
+        return found[0]
+
+    def test_a_fifo_is_skipped(self) -> None:
+        os.mkfifo(self.tmp / "pipe")
+        (self.tmp / "real.txt").write_text("x")
+        self.assertEqual(list(self.take_with_timeout().files), ["real.txt"])
+
+    def test_a_symlink_is_skipped(self) -> None:
+        (self.tmp / "t.txt").write_text("x")
+        os.symlink(self.tmp / "t.txt", self.tmp / "link")
+        self.assertEqual(list(self.take_with_timeout().files), ["t.txt"])
+
+    def test_a_huge_file_is_not_read_past_the_cap(self) -> None:
+        with open(self.tmp / "huge", "wb") as handle:
+            handle.truncate(1 << 31)
+        entry = self.take_with_timeout().files["huge"]
+        digest = hashlib.sha256(b"\0" * (snapshot.MAX_FILE_BYTES + 1)).digest()
+        self.assertEqual((entry.big, entry.size, entry.data), (True, 1 << 31, digest))
+
+    def test_the_file_cap_stops_the_walk_and_the_diff_says_so(self) -> None:
+        for name in "abcde":
+            (self.tmp / f"{name}.txt").write_text(name)
+        full = snapshot.take(self.tmp)
+        with mock.patch.object(snapshot, "MAX_FILES", 3):
+            capped = snapshot.take(self.tmp)
+        self.assertEqual(
+            (capped.truncated, sorted(capped.files)), (True, ["a.txt", "b.txt", "c.txt"])
+        )
+        out = snapshot.diff(full, capped)
+        self.assertNotIn("/dev/null", out)  # d and e are unknown, not deleted
+        self.assertIn("snapshot truncated", out)
+
+    def test_the_byte_cap_truncates(self) -> None:
+        (self.tmp / "a.txt").write_text("x" * 50)
+        (self.tmp / "b.txt").write_text("y" * 50)
+        with mock.patch.object(snapshot, "MAX_TOTAL_BYTES", 60):
+            self.assertTrue(snapshot.take(self.tmp).truncated)
 
 
 class SnapshotTest(unittest.TestCase):
