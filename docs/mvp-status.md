@@ -31,6 +31,8 @@ The objective interview and project specialists were added after the original MV
 
 Focused CLI, persistence, learning, routing and budget regression tests cover these additions. Their full-suite result belongs to the later commit and must be read from its CI/check output rather than inferred from the historical counts above. Live model interviews and exported specialists in a live session remain unvalidated. The [local security review](security-review-2026-10-13.md) records the append-permission and explicit Git-helper fixes and their remaining limits.
 
+Harness adapters for Codex, Gemini CLI and OpenCode (`wev harness export|install|uninstall`, `wev hook ... --harness`) were added later. Status: implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part). The OpenCode plugin was tested under node with a fake `wev` and never run inside OpenCode. They add no row to the 16 criteria; the limits are in [SECURITY.md](../SECURITY.md#other-harnesses).
+
 ## Summary
 
 | # | Criterion | Status |

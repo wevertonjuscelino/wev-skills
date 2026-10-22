@@ -25,6 +25,7 @@ The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Co
 | Project specialists, bounded experience and run budgets | Implemented and tested | Engine records only; advisory lessons; command units, not tokens or money |
 | Skills, hooks and plugin manifests | Implemented and tested | Format and subprocess tests; live integration untested |
 | Optional JEV, SSH/tmux and evaluation adapters | Simulated with mocks | A recorded JEV response and simulated remote hosts |
+| Codex, Gemini CLI and OpenCode: package export, install, uninstall, hook codecs | Implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part) | A policy ask becomes allow plus a warning there; see [SECURITY.md](SECURITY.md) |
 | Other agent environments and Windows support | Documented only / blocked | Future adapters; POSIX file locks today |
 
 Detailed acceptance evidence is in [MVP status](docs/mvp-status.md). The [local security review of 2026-10-13](docs/security-review-2026-10-13.md) records findings and scope; it is an internal review, not a certification.
@@ -85,7 +86,10 @@ Objective intake is documented in [the interview guide](docs/guides/intake.md). 
 | Inventory-based SSH and task-owned tmux sessions | [Remote operations](docs/guides/remote-ops.md) | `wev-remote-ops` |
 | Managed project guidelines in `CLAUDE.md` | [Guidelines skill](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |
 | Bilingual README checks | [README standard](skills/wev-readme/SKILL.md) | `wev-readme` |
+| Skills, guard hooks and agents for Codex, Gemini CLI and OpenCode | [Installation: Codex, Gemini CLI and OpenCode](docs/guides/installation.md#codex-gemini-cli-and-opencode) | CLI `wev harness` |
 | Reviewed upstream updates and conflict reconciliation | [Maintenance policy](skills/wev-skill-maintenance/references/policy.md) | `wev-skill-maintenance` |
+
+Harnesses: Claude Code uses the plugin; Codex, Gemini CLI and OpenCode get the skills and the guard through `wev harness install --target <name>`.
 
 Configuration, local decisions and the optional third-party JEV provider are documented in [configuration and providers](docs/guides/configuration-and-providers.md). Skills instruct the agent; engine code enforces task transitions and verification rules ([ADR 0002](docs/architecture/decisions/0002-engine-enforces-skills-instruct.md)).
 

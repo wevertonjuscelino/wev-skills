@@ -14,6 +14,7 @@
   "hooks.prompt-reminder.help": "UserPromptSubmit hook: print the brief of the active run when harness.plan_reminder is on.",
   "hooks.pre-tool-use.help": "PreToolUse hook for the Bash tool: judge the command under the active run's pinned policy, or under the built-in default policy (execute mode, medium risk) when there is no run. It can deny or ask, never allow, and it never reads the approval store: the person's answer in Claude Code's permission prompt is the approval.",
   "hooks.session.intro": "wev: this is the recorded state of run {run}, not verified against the repository. Check the real state with 'wev run resume --run {run}' before continuing.",
+  "hooks.harness.help": "Harness that sends the hook input and reads the answer (default: claude). Other harnesses have no ask decision for hooks: a policy 'ask' is allowed with a warning, a guard that cannot judge is denied.",
   "hooks.reason.context": "wev run {run} ({mode} mode): {reason}",
   "hooks.reason.no_run_context": "wev (no run, built-in default policy, {mode} mode): {reason}",
   "hooks.reason.part": "{reason} Part of the command line: {command}",
@@ -37,7 +38,12 @@
   "hooks.reason.registry_unreadable": "wev: your run registry exists but cannot be read, so no run can be trusted; a person decides.",
   "hooks.reason.unregistered_run": "wev: a run was found in this tree but is not in your run registry; a person decides.",
   "hooks.reason.unreadable_input": "The hook input could not be read (too large or not valid JSON), so the command was not checked and a person decides.",
+  "hooks.reason.fail_safe_denied": "the guard could not judge this command safely; this harness has no ask decision for hooks, so it was denied: {reason}",
+  "hooks.error.workdir": "The directory this command names is not a string, or is not an existing directory, so it cannot be judged.",
+  "hooks.reason.person_only_denied": "this is a human-operator command; this harness cannot ask, so it was denied: run it in your own terminal ({reason})",
+  "hooks.reason.ask_as_warning": "wev would ask before this command; this harness cannot ask, so it was allowed: {reason}",
   "hooks.reason.unknown_target": "This command names a path through a variable, so its target cannot be known here, and a wev run is active in {root}. It may touch that run's tree, so a person decides.",
   "orch.budget.warning": "Run has used at least 80% of its engine budget; review the remaining scope.",
-  "orch.budget.stop": "Run budget exhausted or the requested work would exceed it; start a new run with reviewed limits."
+  "orch.budget.stop": "Run budget exhausted or the requested work would exceed it; start a new run with reviewed limits.",
+  "hooks.reason.engine_harness": "This wev command installs or removes the wev package in a harness (it registers plugins and hooks in that harness's configuration); a person decides."
 }

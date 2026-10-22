@@ -7,7 +7,8 @@ directory shadows the package).
 
 The engine gates its own commands, so most are left to it. The ones listed here change what
 the run allows (a decision of the operator, an approval request, a new or finished run,
-another configuration, a file written by ``agent``, a remote start or stop), and the two
+another configuration, a file written by ``agent``, a remote start or stop, an install into
+or an uninstall from a harness), and the two
 ``jev`` commands that send a file's content to the JEV service (``jev batch`` also writes its
 ``--out`` file). The hook answers ``ask`` for them so that Claude Code's permission prompt,
 which a person answers, stands in front of them.
@@ -25,7 +26,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parents[2]
@@ -46,6 +47,8 @@ RUN_COMMANDS = frozenset(
 )  # fmt: skip
 JEV_COMMANDS = frozenset({("jev", "ask"), ("jev", "batch")})
 """``jev status`` sends nothing and writes nothing, so it is left to the engine."""
+HARNESS_COMMANDS = frozenset({("harness", "install"), ("harness", "uninstall")})
+"""``harness export`` only writes into a directory the person names, so it is left to the engine."""
 REOPEN_COMMAND = ("approval", "request")
 REOPEN_OPTION = "--reopen-denied"
 REOPEN_MIN = len("--reo")
@@ -55,6 +58,10 @@ REASON_RUN = "engine_run"
 REASON_REQUEST = "engine_request"
 REASON_CONFIG = "engine_config"
 REASON_JEV = "engine_jev"
+REASON_HARNESS = "engine_harness"
+PERSON_ONLY_REASONS = frozenset({REASON_OPERATOR, REASON_HARNESS})
+"""Asks a harness without an ask decision denies: an agent must not grant itself approvals
+or remove its own guard. ``run``, ``--config`` and ``jev`` asks stay policy asks there."""
 
 
 def _real_program(program: str, cwd: str) -> str | None:
@@ -114,6 +121,8 @@ def _command_reason(args: Sequence[str]) -> str | None:
         return REASON_OPERATOR if reopens else REASON_REQUEST
     if words in JEV_COMMANDS:
         return REASON_JEV
+    if words in HARNESS_COMMANDS:
+        return REASON_HARNESS
     return REASON_RUN if words in RUN_COMMANDS else None
 
 
@@ -139,20 +148,30 @@ def _tail(words: Sequence[str], index: int, cwd: str) -> tuple[str, ...] | None:
     return None
 
 
-def mentioned_reason(words: Sequence[str], cwd: str) -> str | None:
-    """Why a person must decide a command line whose words name the engine (its launcher by
-    real path, the bare word ``wev``, or ``-m wev_skills``) followed by a sensitive command.
-
-    One pass over the words: ``--config`` positions are found once, so a long line costs
-    time in proportion to its length."""
+def _mentions(words: Sequence[str], cwd: str) -> Iterator[tuple[str | None, str | None]]:
+    """For each engine reference: ``(reason shown, reason of the command it names)``. A
+    ``--config`` after the reference makes the shown reason ``engine_config``."""
     configs = [i for i, word in enumerate(words) if _abbreviates(word, CONFIG_OPTION)]
     last_config = configs[-1] if configs else -1
     for index in range(len(words)):
         tail = _tail(words, index, cwd)
         if not tail:
             continue
+        command = _command_reason(tail)
         follows = last_config >= len(words) - len(tail)
-        code = REASON_CONFIG if follows else _command_reason(tail)
-        if code is not None:
-            return code
-    return None
+        yield (REASON_CONFIG if follows else command), command
+
+
+def mentioned_reason(words: Sequence[str], cwd: str) -> str | None:
+    """Why a person must decide a command line whose words name the engine (its launcher by
+    real path, the bare word ``wev``, or ``-m wev_skills``) followed by a sensitive command.
+
+    ``--config`` positions are found once, so a long line costs time in proportion to its
+    length times the engine references in it."""
+    return next((shown for shown, _ in _mentions(words, cwd) if shown is not None), None)
+
+
+def mentioned_codes(words: Sequence[str], cwd: str) -> frozenset[str]:
+    """Every reason over every engine reference of the line, shown or not: the
+    ``person_only`` marker must not depend on which reason is shown first."""
+    return frozenset(code for pair in _mentions(words, cwd) for code in pair if code)

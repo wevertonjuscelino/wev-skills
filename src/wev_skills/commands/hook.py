@@ -15,7 +15,9 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from wev_skills import i18n
+from wev_skills.adapters import harness_hooks
 from wev_skills.adapters.claude_code import hooks
+from wev_skills.adapters.claude_code.bash_guard import ASK, HookVerdict
 from wev_skills.cli import CommandResult
 from wev_skills.commands import Handler, Subparsers
 from wev_skills.core.errors import ValidationError
@@ -76,9 +78,37 @@ def run_hook(name: str) -> str:
         return _failed(name, exc)
 
 
+def run_harness_pre_tool_use(harness: str) -> HookVerdict:
+    """The guard's verdict for another harness's payload; whatever goes wrong is a fail-safe
+    ask, which the codec turns into that harness's deny."""
+    text = ""
+    try:
+        text = _read_input()
+        try:
+            claude = harness_hooks.to_claude_payload(harness, hooks.parse_payload(text))
+        except ValidationError as exc:
+            _note(PRE_TOOL_USE, exc)
+            if exc.code == "hook_bad_workdir":
+                return HookVerdict(ASK, str(exc), fail_safe=True)
+            return hooks.unreadable_verdict(text)
+        return HookVerdict() if claude is None else hooks.pre_tool_use_verdict(claude)
+    except Exception as exc:  # noqa: BLE001 - a broken engine must never crash the session
+        _note(PRE_TOOL_USE, exc)
+        return hooks.internal_verdict(exc)
+
+
 def _handler(name: str) -> Handler:
     def handle(args: argparse.Namespace) -> CommandResult:
-        return CommandResult(run_hook(name), raw=True)
+        harness: str = getattr(args, "harness", "claude")
+        if harness == "claude":
+            return CommandResult(run_hook(name), raw=True)
+        if name != PRE_TOOL_USE:
+            text = run_hook(name)
+            return CommandResult(harness_hooks.session_context_output(harness, text), raw=True)
+        output = harness_hooks.from_verdict(harness, run_harness_pre_tool_use(harness))
+        if output.stderr:
+            print(output.stderr, file=sys.stderr)
+        return CommandResult(output.stdout, output.exit_code, raw=True)
 
     return handle
 
@@ -90,4 +120,9 @@ def register(subparsers: Subparsers) -> None:
     actions = hook.add_subparsers(dest="hook_command", metavar="<command>", required=True)
     for name in HOOKS:
         parser = actions.add_parser(name, help=i18n.t(f"hooks.{name}.help"))
+        if name == "prompt-reminder":  # a Claude Code hook only; other harnesses have none
+            parser.set_defaults(handler=_handler(name))
+            continue
+        parser.add_argument("--harness", choices=harness_hooks.HARNESSES, default="claude",
+                            help=i18n.t("hooks.harness.help"))  # fmt: skip
         parser.set_defaults(handler=_handler(name))

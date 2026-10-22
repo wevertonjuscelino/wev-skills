@@ -31,6 +31,8 @@ A entrevista de objetivo e os especialistas de projeto foram acrescentados depoi
 
 Testes focados de CLI, persistência, aprendizado, roteamento e orçamento cobrem esses acréscimos. O resultado da suíte completa pertence ao commit posterior e deve ser consultado na saída de CI/checks dele, não inferido dos números históricos acima. Entrevistas conduzidas por modelos e especialistas exportados numa sessão real continuam sem validação. A [revisão local de segurança](security-review-2026-10-13.pt-BR.md) registra as correções de permissões na escrita incremental e helpers Git explícitos, com os limites restantes.
 
+Os adaptadores de harness para Codex, Gemini CLI e OpenCode (`wev harness export|install|uninstall`, `wev hook ... --harness`) foram acrescentados depois. Status: implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e). O plugin do OpenCode foi testado sob node com um `wev` falso e nunca rodou dentro do OpenCode. Eles não acrescentam linha aos 16 critérios; os limites estão em [SECURITY.pt-BR.md](../SECURITY.pt-BR.md#outros-harnesses).
+
 ## Resumo
 
 | # | Critério | Situação |

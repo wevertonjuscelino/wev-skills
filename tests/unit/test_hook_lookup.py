@@ -189,6 +189,15 @@ class NoRunTests(HookCase):
                 self.assertEqual(self.decision(f"{WEV} {args}"), ASK)
         self.assertIsNone(self.decision(f"{WEV} jev status"))
 
+    def test_harness_install_and_uninstall_ask_but_export_does_not(self) -> None:
+        for args in ("harness install --target codex", "harness uninstall --target codex"):
+            with self.subTest(args=args):
+                found = self.bash(f"{WEV} {args}")
+                assert found is not None
+                self.assertEqual(found["decision"], ASK)
+                self.assertIn("harness", found["reason"])
+        self.assertIsNone(self.decision(f"{WEV} harness export --target codex --out x"))
+
     def test_the_jev_reason_names_the_service(self) -> None:
         found = self.bash(f"{WEV} jev ask --questions q.json --state-file notes.txt")
         assert found is not None
@@ -223,4 +232,5 @@ class NoRunTests(HookCase):
         words = " ".join(f"d/{index}" for index in range(1900))
         started = time.monotonic()
         self.assertIsNone(self.bash(f"nohup ls {words}"))
-        self.assertLess(time.monotonic() - started, 5.0)
+        # Guards against quadratic matching (that takes minutes), not against a slow CI runner.
+        self.assertLess(time.monotonic() - started, 15.0)
