@@ -93,6 +93,14 @@ class StateCase(unittest.TestCase):
         self.assertTrue(state.VERSION_RE.fullmatch("1" * 64))
         self.assertIsNone(state.VERSION_RE.fullmatch("1" * 65))
 
+    def test_names_that_collide_with_the_link_or_the_work_dir_are_rejected(self) -> None:
+        for bad in ("current", "Current", "current.tmp", "current.1", "1.tmp-42", "v1.TMP-9"):
+            with self.subTest(bad=bad):
+                self.assertIsNone(state.VERSION_RE.fullmatch(bad))
+        for good in ("currently", "v1.tmp", "1.0-tmp-x", "recurrent"):
+            with self.subTest(good=good):
+                self.assertTrue(state.VERSION_RE.fullmatch(good))
+
 
 if __name__ == "__main__":
     unittest.main()

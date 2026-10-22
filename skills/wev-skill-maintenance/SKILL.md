@@ -47,7 +47,7 @@ The session context may name available updates of the third-party sources (`rea`
    versions and the link from the notice. Never update without the person's yes.
 2. On yes, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills update X`. The version becomes active
    only after its health check passes. Report the `health` text of the result as it is,
-   in the person's language (add `--lang pt-BR` for Portuguese).
+   in the person's language (for Portuguese, put `--lang pt-BR` before the command).
 3. On no, run `"${CLAUDE_PLUGIN_ROOT}/bin/wev" skills decline X`, and do not ask again for
    that version.
 4. If the update fails, say that the previous version stays active and give the reason from

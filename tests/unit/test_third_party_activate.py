@@ -46,6 +46,24 @@ class ActivateCase(unittest.TestCase):
         self.assertFalse((self.claude / "alpha").exists())
         self.assertFalse((self.home / "manifest.json").exists())
 
+    def test_an_owned_path_replaced_by_a_real_file_is_refused_and_kept(self) -> None:
+        activate.activate(self.home, self.roots)
+        (self.claude / "alpha").unlink()
+        (self.claude / "alpha").write_text("mine")
+        with self.assertRaises(StateConflict) as caught:
+            activate.activate(self.home, self.roots)
+        self.assertIn("alpha", caught.exception.message)
+        self.assertEqual((self.claude / "alpha").read_text(), "mine")
+
+    def test_an_owned_path_replaced_by_a_real_dir_is_refused_and_kept(self) -> None:
+        activate.activate(self.home, self.roots)
+        (self.claude / "alpha").unlink()
+        (self.claude / "alpha").mkdir()
+        (self.claude / "alpha" / "f").write_text("mine")
+        with self.assertRaises(StateConflict):
+            activate.activate(self.home, self.roots)
+        self.assertEqual((self.claude / "alpha" / "f").read_text(), "mine")
+
     def test_rerun_is_stable_and_drops_links_of_removed_skills(self) -> None:
         activate.activate(self.home, self.roots)
         (self.version / "skills" / "beta").rmdir()

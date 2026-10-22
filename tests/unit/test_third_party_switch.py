@@ -53,7 +53,9 @@ class SwitchCase(unittest.TestCase):
     def update(
         self, state: State, op: check.Opener, *, yes: bool = False
     ) -> tuple[State, switch.UpdateResult]:
-        return switch.update(SRC, self.home, state, op, self.runner, check.BASE_URLS, yes=yes)
+        return switch.update(
+            SRC, self.home, state, op, self.runner, check.BASE_URLS, yes=yes, download=op
+        )
 
     def current(self) -> str:
         return os.readlink(self.home / SRC.name / "current")
@@ -91,6 +93,49 @@ class SwitchCase(unittest.TestCase):
         self.assertEqual(again, state)
         self.assertEqual(self.current(), "v2")
         self.assertIsNone(again.sources[SRC.name].previous)
+
+    def test_registry_json_and_tarball_take_their_own_openers(self) -> None:
+        seen: list[tuple[str, str]] = []
+        real = opener("v2")
+
+        def registry(url: str, timeout: float) -> bytes:
+            seen.append(("registry", url))
+            return real(url, timeout)
+
+        def download(url: str, timeout: float) -> bytes:
+            seen.append(("download", url))
+            return real(url, timeout)
+
+        switch.update(
+            SRC, self.home, State({}), registry, self.runner, check.BASE_URLS, download=download
+        )
+        self.assertEqual(
+            seen, [("registry", f"{API}/releases/latest"), ("download", f"{API}/tarball/v2")]
+        )
+
+    def test_a_reserved_version_name_is_refused_before_anything_is_written(self) -> None:
+        for tag in ("current", "current.tmp", "1.tmp-5"):
+            with self.subTest(tag=tag):
+                state, result = self.update(State({}), opener(tag))
+                self.assertEqual((result.ok, result.code), (False, "bad_version"))
+                self.assertEqual(state, State({}))
+                self.assertFalse((self.home / SRC.name).exists())
+
+    def test_a_link_that_lags_the_state_is_repaired_by_the_next_update(self) -> None:
+        state, _ = self.update(State({}), opener("v1"))
+        state, _ = self.update(state, opener("v2"))
+        os.replace(self._tmp_link("v1"), self.home / SRC.name / "current")  # crash simulation
+        again, result = self.update(state, opener("v2"))
+        self.assertEqual((result.ok, result.code), (True, "updated"))
+        self.assertEqual(self.current(), "v2")
+        self.assertEqual(
+            (again.sources[SRC.name].active, again.sources[SRC.name].previous), ("v2", "v1")
+        )
+
+    def _tmp_link(self, version: str) -> Path:
+        tmp = self.home / SRC.name / "x.tmp"
+        os.symlink(version, tmp)
+        return tmp
 
     def test_frozen_is_refused(self) -> None:
         state = State({SRC.name: SourceState(active="v1", frozen=True)})

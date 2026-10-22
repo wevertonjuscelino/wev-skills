@@ -9,7 +9,9 @@ import os
 import tempfile
 import time
 import unittest
+import urllib.request
 from datetime import UTC, datetime, timedelta
+from email.message import Message
 from pathlib import Path
 from unittest import mock
 
@@ -317,6 +319,21 @@ class DailyCliCase(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(["--lang", "en", "skills", "decline", "rea"]), 2)
             self.assertEqual(cli.main(["--lang", "en", "skills", "decline", "nope"]), 2)
+
+
+class RedirectGuardCase(unittest.TestCase):
+    def redirect(self, target: str) -> object:
+        handler = check._RegistryRedirects()
+        request = urllib.request.Request("https://api.github.com/x")
+        return handler.redirect_request(request, io.BytesIO(), 302, "Found", Message(), target)
+
+    def test_a_redirect_off_the_registry_hosts_is_refused(self) -> None:
+        for target in ("https://evil.example/x", "http://api.github.com/x", "file:///etc/passwd"):
+            with self.subTest(target=target), self.assertRaises(check.CheckFailed):
+                self.redirect(target)
+
+    def test_a_redirect_between_registry_hosts_is_followed(self) -> None:
+        self.assertIsNotNone(self.redirect("https://registry.npmjs.org/y"))
 
 
 if __name__ == "__main__":

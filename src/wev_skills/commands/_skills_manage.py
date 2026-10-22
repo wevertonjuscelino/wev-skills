@@ -20,11 +20,6 @@ def _state_path() -> Path:
     return state.data_home() / "state.json"
 
 
-def _net(url: str, timeout: float) -> bytes:
-    """Tarballs go through the bounded download, everything else through the JSON fetch."""
-    return (fetch.download if "/tarball/" in url else check.fetch)(url, timeout)
-
-
 def _row(src: Source, result: switch.UpdateResult) -> dict[str, Any]:
     return {
         "source": src.name,
@@ -38,11 +33,21 @@ def _row(src: Source, result: switch.UpdateResult) -> dict[str, Any]:
 def _update_one(src: Source, yes: bool) -> dict[str, Any]:
     path = _state_path()
     new, result = switch.update(
-        src, state.data_home(), state.load(path), _net, SubprocessRunner(), check.BASE_URLS, yes=yes
+        src,
+        state.data_home(),
+        state.load(path),
+        check.fetch,
+        SubprocessRunner(),
+        check.BASE_URLS,
+        yes=yes,
     )
     if result.code == "updated":
         state.save(path, new)
     return _row(src, result)
+
+
+def _skipped(src: Source, code: str, *, ok: bool = True) -> dict[str, Any]:
+    return {"source": src.name, "ok": ok, "code": code, "version": None}
 
 
 def run_update(args: argparse.Namespace) -> CommandResult | dict[str, Any]:
@@ -51,13 +56,15 @@ def run_update(args: argparse.Namespace) -> CommandResult | dict[str, Any]:
     current = state.load(_state_path())
     rows = []
     for src in SOURCES:
-        if current.sources.get(src.name, state.SourceState()).frozen:
-            rows.append({"source": src.name, "ok": True, "code": "frozen", "version": None})
+        item = current.sources.get(src.name, state.SourceState())
+        skipped = "frozen" if item.frozen else "not_installed" if item.active is None else None
+        if skipped:
+            rows.append(_skipped(src, skipped))
             continue
         try:
             rows.append(_update_one(src, args.yes))
         except WevError as exc:
-            rows.append({"source": src.name, "ok": False, "code": exc.code, "version": None})
+            rows.append(_skipped(src, exc.code, ok=exc.code == "declined"))
     return _finish(rows)
 
 

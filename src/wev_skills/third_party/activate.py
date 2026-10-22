@@ -58,7 +58,7 @@ def _wanted(skills: Path, names: list[str], roots: Sequence[Path]) -> dict[Path,
 
 def _refuse_foreign(wanted: dict[Path, Path], owned: set[str]) -> None:
     for link in wanted:
-        if os.path.lexists(link) and str(link) not in owned:
+        if os.path.lexists(link) and (str(link) not in owned or not link.is_symlink()):
             raise StateConflict("foreign_entry", i18n.t("skills.error.foreign", path=str(link)))
 
 

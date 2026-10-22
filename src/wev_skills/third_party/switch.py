@@ -37,6 +37,12 @@ def point_current(base: Path, version: str) -> None:
     os.replace(tmp, base / CURRENT)
 
 
+def _points_at(base: Path, version: str) -> bool:
+    """``current`` is a link to ``version``: a crash after a repoint leaves it elsewhere."""
+    link = base / CURRENT
+    return link.is_symlink() and os.readlink(link) == version
+
+
 def _with(state: State, name: str, item: SourceState) -> State:
     return replace(state, sources={**state.sources, name: item})
 
@@ -51,6 +57,7 @@ def update(
     *,
     yes: bool = False,
     npx: str = "npx",
+    download: check.Opener | None = None,
 ) -> tuple[State, UpdateResult]:
     item = state.sources.get(source.name, SourceState())
     if item.frozen:
@@ -64,17 +71,18 @@ def update(
             "declined", i18n.t("skills.error.declined", name=source.name, version=release.version)
         )
     base = home / source.name
-    if release.version == item.active and (base / CURRENT).is_symlink():
+    if release.version == item.active and _points_at(base, item.active):
         return state, UpdateResult(True, "up_to_date", release.version)
     try:
-        fetch.install_version(source, release, home, opener, runner)
+        fetch.install_version(source, release, home, download or fetch.download, runner)
     except check.CheckFailed as exc:
         return state, UpdateResult(False, exc.code, release.version)
     report = health.health(source, release.version, home, runner, npx=npx)
     if not report.ok:
         return state, UpdateResult(False, report.code, release.version, report)
     point_current(base, release.version)
-    new = replace(item, active=release.version, previous=item.active, declined=None)
+    previous = item.previous if release.version == item.active else item.active
+    new = replace(item, active=release.version, previous=previous, declined=None)
     return _with(state, source.name, new), UpdateResult(True, "updated", release.version, report)
 
 

@@ -14,7 +14,9 @@ from wev_skills.core.errors import ValidationError
 from wev_skills.core.fsutil import atomic_write_text
 from wev_skills.third_party.sources import SOURCES
 
-VERSION_RE = re.compile(r"(?!\.+$)[A-Za-z0-9._-]{1,64}")  # not "." or "..": a path segment
+# Not "." or "..": a path segment. Not "current" or "current.*" (the link and its tmp) nor
+# anything with ".tmp-" (the work directories), in any letter case: they would collide.
+VERSION_RE = re.compile(r"(?!\.+$)(?!(?i:current)(?:\.|$))(?!.*(?i:\.tmp-))[A-Za-z0-9._-]{1,64}")
 _VERSION_FIELDS = ("active", "previous", "latest_seen", "declined")
 _TEXT_FIELDS = ("last_check",)
 

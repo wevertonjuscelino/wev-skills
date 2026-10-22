@@ -90,6 +90,30 @@ class SwitchCliCase(unittest.TestCase):
         self.run_main("skills", "freeze", "agent-skills", "--off")
         self.assertFalse(self.item().frozen)
 
+    def test_update_without_a_source_skips_declined_and_never_installed(self) -> None:
+        item = state.SourceState(active="v1", declined="v2")
+        state.save(self.third / "state.json", state.State({"agent-skills": item}))
+        urls: list[str] = []
+
+        def fake(url: str, _timeout: float) -> bytes:
+            urls.append(url)
+            return release_json("v2")
+
+        with mock.patch.object(check, "fetch", fake):
+            code, payload = self.run_main("skills", "update")
+        self.assertEqual(code, 0)
+        codes = {r["source"]: (r["ok"], r["code"]) for r in payload["results"]}  # type: ignore[attr-defined]
+        self.assertEqual(
+            codes,
+            {
+                "rea": (True, "not_installed"),
+                "agent-skills": (True, "declined"),
+                "wev-skills": (True, "not_installed"),
+            },
+        )
+        self.assertEqual(urls, [f"{API}/releases/latest"])
+        self.assertEqual(self.item().active, "v1")
+
     def test_rollback(self) -> None:
         self.assertEqual(self.run_main("skills", "rollback", "agent-skills")[0], 5)
         self.update("v1")

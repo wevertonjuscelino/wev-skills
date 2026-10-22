@@ -8,6 +8,7 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
+from urllib.parse import urlsplit
 
 from wev_skills import i18n
 from wev_skills.security.untrusted import sanitize
@@ -56,11 +57,25 @@ class Outcome:
     failed: tuple[Mapping[str, str], ...]
 
 
+REGISTRY_HOSTS = frozenset({"registry.npmjs.org", "api.github.com"})
+
+
+class _RegistryRedirects(urllib.request.HTTPRedirectHandler):
+    """A registry may only send the check to another registry host, over https."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        parts = urlsplit(newurl)
+        if parts.scheme != "https" or parts.hostname not in REGISTRY_HOSTS:
+            raise CheckFailed("bad_redirect")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def fetch(url: str, timeout: float) -> bytes:
     request = urllib.request.Request(  # noqa: S310 - https URLs from the fixed registry
         url, headers={"Accept": "application/json", "User-Agent": "wev-skills"}
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+    opener = urllib.request.build_opener(_RegistryRedirects)
+    with opener.open(request, timeout=timeout) as response:
         body: bytes = response.read(MAX_BODY + 1)
     if len(body) > MAX_BODY:
         raise CheckFailed("too_large")
