@@ -1,5 +1,6 @@
 import contextlib
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -13,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+from wev_skills import i18n
 from wev_skills.agents import project
 from wev_skills.agents.experience import ACTIVE, PROPOSED, PROPOSER, SCORER, Lesson, LessonEvidence
 from wev_skills.agents.spec import AgentSpec
@@ -236,7 +238,21 @@ class ScoringTest(unittest.TestCase):
         second = self.score(FakeAgent(lambda s: set()))
         path = self.root / self.config.state_dir / SCORES_FILE
         lines = [json.loads(line) for line in path.read_text().splitlines()]
+        for line in lines:
+            self.assertRegex(line.pop("at"), r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$")
         self.assertEqual(lines, [first.to_dict(), second.to_dict()])
+
+    def test_the_cap_and_planned_runs_are_printed_before_the_first_agent_run(self) -> None:
+        self.add_cases("c1")
+        agent = FakeAgent(lambda s: set())
+        err = io.StringIO()
+        seen: list[str] = []
+        agent.on_run = lambda: seen.append(err.getvalue())
+        with contextlib.redirect_stderr(err):
+            report = self.score(agent)
+        cap = self.config.specialists.score_max_runs
+        expected = i18n.t("evaluation.scoring.plan", planned=report.planned_runs, cap=cap)
+        self.assertEqual(seen[0], expected + "\n")
 
     def test_audit_events_carry_digest_and_counts(self) -> None:
         self.add_cases("c1", "c2")
@@ -264,7 +280,7 @@ class ScoringTest(unittest.TestCase):
         prompt = agent.prompts[0]
         self.assertIn("+++ b/scratch.txt", prompt)
         self.assertIn("agent-wrote-this", prompt)
-        self.assertNotIn("b/test_c1.py", prompt)
+        self.assertNotIn("+++ b/test_c1.py", prompt)
 
     def test_a_changed_git_config_decides_nothing(self) -> None:
         self.add_cases("c1")

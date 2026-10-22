@@ -101,6 +101,39 @@ class AgentRunnerTests(unittest.TestCase):
         argv = self.calls()[0]["argv"]
         self.assertEqual(argv[argv.index("--append-system-prompt") + 1], " --version")
 
+    def test_the_calling_session_variables_do_not_reach_the_child(self) -> None:
+        session = {
+            "CLAUDECODE": "1",
+            "CLAUDE_PID": "42",
+            "CLAUDE_CODE_ENTRYPOINT": "cli",
+            "CLAUDE_CODE_SESSION_ID": "s",
+            "ANTHROPIC_BASE_URL": "http://example.invalid",
+            "CLAUDE_CODE_OAUTH_TOKEN": "example_oauth",
+        }
+        with mock.patch.dict(os.environ, session):
+            self.runner.run_agent(self.workspace, SPEC, "x", 30)
+            self.runner.ask("x", 30)
+        for call in self.calls():
+            env = call["env"]
+            session_keys = [k for k in env if k.startswith("CLAUDE_CODE_")]
+            self.assertEqual(session_keys, ["CLAUDE_CODE_OAUTH_TOKEN"])  # auth is kept
+            self.assertNotIn("CLAUDECODE", env)
+            self.assertNotIn("CLAUDE_PID", env)
+            self.assertEqual(env["PATH"], os.environ["PATH"])
+            self.assertEqual(env["ANTHROPIC_BASE_URL"], "http://example.invalid")
+
+    def test_bad_output_carries_a_cleaned_redacted_stderr_tail(self) -> None:
+        noise = "x" * 600 + "\x1b[31mapi_key=example_not_a_real_value boom"
+        with mock.patch.dict(
+            os.environ, {"FAKE_CLAUDE_STDOUT": "not json", "FAKE_CLAUDE_STDERR": noise}
+        ):
+            result = self.runner.ask("x", 30)
+        self.assertFalse(result.ok)
+        self.assertIn("boom", result.output)
+        self.assertNotIn("\x1b", result.output)
+        self.assertNotIn("example_not_a_real_value", result.output)
+        self.assertNotIn("x" * 501, result.output)
+
     def test_nonzero_exit_is_not_ok(self) -> None:
         with mock.patch.dict(os.environ, {"FAKE_CLAUDE_EXIT": "1"}):
             self.assertFalse(self.runner.ask("x", 30).ok)

@@ -168,19 +168,22 @@ def reconcile(
     """Preserve the operator's decisions and retain at most the configured, hard-capped 30
     lessons. A new lesson, or one only the engine accepted (before acceptance existed), is
     proposed: it is not shown until a person (or a score run) accepts it. Lessons the model
-    wrote are not derived from records, so they are kept as they are. Lessons a person decided
-    on are kept before proposed ones, so the cap drops proposals before it drops a decision."""
+    wrote are not derived from records, so they are kept as they are, and so is a lesson a
+    person decided on even when no record derives it again. The cap drops proposals first,
+    then score decisions, and a person's decision last."""
     before = {lesson.id: lesson for lesson in old}
     found = [_carry(lesson, before.get(lesson.id)) for lesson in derived]
     seen = {lesson.id for lesson in derived}
     found += [
         _carry(lesson, lesson)
         for lesson in old
-        if lesson.kind == KIND_MODEL and lesson.id not in seen
+        if lesson.id not in seen
+        and (lesson.kind == KIND_MODEL or lesson.accepted_by not in (PROPOSER, SCORER))
     ]
     found.sort(
         key=lambda item: (
             item.accepted_by == PROPOSER,
+            item.accepted_by == SCORER,
             item.status != ACTIVE,
             -item.confirmations,
             item.contradictions,

@@ -69,6 +69,24 @@ class ReconcileTests(unittest.TestCase):
         kept = learning.reconcile((decided,), (*derived(), louder), maximum=1)
         self.assertEqual([(item.id, item.status) for item in kept], [(decided.id, RETIRED)])
 
+    def test_a_person_decision_survives_when_not_derived_again(self) -> None:
+        retired = replace(derived()[0], status=RETIRED, accepted_by="ana")
+        kept = learning.reconcile((retired,), ())
+        self.assertEqual([(item.id, item.status) for item in kept], [(retired.id, RETIRED)])
+        again = learning.reconcile(kept, derived())
+        self.assertEqual([(item.status, item.accepted_by) for item in again], [(RETIRED, "ana")])
+
+    def test_a_score_decision_not_derived_again_is_dropped(self) -> None:
+        scored = replace(derived()[0], status=ACTIVE, accepted_by="score")
+        self.assertEqual(learning.reconcile((scored,), ()), ())
+
+    def test_the_cap_drops_a_score_decision_before_a_person_decision(self) -> None:
+        person = replace(derived()[0], status=RETIRED, accepted_by="ana")
+        louder = replace(derived()[0], id="lesson-s", key=("check", "x"), confirmations=99)
+        scored = replace(louder, accepted_by="score")
+        kept = learning.reconcile((person, scored), (*derived(), louder), maximum=1)
+        self.assertEqual([item.id for item in kept], [person.id])
+
     def test_a_stored_active_lesson_only_the_engine_accepted_is_not_shown(self) -> None:
         legacy = replace(derived()[0], status=ACTIVE, accepted_by="engine")
         accepted = replace(legacy, accepted_by="ana")

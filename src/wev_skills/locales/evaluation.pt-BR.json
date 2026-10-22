@@ -127,5 +127,6 @@
   "evaluation.scoring.agent_failed": "O agente falhou no caso {case} ({error}); nada foi decidido",
   "evaluation.scoring.git_config_changed": "O diretório git do repositório (config, hooks ou info) mudou durante a pontuação; nada foi decidido",
   "evaluation.scoring.bad_history": "Uma linha do histórico de pontuações não é JSON válido",
+  "evaluation.scoring.plan": "A pontuação prevê até {planned} execuções de agente e pedidos de lição (limite {cap}, specialists.score_max_runs); isso pode demorar, então rode em um terminal ou em segundo plano",
   "evaluation.scoring.agent_timed_out": "O agente excedeu o tempo antes de terminar; a verificação não foi executada."
 }

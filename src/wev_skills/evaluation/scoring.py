@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import tempfile
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -28,6 +30,7 @@ from wev_skills.evaluation.ratchet import improves
 from wev_skills.evaluation.score_pass import Pass
 from wev_skills.evaluation.score_runs import Setup
 from wev_skills.governance.audit import AuditLog
+from wev_skills.state.model import iso_utc
 
 SCORES_FILE = "scores.jsonl"
 
@@ -156,15 +159,18 @@ def _in_scratch(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def _planned(config: Config, spec: AgentSpec, cases: int) -> int:
+    cfg = config.specialists
+    proposals = sum(1 for item in spec.experience if item.status == PROPOSED)
+    ablatable = sum(1 for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER)
+    return planned_runs(cases, proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons)
+
+
 def _report(
     config: Config, spec: AgentSpec, digest: str, score_id: str, outcome: Outcome
 ) -> ScoreReport:
-    cfg, run = config.specialists, outcome.pass_
-    proposals = sum(1 for item in spec.experience if item.status == PROPOSED)
-    ablatable = sum(1 for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER)
-    planned = planned_runs(
-        len(run.cases), proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons
-    )
+    run = outcome.pass_
+    planned = _planned(config, spec, len(run.cases))
     return ScoreReport(
         score_id, spec.id, digest, run.baseline.passes, outcome.accepted, outcome.retired,
         tuple(item.id for item in outcome.new), run.runs, planned,
@@ -183,6 +189,9 @@ def score_specialist(
         raise ValidationError("score_no_cases", i18n.t("evaluation.scoring.no_cases"))
     _refuse_if_baseline_over_cap(config, len(cases))
     score_id = f"score-{uuid.uuid4().hex[:12]}"
+    cap = config.specialists.score_max_runs
+    planned = _planned(config, spec, len(cases))
+    print(i18n.t("evaluation.scoring.plan", planned=planned, cap=cap), file=sys.stderr)
     guard = tamper_guard(runner, root)
     outcome = _in_scratch(root, config, runner, agent, spec, score_id, guard)
     guard()
@@ -190,6 +199,6 @@ def score_specialist(
         raise StateConflict("cases_changed", i18n.t("evaluation.scoring.cases_changed"))
     _decided(root, config, spec, outcome, _audit(audit, agent_id, digest, outcome))
     report = _report(config, spec, digest, score_id, outcome)
-    line = json.dumps(report.to_dict(), ensure_ascii=False)
+    line = json.dumps({**report.to_dict(), "at": iso_utc(time.time())}, ensure_ascii=False)
     append_line(wiring.state_dir(config, root) / SCORES_FILE, line)
     return report

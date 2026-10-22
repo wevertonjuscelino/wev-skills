@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -16,8 +17,24 @@ from wev_skills.agents.spec import AgentSpec
 from wev_skills.core.contracts import AgentRunResult, RawCommandResult
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.ports import Runner
+from wev_skills.security.redact import redact
+from wev_skills.security.untrusted import sanitize
 
 UNATTENDED_TOOLS = ("Read", "Edit", "Write", "Glob", "Grep", "Bash")
+STDERR_TAIL_CHARS = 500
+SESSION_KEYS = ("CLAUDECODE", "CLAUDE_PID")
+SESSION_PREFIX = "CLAUDE_CODE_"
+KEPT_SESSION_KEYS = ("CLAUDE_CODE_OAUTH_TOKEN",)  # authentication, not session state
+
+
+def _child_env() -> dict[str, str]:
+    """The environment without the calling Claude Code session's own variables."""
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key in KEPT_SESSION_KEYS
+        or (key not in SESSION_KEYS and not key.startswith(SESSION_PREFIX))
+    }
 
 
 def _body(rendered: str) -> str:
@@ -37,7 +54,9 @@ def _parse(raw: RawCommandResult) -> AgentRunResult:
     except ValueError, AttributeError:
         result, failed = None, False
     if failed or not isinstance(result, str):
-        return AgentRunResult(False, i18n.t("agent_runner.bad_output", code=raw.exit_code))
+        tail = sanitize(redact(raw.stderr))[-STDERR_TAIL_CHARS:].strip()
+        message = i18n.t("agent_runner.bad_output", code=raw.exit_code, stderr=tail)
+        return AgentRunResult(False, message)
     return AgentRunResult(raw.exit_code == 0, result)
 
 
@@ -96,7 +115,7 @@ class ClaudeAgentRunner:
             "--append-system-prompt",
             system,
         ]
-        return _parse(self._runner.run(argv, str(workspace), timeout, None))
+        return _parse(self._runner.run(argv, str(workspace), timeout, _child_env()))
 
     def ask(self, prompt: str, timeout: float) -> AgentRunResult:
         self._require_plugin()
@@ -109,4 +128,4 @@ class ClaudeAgentRunner:
             "--no-session-persistence",
         ]
         with tempfile.TemporaryDirectory(prefix="wev-ask-") as scratch:
-            return _parse(self._runner.run(argv, scratch, timeout, None))
+            return _parse(self._runner.run(argv, scratch, timeout, _child_env()))
