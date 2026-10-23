@@ -33,6 +33,7 @@ from wev_skills.governance.audit import AuditLog
 from wev_skills.state.model import iso_utc
 
 SCORES_FILE = "scores.jsonl"
+LOGS_DIR = "score-logs"
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,7 @@ def _in_scratch(
             cfg.score_samples,
             cfg.score_timeout_seconds,
             guard,
+            wiring.state_dir(config, root) / LOGS_DIR / score_id,
         )
         return _measure(setup, config, resolved, cases, score_id)
     finally:
