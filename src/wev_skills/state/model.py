@@ -41,6 +41,7 @@ from wev_skills.state.records import (
     ToolMiss,
     VerificationRecord,
 )
+from wev_skills.state.review_records import ReviewRoundRecord
 
 __all__ = ["RUN_ID_RE", "iso_utc", "plain_json", "validate_run_id"]
 
@@ -181,6 +182,9 @@ class RunState(Serializable):
     plan_amendments: tuple[PlanAmendment, ...] = ()
     base: str = ""
     """Git tree id of the working tree at ``run start``; empty outside a repository."""
+    review_rounds: tuple[ReviewRoundRecord, ...] = ()
+    review_allowance: int = 0
+    """Rounds a person allowed beyond ``review.max_rounds`` (one per ``guard acknowledge``)."""
 
     def __post_init__(self) -> None:
         if self.schema_version != SCHEMA_VERSION:

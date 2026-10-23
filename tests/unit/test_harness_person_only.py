@@ -38,6 +38,7 @@ PERSON_ONLY = (
     "wev rea build-image",
     "wev jev key set",
     "wev specialists score s1",
+    "wev review dismiss f1 --as wrong --reason x",
     "git push && wev approval grant a1",
     # the marker comes from the whole line, not from the first reason shown
     "wev approval grant a1 --config x.json",

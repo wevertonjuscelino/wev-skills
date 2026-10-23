@@ -173,7 +173,8 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "operator_command",
         _flags(
             r"\bwev[ \t]{1,8}(?:approval[ \t]{1,8}grant|guard[ \t]{1,8}acknowledge"
-            r"|task[ \t]{1,8}reopen|specialists[ \t]{1,8}(?:accept|retire|score))\b"
+            r"|task[ \t]{1,8}reopen|review[ \t]{1,8}dismiss"
+            r"|specialists[ \t]{1,8}(?:accept|retire|score))\b"
         ),
     ),
 )
