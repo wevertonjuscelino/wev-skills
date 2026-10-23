@@ -74,13 +74,33 @@ class VoteTest(unittest.TestCase):
         self.assertEqual(result.runs_used, 4)
         self.assertTrue(all(t == READ_ONLY_TOOLS for t in agent.tools))
 
-    def test_fewer_answering_verifiers_than_quorum_keeps_nothing(self) -> None:
+    def test_fewer_answering_verifiers_than_quorum_is_incomplete(self) -> None:
         agent = FakeAgent(
             finder_replies=[found(item())],
             verifier_replies=[votes(vote(0)), AgentRunResult(False, "")],
         )
-        result = find_and_vote(self.inputs(agent, ReviewShape(1, 2, 2)))
-        self.assertEqual(result.kept, ())
+        with self.assertRaises(ProviderError) as caught:
+            find_and_vote(self.inputs(agent, ReviewShape(1, 2, 2)))
+        self.assertEqual(caught.exception.code, "review_incomplete")
+        self.assertEqual(caught.exception.details["runs_used"], 3)
+
+    def test_all_verifiers_failing_is_incomplete(self) -> None:
+        agent = FakeAgent(
+            finder_replies=[found(item())], verifier_replies=[AgentRunResult(False, "")]
+        )
+        with self.assertRaises(ProviderError) as caught:
+            find_and_vote(self.inputs(agent, ReviewShape(1, 1, 1)))
+        self.assertEqual(caught.exception.code, "review_incomplete")
+
+    def test_recheck_offset_follows_the_candidates(self) -> None:
+        gone, stays = posted("a.py", 5, "gone"), posted("a.py", 10, "stays")
+        agent = FakeAgent(
+            finder_replies=[found(item(15, "new"))],
+            verifier_replies=[votes(vote(0), vote(1, False), vote(2))],
+        )
+        result = find_and_vote(self.inputs(agent, ReviewShape(1, 1, 1), rechecks=(gone, stays)))
+        self.assertEqual(result.fixed, (gone.id,))
+        self.assertEqual([r.title for r in result.kept], ["new"])
 
     def test_style_votes_drop_a_finding(self) -> None:
         agent = FakeAgent(
@@ -144,7 +164,9 @@ class VoteTest(unittest.TestCase):
 
     def test_skipped_counted(self) -> None:
         agent = FakeAgent(
-            finder_replies=[found(item(5, "gen", file="skipme.py"), item(5))],
+            finder_replies=[
+                found(item(5, "gen", file="skipme.py"), item(5, "gen", file="skipme.py"), item(5))
+            ],
             verifier_replies=[votes(vote(0))],
         )
         guide = ReviewGuide(skip=("skip*.py",))
@@ -174,16 +196,23 @@ class VoteTest(unittest.TestCase):
         result = find_and_vote(self.inputs(agent, ReviewShape(2, 1, 1)))
         self.assertEqual((result.kept, result.runs_used), ((), 2))
 
-    def test_all_finders_timing_out_is_not_an_error(self) -> None:
-        agent = FakeAgent(finder_replies=[AgentRunResult(False, "", True)] * 2)
-        result = find_and_vote(self.inputs(agent, ReviewShape(2, 1, 1)))
-        self.assertEqual((result.kept, result.runs_used), ((), 2))
+    def test_no_finder_answering_is_incomplete(self) -> None:
+        for replies in (
+            [AgentRunResult(False, "", True)] * 2,
+            [AgentRunResult(False, "", True), AgentRunResult(False, "boom")],
+        ):
+            agent = FakeAgent(finder_replies=replies)
+            with self.assertRaises(ProviderError) as caught:
+                find_and_vote(self.inputs(agent, ReviewShape(2, 1, 1)))
+            self.assertEqual(caught.exception.code, "review_incomplete")
+            self.assertEqual(caught.exception.details["runs_used"], 2)
 
     def test_all_finders_fail_raises(self) -> None:
         agent = FakeAgent(finder_replies=[AgentRunResult(False, "boom")] * 2)
         with self.assertRaises(ProviderError) as caught:
             find_and_vote(self.inputs(agent, ReviewShape(2, 1, 1)))
         self.assertEqual(caught.exception.code, "review_agent_failed")
+        self.assertEqual(caught.exception.details["runs_used"], 2)
 
     def test_malformed_finder_output_counts_as_no_findings(self) -> None:
         agent = FakeAgent(finder_replies=["not json at all"])

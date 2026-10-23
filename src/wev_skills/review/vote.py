@@ -73,9 +73,13 @@ def _found(inputs: VoteInputs) -> list[RawFinding]:
         inputs.diff, inputs.intent, inputs.guide, inputs.claude_md, inputs.posted, inputs.lang
     )
     results = _run_all(inputs, prompt, inputs.shape.finders)
-    if results and all(not r.ok and not r.timed_out for r in results):
+    details = {"runs_used": len(results)}
+    if all(not r.ok and not r.timed_out for r in results):
         message = i18n.t("review.error.agent_failed", inputs.lang, count=len(results))
-        raise ProviderError("review_agent_failed", message)
+        raise ProviderError("review_agent_failed", message, details)
+    if not any(r.ok for r in results):
+        message = i18n.t("review.error.incomplete_finders", inputs.lang)
+        raise ProviderError("review_incomplete", message, details)
     return [raw for r in results if r.ok for raw in parse_findings(r.output)]
 
 
@@ -86,15 +90,16 @@ def _near(a: RawFinding, b: RawFinding) -> bool:
 def _candidates(inputs: VoteInputs, found: Sequence[RawFinding]) -> tuple[list[RawFinding], int]:
     seen = {r.id for r in inputs.posted}
     kept: list[RawFinding] = []
-    skipped_count = 0
+    skipped_ids: set[str] = set()
     for raw in found:
-        if finding_id(raw.file, raw.line, raw.title) in seen or not proven(raw, inputs.root):
+        ident = finding_id(raw.file, raw.line, raw.title)
+        if ident in seen or not proven(raw, inputs.root):
             continue
         if skipped(raw.file, inputs.guide):
-            skipped_count += 1
+            skipped_ids.add(ident)
         elif not any(_near(raw, other) for other in kept):
             kept.append(raw)
-    return kept, skipped_count
+    return kept, len(skipped_ids)
 
 
 def _ballots(inputs: VoteInputs, candidates: Sequence[RawFinding]) -> list[Mapping[int, Vote]]:
@@ -159,6 +164,15 @@ def find_and_vote(inputs: VoteInputs) -> VoteResult:
     if not (candidates or inputs.rechecks) or not inputs.shape.verifiers:
         return VoteResult((), (), skipped_count, finders)
     ballots = _ballots(inputs, candidates)
+    if len(ballots) < inputs.shape.quorum:
+        message = i18n.t(
+            "review.error.incomplete_verifiers",
+            inputs.lang,
+            answered=len(ballots),
+            quorum=inputs.shape.quorum,
+        )
+        runs = {"runs_used": finders + inputs.shape.verifiers}
+        raise ProviderError("review_incomplete", message, runs)
     kept = _capped(_judged(inputs, candidates, ballots), inputs.guide.nit_cap)
     fixed = _fixed(inputs, len(candidates), ballots)
     return VoteResult(kept, fixed, skipped_count, finders + inputs.shape.verifiers)
