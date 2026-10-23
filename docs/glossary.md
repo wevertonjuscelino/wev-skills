@@ -83,3 +83,9 @@ These five labels describe the state of every piece of work in the project. Do n
 | harness | harness | Everything around the model that plans, constrains, checks and records its work. |
 | scored case | caso pontuado | A real situation stored in `evals/cases/<id>.json` with a check that fails at its base commit; `wev specialists score` runs it to decide lessons. |
 | score decision | decisão por nota | A lesson accepted or retired by `wev specialists score` (`accepted_by` `score`) because no case lost a pass and the total rose; a person's decision stays final. |
+| layered review | revisão em camadas | Optional review of a run's changes by finder agents and verifier agents that vote, gated at `run finish` (`review.depth`). |
+| finder | localizador | A read-only agent that proposes review findings for a round. |
+| verifier | verificador | A read-only agent that votes on a candidate finding; a finding stays when the votes reach the quorum. |
+| finding | achado | A defect a review round reports, tagged Important, Nit or Pre-existing and closed as `fixed`, `wrong`, `intentional` or `does-not-matter`. |
+| REVIEW.md | REVIEW.md | The repository file that tells reviewers what a failure looks like, what to skip and what counts as Important. |
+| base tree | árvore-base | The git tree of HEAD plus uncommitted and untracked changes recorded by `run start`; review diffs against it. |

@@ -152,7 +152,7 @@ As quatro primeiras chaves estão explicadas no [guia de especialistas](speciali
 | `max_runs_per_round` | `12` (1 a 50) | Máximo de execuções de localizadores e verificadores que uma rodada pode iniciar |
 | `timeout_seconds` | `600.0` (0,1 a 3600) | Tempo que uma execução de localizador ou verificador pode levar |
 
-Estado: as chaves, seus limites e `review_shape` estão implementados e testados (`tests/unit/test_config_review.py`); as rodadas de revisão que as leem pertencem a tarefas posteriores da mesma mudança.
+Estado: as chaves, seus limites e `review_shape` estão implementados e testados (`tests/unit/test_config_review.py`); as rodadas, os comandos e a porta do finish que as leem estão implementados e testados com agentes falsos (uma rodada real com `claude -p` está implementada mas não testada). Veja o [guia de revisão](review.pt-BR.md).
 
 ## Níveis de modelo e roteamento
 

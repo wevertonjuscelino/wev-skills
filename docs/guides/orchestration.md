@@ -193,11 +193,15 @@ $ wev task review parser --reviewer code-reviewer --verdict accept --summary "re
 
 A `reject` reopens the task with your summary as context. The engine records the reviewer name the caller gave (`self-declared`); it cannot tell whether that agent really read the diff, and several agents running on the same model are not statistically independent.
 
+**Layered review (optional).** When `review.depth` is not `off`, run `wev review run` before `run finish`: it starts finders and verifiers (unattended `claude -p`, read-only tools), so start it from a terminal or in the background. Read the outcome with `wev review show`. Fix the code, or close a Nit or Pre-existing finding with `wev review resolve <finding> --as wrong|intentional|does-not-matter --reason "<words>"`. An Important finding is closed only by a person with `wev review dismiss`; an agent that thinks one is wrong stops and asks. Reaching `review.max_rounds` (default 3) trips the `review_rounds` guard (exit 6), which a person clears with `guard acknowledge`. With review on, `run finish` refuses an open Important finding (`review_open_important`), a stale or missing round (`review_stale`), a changed `REVIEW.md` or reviewer spec without an improving `specialists score --compare` record (`reviewer_unscored`) and a lowered review configuration (`review_config_weakened`). A plan for a medium or high-risk run needs `risk_notes` and `revert` (`plan_needs_revert`). Status: implemented and tested with fake agents; a real round is implemented but untested. See the [review guide](review.md).
+
 ### 6. Deliver and finish
 
 ```text
 $ wev run report --format md
 ```
+
+`wev run report --format pr` prints a pull request body instead (Summary, What was tested, Risk with tier, reasons and notes, How to revert, Review). A plan the engine synthesizes for a one-task run is exempt from the revert text, and the body says "Not given.".
 
 Real report for the first run (shortened). The body is fenced as data, because it repeats text an agent wrote:
 
@@ -276,7 +280,7 @@ Errors are JSON on stderr: `{"error": {"code", "message", "details"}}`.
 
 ## Steps only a person takes
 
-Five commands are for the human operator: `wev approval grant`, `wev approval deny`, `wev approval request --reopen-denied`, `wev guard acknowledge` and `wev task reopen`. Each needs an interactive terminal on standard input and output, shows the full action and asks the person to type a word printed on the screen. There is no flag that skips this. An agent cannot run them and must not try to; it stops, shows the person what is needed and waits. A determined process can fake a terminal. With the plugin installed, Claude Code's permission prompt is reached for command lines the hook can read (the grant command typed directly, behind a known wrapper, or in an inline `sh -c`); a script the hook cannot see into, or a pseudo-terminal driven by one, is not stopped (see the [security guide](security.md)).
+Six commands are for the human operator: `wev approval grant`, `wev approval deny`, `wev approval request --reopen-denied`, `wev guard acknowledge`, `wev task reopen` and `wev review dismiss`. Each needs an interactive terminal on standard input and output, shows the full action and asks the person to type a word printed on the screen. There is no flag that skips this. An agent cannot run them and must not try to; it stops, shows the person what is needed and waits. A determined process can fake a terminal. With the plugin installed, Claude Code's permission prompt is reached for command lines the hook can read (the grant command typed directly, behind a known wrapper, or in an inline `sh -c`); a script the hook cannot see into, or a pseudo-terminal driven by one, is not stopped (see the [security guide](security.md)).
 
 ### Approvals
 
@@ -300,7 +304,7 @@ wev approval grant apr-fbe3eac8c14c6768      # only after reading the exact comm
 
 and `wev approval deny <id>` to refuse or revoke. This guide does not run `grant` for the examples. The rules of a grant:
 
-- It is bound to the **exact argv**, the **resolved working directory** and the **run** (for a remote action, the host alias too).
+- It is bound to the **exact argv**, the **resolved working directory** and the **run** (for a remote action, the host alias too). A grant for a command with an external effect (`git push`, `gh pr merge`, `gh release create`, the `publish` entries) also records HEAD and the working-tree fingerprint and is usable only while both still match; one without that anchor fails closed, and `wev approval verify` reports a blanked anchor. The anchor does not cover other refs named in a push refspec, ignored files a publish command packs, or remote actions (see [SECURITY.md](../../SECURITY.md), "Known limits").
 - It is **single use** and **expires** after `permissions.approval_ttl_seconds` (default 900). The execution that uses it consumes it. There are no reusable grants.
 - A **denial is final** for that action in that run. "The same action" means the same words in the same order within the run: the working directory (`--cwd`), the stated risk, the reason, quoting, whitespace and how words are grouped into tokens do not produce a fresh request, and for a remote action the host alias is the first word, so a denial is per host. `wev approval request` returns the denied record and `wev exec` answers denied. The comparison is on words and does not resolve paths (`build` and `./build` differ), and the record is a file in the agent's account. A new run starts clean. Only the person can replace it with a fresh pending request, with `wev approval request --reopen-denied`; the grant itself is unchanged (exact argv, resolved directory, run, single use, expiring). When the gate is denied, `next_step` says so ("denied by the operator") and how the operator reopens it, never a grant command.
 - A command whose text redaction would alter (it holds something that looks like a secret) is **refused**, not sent for approval, so the person never approves a masked version of what would run. Pass the secret through a file or an environment variable.

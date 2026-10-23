@@ -242,7 +242,7 @@ In a run, the engine feeds it real events: every `wev exec` and every check is a
 ### 4.10 `governance`
 
 - `governance.approvals.ApprovalStore(path, clock=None, ttl=...)`: `request(action, risk, reason, requested_by, cwd=..., reopen_denied=False) -> ApprovalRequest`, `grant(id, by, terminal)`, `deny(id, by, terminal)`, `get(id)`, `list(status=None)`, `is_granted(action, cwd)`, `is_denied(action, cwd)`, `consume(action, cwd) -> bool`, `verify() -> tuple[Mismatch, ...]`. Statuses: `pending`, `granted`, `denied`, `consumed`, `expired`.
-  - A grant is bound to the exact argv (token for token), the resolved working directory and the run (for a remote action the first token is the host alias). It is **single-use**, **expires** after `permissions.approval_ttl_seconds` (default 900) and the execution that uses it consumes it. There are no reusable grants.
+  - A grant is bound to the exact argv (token for token), the resolved working directory and the run (for a remote action the first token is the host alias). It is **single-use**, **expires** after `permissions.approval_ttl_seconds` (default 900) and the execution that uses it consumes it. There are no reusable grants. A grant for a command with an external effect (`git push`, `gh pr merge`, `gh release create`, the `publish` entries) also records HEAD and the working-tree fingerprint at grant time and is usable only while both still match; `wev approval verify` reports a blanked anchor. Limits: SECURITY.md, "Known limits".
   - A denial is final for that action in that run. "The same action" means the same words in the same order within the run: every token of the argv is split like a command line and blank tokens are dropped, so the working directory, the stated risk, the reason, quoting, whitespace and token grouping do not produce a fresh request; `wev approval request` returns the denied record and `wev exec` answers denied. For a remote action the host alias is the first word, so a denial is per host. A new run starts clean. The comparison is on words and does not resolve paths (`build` and `./build` differ), and the record is a file in the agent's account. Only `wev approval request --reopen-denied`, a human-operator command, replaces it with a fresh pending request.
   - A request records `requested_by`, a name the caller supplies (self-declared); a decision records the operating-system user, the terminal device and the time. Nothing compares the two, because inside one account the engine cannot tell requester from operator.
   - A command whose text redaction would alter is **refused** instead of being sent for approval, so the operator sees exactly what would run.
@@ -328,11 +328,15 @@ Hypothesis H10: handing a task fewer tool definitions costs less context. It is 
 - With JEV as the provider, **one `jev ask` call per task** asks a `noul` question per candidate tool outside the floor, plus a `choice` question for the profile when `harness.tool_profile` is `auto`. The state sent is the task's title, objective and acceptance criteria. A tool is dropped only at a probability of 0.2 or below; a profile answer below the trust threshold (confidence 0.6) is ignored and the local profile is used. The question for each tool is built so that a description that already ends in a period does not produce a stray ".?".
 - The run report has a section with the tools offered and selected and approximate definition-token estimates. The figures sum rough per-tool constants: estimates for comparison, not measurements for any model or client. No saving in tokens or in task success has been measured.
 
+### 4.17 `review`
+
+`review/` implements the optional layered review described in the [review guide](../guides/review.md): `guide` (parse `REVIEW.md`), `trees` (the run's base tree and the diffs between trees, written with a temporary index and no filters), `findings` and `vote` (strict parsing of finder and verifier answers, quorum), `prompts`, `round` (one round, the round cap and the `review_rounds` guard), `resolve` (closing findings), `gate` (the `run finish` checks), `changed` and `summary`, and `stats` (`.wev/reviews.jsonl`). The CLI group is `commands/review.py`; the state holds `base` and `review_rounds` (every new field has a default, so old run files load). Status: implemented and tested with fake agents; the real `claude -p` path is implemented but untested.
+
 ## 5. Repository layout
 
 ```text
 src/wev_skills/        engine package (core, decisions, agents, models, tools, security,
-                      state, context, guards, execution, verification, governance,
+                      state, context, guards, execution, verification, governance, review,
                       remote, evaluation, adapters, commands, schemas, locales,
                       cli.py, config.py, i18n.py, schema.py)
 agent-specs/          agent spec catalog: templates/ and examples/ (JSON, schema-validated)

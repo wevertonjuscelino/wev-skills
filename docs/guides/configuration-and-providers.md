@@ -150,7 +150,7 @@ The first four keys are explained in the [specialists guide](specialists.md). Th
 | `max_runs_per_round` | `12` (1 to 50) | Most finder and verifier runs one round may start |
 | `timeout_seconds` | `600.0` (0.1 to 3600) | Time one finder or verifier run may take |
 
-Status: the keys, their bounds and `review_shape` are implemented and tested (`tests/unit/test_config_review.py`); the review rounds that read them belong to later tasks of the same change.
+Status: the keys, their bounds and `review_shape` are implemented and tested (`tests/unit/test_config_review.py`); the rounds, the commands and the finish gate that read them are implemented and tested with fake agents (a real `claude -p` round is implemented but untested). See the [review guide](review.md).
 
 ## Model tiers and routing
 
