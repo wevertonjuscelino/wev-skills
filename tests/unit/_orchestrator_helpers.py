@@ -62,7 +62,10 @@ class FakeRunner:
     def _git(self, args: tuple[str, ...]) -> tuple[int | None, str, str]:
         if not self.is_repo:
             return 128, "", "fatal: not a git repository"
+        while args[1:2] == ("-c",):  # the hardening flags run_git puts before the command
+            args = (args[0], *args[3:])
         answers = {
+            ("write-tree",): "tree123",
             ("rev-parse", "--show-toplevel"): self.root,
             ("rev-parse", "HEAD"): self.head,
             ("branch", "--show-current"): self.branch,

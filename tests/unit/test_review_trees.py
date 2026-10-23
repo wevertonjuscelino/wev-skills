@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from wev_skills import cli, i18n
 from wev_skills.core.errors import StateConflict
@@ -105,6 +106,63 @@ class TreesTest(RepoCase):
         diff = diff_trees(self.runner, self.root, old, write_tree(self.runner, self.root), 0)
         self.assertEqual(touched_lines(diff), {"a.txt": frozenset({2})})
 
+    def test_round_trip_with_a_spaced_path_and_a_deleted_file(self) -> None:
+        (self.root / "a b.py").write_text("1\n")
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-qm", "two")
+        old = write_tree(self.runner, self.root)
+        (self.root / "a b.py").write_text("1\n2\n")
+        (self.root / "a.txt").unlink()
+        diff = diff_trees(self.runner, self.root, old, write_tree(self.runner, self.root), 0)
+        self.assertEqual(touched_lines(diff), {"a b.py": frozenset({2})})
+
+    def test_an_added_line_that_looks_like_a_header_is_not_one(self) -> None:
+        text = "--- a/x\n+++ b/x\n@@ -1,0 +2,1 @@\n+++ b/evil\n@@ -5 +7 @@\n+z\n"
+        self.assertEqual(touched_lines(text), {"x": frozenset({2, 7})})
+
+    def test_write_tree_runs_no_attribute_driven_filter(self) -> None:
+        marker = self.root.parent / f"{self.root.name}-marker"
+        self.addCleanup(marker.unlink, True)
+        (self.root / ".gitattributes").write_text("* filter=evil\n")
+        (self.root / "info").write_text("x\n")
+        git(self.root, "config", "filter.evil.clean", f"touch {marker}; cat")
+        (self.root / "raw.txt").write_text("raw\r\nbytes\n")
+        tree = write_tree(self.runner, self.root)
+        self.assertFalse(marker.exists())
+        blob = git(self.root, "rev-parse", f"{tree}:raw.txt")
+        shown = subprocess.run(
+            ("git", "cat-file", "blob", blob), cwd=self.root, capture_output=True, check=True
+        )
+        self.assertEqual(shown.stdout, b"raw\r\nbytes\n")
+
+    def test_tree_equals_what_git_add_would_write(self) -> None:
+        (self.root / "run.sh").write_text("#!/bin/sh\n")
+        (self.root / "run.sh").chmod(0o755)
+        (self.root / "link").symlink_to("a.txt")
+        (self.root / "sub" / "deep").mkdir(parents=True)
+        (self.root / "sub" / "deep" / "f.txt").write_text("f\n")
+        git(self.root, "add", "link")
+        (self.root / "a.txt").unlink()
+        sub = self.root / "sub"
+        tree = write_tree(self.runner, sub)  # a subdirectory of the repository
+        index = self.root.parent / f"{self.root.name}-ref-index"
+        self.addCleanup(index.unlink, True)
+        env = {**os.environ, "GIT_INDEX_FILE": str(index)}
+        for args in (("read-tree", "HEAD"), ("add", "-A")):
+            subprocess.run(("git", *args), cwd=self.root, env=env, check=True)
+        expected = subprocess.run(
+            ("git", "write-tree"), cwd=self.root, env=env, capture_output=True, text=True
+        ).stdout.strip()
+        self.assertEqual(tree, expected)
+
+    def test_info_attributes_do_not_run_filters_either(self) -> None:
+        marker = self.root.parent / f"{self.root.name}-marker2"
+        self.addCleanup(marker.unlink, True)
+        (self.root / ".git" / "info" / "attributes").write_text("* filter=evil\n")
+        git(self.root, "config", "filter.evil.clean", f"touch {marker}; cat")
+        write_tree(self.runner, self.root)
+        self.assertFalse(marker.exists())
+
     def test_touched_lines_reads_hunks(self) -> None:
         self.assertEqual(touched_lines(DIFF), {"a.py": frozenset({3, 4}), "b.py": frozenset({10})})
 
@@ -152,6 +210,16 @@ class RunBaseTest(RepoCase):
         shutil.rmtree(self.root / ".git")
         self.start()
         self.assertEqual(self.state().base, "")
+
+    def test_a_failed_base_in_a_repository_is_recorded_as_a_decision(self) -> None:
+        failing = StateConflict("review_tree_failed", "boom")
+        with mock.patch("wev_skills.core.run_start.write_tree", side_effect=failing):
+            self.start()
+        state = self.state()
+        self.assertEqual(state.base, "")
+        with i18n.use_language("en"):
+            expected = i18n.t("review.decision.base_missing")
+        self.assertIn(expected, [d.decision for d in state.decisions])
 
     def test_state_without_base_loads(self) -> None:
         self.start()
