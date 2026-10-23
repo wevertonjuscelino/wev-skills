@@ -1,5 +1,7 @@
 {
   "review.error.tree_failed": "Could not record the working tree (git {step} failed): {error}",
   "review.decision.base_missing": "The working tree could not be recorded as the run base; layered review will refuse this run.",
-  "review.error.diff_malformed": "The diff is malformed ({why})."
+  "review.error.diff_malformed": "The diff is malformed ({why}).",
+  "review.config.agent_required": "review.agent must name an agent when review.depth is not off",
+  "review.config.quorum_above_verifiers": "review.quorum ({quorum}) must not exceed review.verifiers ({verifiers})"
 }

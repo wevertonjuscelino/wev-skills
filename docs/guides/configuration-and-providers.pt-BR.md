@@ -138,6 +138,22 @@ Como `planning: auto` decide: economy planeja tudo acima de trivial; standard e 
 
 As quatro primeiras chaves estão explicadas no [guia de especialistas](specialists.pt-BR.md). As chaves `score_*` limitam uma rodada de pontuação; uma execução fixada antes de elas existirem lê os padrões (implementado e testado; veja `tests/unit/test_config_specialists.py`). O laço de pontuação que as lê (`wev specialists score`, e `run finish` quando `score_on_finish` é true) está implementado e testado com executores e agentes falsos; o caminho real de `claude -p` está implementado mas não testado até o dono rodá-lo. Veja "Casos pontuados" no [guia de avaliação](evaluation.pt-BR.md).
 
+### `review`
+
+| Chave | Padrão | Significado |
+|---|---|---|
+| `agent` | `""` | Agente que executa os localizadores e verificadores; obrigatório quando `depth` não é `off` |
+| `depth` | `off` (`off`, `quick`, `standard`, `deep`) | Profundidade da revisão. Predefinições (localizadores / verificadores / quórum): `quick` 1/1/1, `standard` 3/3/2, `deep` 5/5/3. Uma execução de alto risco usa pelo menos `standard` quando a revisão está ligada; `off` continua desligado, qualquer que seja o risco ou as outras chaves |
+| `finders` | `0` (0 a 10) | Localizadores por rodada; 0 usa a predefinição |
+| `verifiers` | `0` (0 a 10) | Verificadores por achado; 0 usa a predefinição |
+| `quorum` | `0` (0 a 10) | Votos de verificadores que mantêm um achado; 0 usa a predefinição. Não pode exceder os verificadores em uso |
+| `max_rounds` | `3` (1 a 10) | Máximo de rodadas de revisão |
+| `full_rounds` | `2` (0 a 10) | Rodadas que executam todos os localizadores; as seguintes se restringem ao que ainda está aberto |
+| `max_runs_per_round` | `12` (1 a 50) | Máximo de execuções de localizadores e verificadores que uma rodada pode iniciar |
+| `timeout_seconds` | `600.0` (0,1 a 3600) | Tempo que uma execução de localizador ou verificador pode levar |
+
+Estado: as chaves, seus limites e `review_shape` estão implementados e testados (`tests/unit/test_config_review.py`); as rodadas de revisão que as leem pertencem a tarefas posteriores da mesma mudança.
+
 ## Níveis de modelo e roteamento
 
 O roteador (`wev route-model`) escolhe um nível a partir da classificação e depois um modelo desse nível:

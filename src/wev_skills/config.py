@@ -17,6 +17,7 @@ from wev_skills.config_files import deep_merge as deep_merge
 from wev_skills.config_files import find_repo_root as find_repo_root
 from wev_skills.config_files import read_json_object as read_json_object
 from wev_skills.config_files import user_config_home as user_config_home
+from wev_skills.config_review import ReviewConfig, review_errors
 from wev_skills.core._codec import Serializable
 from wev_skills.core.errors import NotFound, ValidationError
 
@@ -208,6 +209,7 @@ class Config(Serializable):
     harness: HarnessSettings = field(default_factory=HarnessSettings)
     intake: IntakeConfig = field(default_factory=IntakeConfig)
     specialists: SpecialistsConfig = field(default_factory=SpecialistsConfig)
+    review: ReviewConfig = field(default_factory=ReviewConfig)
 
 
 DEFAULT_CONFIG: dict[str, Any] = Config().to_dict()
@@ -339,7 +341,7 @@ def trust_errors(config: Config, root: str | os.PathLike[str]) -> list[str]:
         resolved = (base / entry).resolve()
         if not any(_inside(place, resolved) for place in allowed):
             errors.append(f"/agents/directories/{index}: must be inside the repository root")
-    return [*errors, *_project_dir_errors(config, base)]
+    return [*errors, *_project_dir_errors(config, base), *review_errors(config.review)]
 
 
 def _command_errors(command: str, root: Path) -> list[str]:

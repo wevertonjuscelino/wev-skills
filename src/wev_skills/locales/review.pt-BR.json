@@ -1,5 +1,7 @@
 {
   "review.error.tree_failed": "Não foi possível registrar a árvore de trabalho (git {step} falhou): {error}",
   "review.decision.base_missing": "Não foi possível registrar a árvore de trabalho como base da execução; a revisão em camadas recusará esta execução.",
-  "review.error.diff_malformed": "O diff está malformado ({why})."
+  "review.error.diff_malformed": "O diff está malformado ({why}).",
+  "review.config.agent_required": "review.agent deve nomear um agente quando review.depth não é off",
+  "review.config.quorum_above_verifiers": "review.quorum ({quorum}) não pode exceder review.verifiers ({verifiers})"
 }
