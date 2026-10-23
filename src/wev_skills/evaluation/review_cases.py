@@ -13,6 +13,7 @@ from wev_skills.review.trees import touched_lines
 from wev_skills.state.review_records import FindingRecord
 
 DIFF_NAME = "change.diff"
+# Revisions follow --end-of-options; the case schema also limits them to hex ids.
 # Exactly what `git diff` prints with these flags; `cases validate --at-base` regenerates it.
 DIFF_ARGS = ("diff", "--unified=0", "--no-renames", "--no-ext-diff", "--no-textconv")
 

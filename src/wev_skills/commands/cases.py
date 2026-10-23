@@ -65,7 +65,12 @@ def _run_all(
 def _diff_matches(runner: SubprocessRunner, scope: Any, case: cases.Case) -> bool:
     """The stored change.diff is byte for byte what git prints between the case's commits."""
     fresh = workspace.run_git(
-        runner, scope.root, *review_cases.DIFF_ARGS, case.base_commit, case.head_commit
+        runner,
+        scope.root,
+        *review_cases.DIFF_ARGS,
+        "--end-of-options",
+        case.base_commit,
+        case.head_commit,
     )
     stored = scope.root / cases.CASES_DIR / case.id / review_cases.DIFF_NAME
     return fresh.exit_code == 0 and fresh.stdout.encode() == stored.read_bytes()

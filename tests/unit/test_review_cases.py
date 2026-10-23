@@ -24,10 +24,10 @@ def review_data(**over: object) -> dict[str, object]:
         "source": "review",
         "ref": "r",
         "agents": [],
-        "base_commit": "abc",
+        "base_commit": "abc1234",
         "objective": "find the bug",
         "kind": "review",
-        "head_commit": "def",
+        "head_commit": "def5678",
         "expect": [{"file": "src/a.py", "first": 12, "last": 13}],
     }
     return {**base, **over}
@@ -59,7 +59,7 @@ class ReviewCasesTest(unittest.TestCase):
     def test_review_case_loads(self) -> None:
         self.put(review_data())
         case = cases.load_cases(self.root)[0]
-        self.assertEqual((case.kind, case.head_commit), ("review", "def"))
+        self.assertEqual((case.kind, case.head_commit), ("review", "def5678"))
         self.assertEqual(case.expect, (cases.Expect("src/a.py", 12, 13),))
 
     def test_review_case_with_check_refused(self) -> None:
@@ -86,6 +86,12 @@ class ReviewCasesTest(unittest.TestCase):
         self.put(review_data(expect=[{"file": "src/a.py", "first": 9, "last": 11}]))
         cases.load_cases(self.root)  # overlap at one line is enough
 
+    def test_commits_that_are_not_hex_ids_are_refused(self) -> None:
+        for field in ("base_commit", "head_commit"):
+            for bad in ("--output=x", "HEAD~1"):
+                self.put(review_data(**{field: bad}))
+                self.refused()
+
     def test_pass_rule_bug_case(self) -> None:
         self.put(review_data())
         case = cases.load_cases(self.root)[0]
@@ -107,10 +113,13 @@ class ReviewCasesTest(unittest.TestCase):
         self.assertFalse(review_case_passed(case, [finding("important")]))
 
     def test_old_cases_still_load(self) -> None:
-        cases_dir = Path(__file__).resolve().parents[2]
-        loaded = cases.load_cases(cases_dir)
-        self.assertTrue(loaded)
-        self.assertTrue(all(c.kind == "build" and c.check for c in loaded))
+        loaded = {c.id: c for c in cases.load_cases(Path(__file__).resolve().parents[2])}
+        for name in (
+            "exec-path-owned-dirs",
+            "health-large-tools-list",
+            "tarball-confined-dotdot-link",
+        ):
+            self.assertEqual((loaded[name].kind, bool(loaded[name].check)), ("build", True))
 
     def test_digest_covers_the_diff(self) -> None:
         self.put(review_data())
@@ -134,7 +143,7 @@ class ReviewCasesTest(unittest.TestCase):
         same, other = Git(DIFF), Git(DIFF + "\n")
         self.assertTrue(cases_command._diff_matches(same, scope, case))  # type: ignore[arg-type]
         self.assertIn("--unified=0", same.argv)
-        self.assertEqual(same.argv[-2:], ("abc", "def"))
+        self.assertEqual(same.argv[-3:], ("--end-of-options", "abc1234", "def5678"))
         self.assertFalse(cases_command._diff_matches(other, scope, case))  # type: ignore[arg-type]
 
 
