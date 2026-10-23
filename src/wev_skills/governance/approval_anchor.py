@@ -49,11 +49,12 @@ def anchor_fields(argv: Sequence[str], source: AnchorSource | None) -> AnchorFie
     return {"head": now.head, "tree": now.tree}
 
 
-def moved(head: str, tree: str, source: AnchorSource | None) -> bool:
-    """A grant recorded at ``head`` and ``tree`` no longer matches the repository.
+def moved(argv: Sequence[str], head: str, tree: str, source: AnchorSource | None) -> bool:
+    """A grant of ``argv`` recorded at ``head`` and ``tree`` no longer matches the repository.
 
-    Without a source to compare with, an anchored grant counts as moved: it fails closed.
+    Whether the grant is anchored follows from ``argv``, not from the stored fields, so a
+    grant whose anchor was blanked, or that has no source to compare with, fails closed.
     """
-    if not (head or tree):
+    if not needs_anchor(argv):
         return False
     return source is None or source() != Anchor(head, tree)

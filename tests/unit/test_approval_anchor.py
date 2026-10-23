@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,8 +31,10 @@ class MovableAnchor:
     def __init__(self) -> None:
         self.head = "c1"
         self.tree = "t1"
+        self.reads = 0
 
     def __call__(self) -> Anchor:
+        self.reads += 1
         return Anchor(head=self.head, tree=self.tree)
 
 
@@ -41,6 +44,7 @@ class AnchoredGrantTests(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.repo = MovableAnchor()
         path = Path(tmp.name) / "state" / "approvals.json"
+        self.path = path
         self.audit = AuditLog(path.with_name("audit.jsonl"))
         self.store = ApprovalStore(path, TickingClock(), audit=self.audit, anchor=self.repo)
 
@@ -53,6 +57,9 @@ class AnchoredGrantTests(unittest.TestCase):
         self.assertEqual((record.head, record.tree), ("c1", "t1"))
         self.assertTrue(self.store.is_granted(PUSH))
         self.assertFalse(self.store.is_stale(PUSH))
+        self.repo.reads = 0
+        self.assertTrue(self.store.consume(PUSH))
+        self.assertEqual(self.repo.reads, 1)  # git runs once under the lock, not per check
 
     def test_push_grant_goes_stale_on_new_commit(self) -> None:
         self.granted(PUSH)
@@ -78,6 +85,26 @@ class AnchoredGrantTests(unittest.TestCase):
         self.assertEqual((regranted.head, regranted.tree), ("c1", "t2"))
         self.assertFalse(self.store.is_stale(PUSH))
         self.assertTrue(self.store.consume(PUSH))
+
+    def blank_anchor(self, record: ApprovalRequest) -> None:
+        """Rewrite the stored grant with ``head`` and ``tree`` emptied, as a hand edit would."""
+        document = json.loads(self.path.read_text(encoding="utf-8"))
+        document["approvals"][record.id].update(head="", tree="")
+        self.path.write_text(json.dumps(document), encoding="utf-8")
+
+    def test_a_blanked_anchor_is_not_usable_and_verify_reports_it(self) -> None:
+        self.blank_anchor(self.granted(PUSH))
+        self.assertFalse(self.store.is_granted(PUSH))
+        self.assertTrue(self.store.is_stale(PUSH))
+        self.assertIn("grant_not_in_audit", [found.problem for found in self.store.verify()])
+
+    def test_an_external_effect_grant_without_an_anchor_fails_closed(self) -> None:
+        path = self.path.with_name("other.json")
+        bare = ApprovalStore(path, TickingClock(), audit=AuditLog(path.with_name("a.jsonl")))
+        record = bare.request(PUSH, RiskLevel.HIGH, "ship", "agent-1")
+        self.assertEqual(bare.grant(record.id, "ana").tree, "")
+        self.assertFalse(bare.is_granted(PUSH))
+        self.assertFalse(bare.consume(PUSH))
 
     def test_ordinary_grant_ignores_the_tree(self) -> None:
         record = self.granted(RM_BUILD)

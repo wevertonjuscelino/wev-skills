@@ -50,7 +50,7 @@ from wev_skills.governance.approval_identity import (
     resolved_cwd,
 )
 from wev_skills.governance.audit import AUDIT_FILE_NAME, AuditLog
-from wev_skills.governance.verification import Mismatch, mismatches
+from wev_skills.governance.verification import Mismatch, audit_key, mismatches
 from wev_skills.security.redact import redact, redact_argv
 
 SCHEMA_VERSION = 2
@@ -138,7 +138,7 @@ def _denials(records: Records, tokens: Sequence[str], run_id: str) -> list[Appro
 
 def _decision_event(record: ApprovalRequest) -> dict[str, Any]:
     fields = ("id", "generation", "binding", "action", "cwd", "run_id", "status")
-    decided = ("decided_by", "decided_tty", "decided_at", "expires_at", "used_at")
+    decided = ("decided_by", "decided_tty", "decided_at", "expires_at", "used_at", "head", "tree")
     return {name: record.to_dict()[name] for name in (*fields, *decided)}
 
 
@@ -146,8 +146,7 @@ def _matches(event: dict[str, Any], kind: str, record: ApprovalRequest) -> bool:
     data = event.get("data")
     if event.get("type") != kind or not isinstance(data, dict):
         return False
-    wanted = (record.id, record.generation, record.binding, record.decided_at)
-    return tuple(data.get(k) for k in ("id", "generation", "binding", "decided_at")) == wanted
+    return audit_key(data) == audit_key(record.to_dict())
 
 
 class ApprovalStore:
@@ -203,7 +202,7 @@ class ApprovalStore:
             return record
         if record.expires_at is None or self._clock.now() > record.expires_at:
             return replace(record, status=ApprovalStatus.EXPIRED)
-        stale = moved(record.head, record.tree, self._anchor)
+        stale = moved(record.argv, record.head, record.tree, self._anchor)
         return replace(record, status=ApprovalStatus.PENDING) if stale else record
 
     def _change(
@@ -379,14 +378,15 @@ class ApprovalStore:
             record = records.get(approval_id(tokens))
             if record is None or record.status is not ApprovalStatus.GRANTED:
                 return False
-            if self._effective(record).status is ApprovalStatus.EXPIRED:
+            current = self._effective(record)
+            if current.status is ApprovalStatus.EXPIRED:
                 expired = replace(record, status=ApprovalStatus.EXPIRED)
                 self._save({**records, record.id: expired})
                 self._audit.append(EVENT_EXPIRED, _decision_event(expired))
                 return False
-            if self._effective(record).status is ApprovalStatus.PENDING:
+            if current.status is ApprovalStatus.PENDING:
                 return False  # stale: HEAD or the tree moved since the grant
-            if not self._usable(record, tokens, cwd):
+            if not (self._bound(record, tokens, cwd) and self._audited(record)):
                 self._audit.append(EVENT_UNVERIFIED, _decision_event(record))
                 return False
             used = replace(record, status=ApprovalStatus.CONSUMED, used_at=self._clock.now())
