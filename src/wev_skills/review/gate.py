@@ -3,23 +3,57 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+import posixpath
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 
 from wev_skills import i18n
-from wev_skills.config import Config
-from wev_skills.config_review import DEPTH_OFF
+from wev_skills.config import CONFIG_FILE_NAME, DEFAULT_PROJECT_DIR, Config
+from wev_skills.config_review import DEPTH_OFF, PRESETS
 from wev_skills.core.errors import StateConflict, WevError
 from wev_skills.evaluation.ratchet import improves
 from wev_skills.state.model import RunState
 from wev_skills.state.review_records import all_findings
 
 REVIEW_FILE = "REVIEW.md"
+DEPTHS = (DEPTH_OFF, *PRESETS)
+"""Depths from the weakest to the strongest."""
+
+
+def _norm(path: str) -> str:
+    return posixpath.normpath(path)
 
 
 def reviewer_path(config: Config) -> str:
-    """The reviewer's spec, relative to the repository root."""
-    return f"{config.agents.project_dir}/{config.review.agent}.json"
+    """The reviewer's spec, relative to the repository root, in the form git prints."""
+    return _norm(f"{config.agents.project_dir}/{config.review.agent}.json")
+
+
+def _review_settings(text: str | None) -> tuple[int, str, str] | None:
+    """(depth rank, agent, project dir) of a config file's text; defaults when it is
+    missing, None when it cannot be read."""
+    if text is None:
+        return 0, "", _norm(DEFAULT_PROJECT_DIR)
+    try:
+        data = json.loads(text)
+        review, agents = data.get("review", {}), data.get("agents", {})
+        rank = DEPTHS.index(review.get("depth", DEPTH_OFF))
+        agent, project_dir = review.get("agent", ""), agents.get("project_dir", DEFAULT_PROJECT_DIR)
+        if not isinstance(agent, str) or not isinstance(project_dir, str):
+            return None
+        return rank, agent, _norm(project_dir)
+    except ValueError, AttributeError:
+        return None
+
+
+def config_weakened(before: str | None, after: str | None) -> bool:
+    """True when the run's edit of the config file lowers ``review.depth`` or changes
+    ``review.agent`` or ``agents.project_dir``; a file that cannot be read counts."""
+    now = _review_settings(after)
+    if now is None:
+        return True
+    old = _review_settings(before) or (0, "", _norm(DEFAULT_PROJECT_DIR))
+    return now[0] < old[0] or now[1:] != old[1:]
 
 
 def _pass_counts(value: object) -> dict[str, int] | None:
@@ -45,8 +79,9 @@ def finish_refusal(
     state: RunState,
     config: Config,
     fingerprint: str,
-    touched: Mapping[str, frozenset[int]],
+    changed: Collection[str],
     comparisons: Sequence[Mapping[str, object]],
+    config_texts: tuple[str | None, str | None] = (None, None),
 ) -> WevError | None:
     """Why ``run finish`` must refuse, or None. Order: an open Important finding, a review
     that does not cover the tree, a changed reviewer that no comparison vouches for."""
@@ -55,16 +90,18 @@ def finish_refusal(
     if open_ids:
         text = i18n.t("review.gate.open_important", ids=", ".join(open_ids))
         return StateConflict("review_open_important", text)
+    if CONFIG_FILE_NAME in changed and config_weakened(*config_texts):
+        return StateConflict("review_config_weakened", i18n.t("review.gate.config_weakened"))
     depth = config.review.depth
     if depth == DEPTH_OFF:
         return None
     last = state.review_rounds[-1] if state.review_rounds else None
     if last is None or last.fingerprint != fingerprint:
         return StateConflict("review_stale", i18n.t("review.gate.stale"))
-    changed = [p for p in (REVIEW_FILE, reviewer_path(config)) if p in touched]
-    if changed and not any(_improving(c, fingerprint, depth) for c in comparisons):
+    protected = [p for p in (REVIEW_FILE, reviewer_path(config)) if p in changed]
+    if protected and not any(_improving(c, fingerprint, depth) for c in comparisons):
         return StateConflict(
-            "reviewer_unscored", i18n.t("review.gate.reviewer_unscored", paths=", ".join(changed))
+            "reviewer_unscored", i18n.t("review.gate.reviewer_unscored", paths=", ".join(protected))
         )
     return None
 
