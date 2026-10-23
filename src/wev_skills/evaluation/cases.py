@@ -14,6 +14,7 @@ from wev_skills.core.errors import PermissionDenied, StateConflict, ValidationEr
 from wev_skills.core.ports import Runner
 from wev_skills.security.paths import resolve_within
 
+REVIEW_KIND = "review"
 CASES_DIR = Path("evals") / "cases"
 GIT_TIMEOUT_SECONDS = 30.0
 
@@ -60,7 +61,7 @@ def _read(root: Path, path: Path) -> Case:
     if path.stem != case.id:
         raise _invalid(path, i18n.t("evaluation.cases.id_mismatch", id=case.id))
     store = root / CASES_DIR / case.id
-    if case.kind == "review":
+    if case.kind == REVIEW_KIND:
         from wev_skills.evaluation import review_cases  # lazy: review.trees imports this module
 
         review_cases.validate(path, store, data, case)

@@ -45,7 +45,7 @@ def config(depth: str = "standard") -> Config:
 
 def comparison(**over: object) -> dict[str, object]:
     base: dict[str, object] = {
-        "compare": "HEAD", "fingerprint": FP, "depth": "standard",
+        "compare": "HEAD", "agent": "wev-reviewer", "fingerprint": FP, "depth": "standard",
         "baseline": {"c": 1}, "current": {"c": 2}, "improves": True,
     }  # fmt: skip
     return {**base, **over}
@@ -144,6 +144,7 @@ class FinishGateTest(unittest.TestCase):
             comparison(fingerprint="other"),
             comparison(depth="deep"),
             comparison(improves=False),
+            comparison(agent="someone-else"),
             comparison(baseline="x"),
         ):
             err = self.refused(state(), changed=changed, comparisons=[bad])

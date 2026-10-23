@@ -10,7 +10,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from wev_skills import i18n
-from wev_skills.agents import project
 from wev_skills.agents.spec import AgentSpec, validate_data
 from wev_skills.config import Config
 from wev_skills.core import wiring
@@ -21,10 +20,11 @@ from wev_skills.core.fingerprint import tree_fingerprint
 from wev_skills.core.fsutil import append_line
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.evaluation import cases as case_store
+from wev_skills.evaluation.cases import REVIEW_KIND
 from wev_skills.evaluation.gitguard import tamper_guard
 from wev_skills.evaluation.ratchet import improves
 from wev_skills.evaluation.score_runs import run_configuration
-from wev_skills.evaluation.scoring import REVIEW_KIND, SCORES_FILE, review_parts, scratch_setup
+from wev_skills.evaluation.scoring import SCORES_FILE, load_spec, review_parts, scratch_setup
 from wev_skills.evaluation.workspace import run_git
 from wev_skills.governance.audit import AuditLog
 from wev_skills.review.guide import FILE_NAME, MAX_CHARS, ReviewGuide, parse_guide
@@ -95,6 +95,9 @@ def compare_reviewer(
 ) -> CompareReport:
     """Score the reviewer spec and ``REVIEW.md`` of ``rev`` and of the working tree on the same
     review cases, then record the comparison. No lesson is decided."""
+    if agent_id != config.review.agent:
+        message = i18n.t("evaluation.compare.not_reviewer", agent=agent_id)
+        raise ValidationError("compare_not_reviewer", message)
     case_store.ensure_committed(runner, root)
     digest = case_store.case_set_digest(root)
     cases = tuple(
@@ -115,7 +118,7 @@ def compare_reviewer(
         message = i18n.t("evaluation.scoring.over_cap", planned=needed, cap=cap)
         raise GuardTripped("score_over_cap", message, {"planned": needed, "cap": cap})
     factory = wiring.build_agents(config, root).factory
-    new_spec = next(s for s in project.list_specs(root, config) if s.id == agent_id)
+    new_spec = load_spec(root, config, agent_id)
     guard = tamper_guard(runner, root)
     with scratch_setup(root, config, runner, agent, guard, (shape, old_guide)) as setup:
         before = run_configuration(setup, factory.resolve(old_spec), cases)
@@ -128,7 +131,7 @@ def compare_reviewer(
     state = wiring.state_dir(config, root)
     fingerprint = tree_fingerprint(runner, str(root), excluded_paths(str(root), state))
     report = CompareReport(
-        rev, fingerprint, config.review.depth, before.passes, after.passes,
+        sha, fingerprint, config.review.depth, before.passes, after.passes,
         improves(before.passes, after.passes), before.runs + after.runs,
     )  # fmt: skip
     audit.append("specialists.compare", {"specialist": agent_id, "rev": rev, "sha": sha})

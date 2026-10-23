@@ -13,7 +13,7 @@ from wev_skills.config import Config
 from wev_skills.config_review import ReviewConfig
 from wev_skills.core import wiring
 from wev_skills.core.contracts import AgentRunResult, Mode
-from wev_skills.core.errors import GuardTripped, StateConflict, ValidationError
+from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, ValidationError
 from wev_skills.core.ports import READ_ONLY_TOOLS, SubprocessRunner
 from wev_skills.evaluation.compare import compare_reviewer
 from wev_skills.evaluation.scoring import SCORES_FILE, planned_runs, score_specialist
@@ -139,6 +139,23 @@ class ScoreReviewCaseTest(ReviewScoreCase):
         report = self.score(SpecAgent())  # baseline 2 runs; a variant would need 2 more
         self.assertIn(item.id, report.deferred)
 
+    def test_mixed_build_and_review_set_plans_and_charges_exactly(self) -> None:
+        folder = self.root / "evals" / "cases"
+        (folder / "b1").mkdir()
+        (folder / "b1" / "t.py").write_text("raise SystemExit(1)\n")
+        data = json.loads((folder / "r1.json").read_text())
+        build = {k: data[k] for k in ("title", "source", "ref", "agents", "base_commit")}
+        build |= {"id": "b1", "objective": "b1", "check": ["python3", "t.py"], "files": ["t.py"]}
+        (folder / "b1.json").write_text(json.dumps(build))
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-qm", "build case")
+        report = self.score(SpecAgent())
+        new = self.config.specialists.score_max_new_lessons
+        # one sample: 1 run (build) + 2 runs (finder, verifier); baseline + `new` variants
+        self.assertEqual(report.planned_runs, (1 + new) * 3 + new)
+        self.assertEqual(report.baseline, {"b1": 0, "r1": 0})
+        self.assertEqual(report.runs_used, 3 + 2)  # baseline, plus a request per failed case
+
     def test_depth_recorded(self) -> None:
         report = self.score(SpecAgent())
         self.assertEqual(report.depth, "quick")
@@ -190,6 +207,25 @@ class CompareReviewerTest(ReviewScoreCase):
         with self.assertRaises(StateConflict) as caught:
             self.compare(agent)
         self.assertEqual((caught.exception.code, agent.runs), ("cases_uncommitted", 0))
+
+    def test_compare_refuses_an_agent_that_is_not_the_reviewer(self) -> None:
+        self.config = replace(self.config, review=ReviewConfig(agent="other", depth="quick"))
+        agent = SpecAgent()
+        with self.assertRaises(ValidationError) as caught:
+            self.compare(agent)
+        self.assertEqual((caught.exception.code, agent.runs), ("compare_not_reviewer", 0))
+
+    def test_compare_records_the_resolved_sha(self) -> None:
+        self.sharpen()
+        self.compare(SpecAgent(), "HEAD")
+        record = self.history()[0]
+        self.assertEqual((record["compare"], record["agent"]), (self.rev, AGENT))
+        self.assertRegex(str(record["compare"]), r"^[0-9a-f]{40}$")
+
+    def test_compare_for_a_spec_missing_in_the_working_tree_is_not_found(self) -> None:
+        (self.root / REVIEWER_PATH).unlink()
+        with self.assertRaises(NotFound):
+            self.compare(SpecAgent())
 
     def test_compare_refuses_what_is_not_a_commit(self) -> None:
         agent = SpecAgent()

@@ -28,6 +28,7 @@ from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, Valida
 from wev_skills.core.fsutil import append_line
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.evaluation import cases as case_store
+from wev_skills.evaluation.cases import REVIEW_KIND
 from wev_skills.evaluation.gitguard import tamper_guard
 from wev_skills.evaluation.ratchet import improves
 from wev_skills.evaluation.score_pass import Pass
@@ -37,7 +38,6 @@ from wev_skills.review.guide import ReviewGuide, load_guide
 from wev_skills.state.model import iso_utc
 
 SCORES_FILE = "scores.jsonl"
-REVIEW_KIND = "review"
 
 
 @dataclass(frozen=True)
@@ -65,11 +65,12 @@ def planned_runs(
     new_lessons: int,
     runs_per_sample: int = 1,
 ) -> int:
-    """Agent runs plus lesson requests a full pass would use; a review sample is several runs."""
+    """Agent runs plus lesson requests a full pass would use. ``cases`` counts the runs of one
+    sample of every case (a review case is several); ``runs_per_sample`` scales uniform sets."""
     return (1 + proposals + new_lessons + active) * cases * samples * runs_per_sample + new_lessons
 
 
-def _load(root: Path, config: Config, agent_id: str) -> AgentSpec:
+def load_spec(root: Path, config: Config, agent_id: str) -> AgentSpec:
     for spec in project.list_specs(root, config):
         if spec.id == agent_id:
             return spec
@@ -89,10 +90,9 @@ def review_parts(
     return review_shape(config.review, RiskLevel.LOW), load_guide(root)
 
 
-def sample_runs(shape: ReviewShape, cases: tuple[case_store.Case, ...]) -> tuple[int, int]:
-    """Agent runs one sample of every case uses, and of the costliest case."""
-    each = [shape.finders + shape.verifiers if c.kind == REVIEW_KIND else 1 for c in cases]
-    return sum(each), max(each, default=1)
+def sample_runs(shape: ReviewShape, cases: tuple[case_store.Case, ...]) -> int:
+    """Agent runs one sample of every case uses: 1 per build case, a round per review case."""
+    return sum(shape.finders + shape.verifiers if c.kind == REVIEW_KIND else 1 for c in cases)
 
 
 def _refuse_if_baseline_over_cap(config: Config, needed: int) -> None:
@@ -181,20 +181,20 @@ def scratch_setup(
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def _planned(config: Config, spec: AgentSpec, cases: int, per_sample: int) -> int:
+def _planned(config: Config, spec: AgentSpec, per_pass: int) -> int:
     cfg = config.specialists
     proposals = sum(1 for item in spec.experience if item.status == PROPOSED)
     ablatable = sum(1 for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER)
     return planned_runs(
-        cases, proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons, per_sample
+        per_pass, proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons
     )
 
 
 def _report(
-    config: Config, spec: AgentSpec, digest: str, score_id: str, outcome: Outcome, rps: int
+    config: Config, spec: AgentSpec, digest: str, score_id: str, outcome: Outcome, per_pass: int
 ) -> ScoreReport:
     run = outcome.pass_
-    planned = _planned(config, spec, len(run.cases), rps)
+    planned = _planned(config, spec, per_pass)
     depth = config.review.depth if any(c.kind == REVIEW_KIND for c in run.cases) else ""
     return ScoreReport(
         score_id, spec.id, digest, run.baseline.passes, outcome.accepted, outcome.retired,
@@ -208,16 +208,16 @@ def score_specialist(
 ) -> ScoreReport:
     case_store.ensure_committed(runner, root)
     digest = case_store.case_set_digest(root)
-    spec = _load(root, config, agent_id)
+    spec = load_spec(root, config, agent_id)
     cases = case_store.cases_for(case_store.load_cases(root), agent_id)
     if not cases:
         raise ValidationError("score_no_cases", i18n.t("evaluation.scoring.no_cases"))
     review = review_parts(root, config, cases)
-    per_pass, rps = sample_runs(review[0], cases)
+    per_pass = sample_runs(review[0], cases)
     _refuse_if_baseline_over_cap(config, per_pass)
     score_id = f"score-{uuid.uuid4().hex[:12]}"
     cap = config.specialists.score_max_runs
-    planned = _planned(config, spec, len(cases), rps)
+    planned = _planned(config, spec, per_pass)
     print(i18n.t("evaluation.scoring.plan", planned=planned, cap=cap), file=sys.stderr)
     guard = tamper_guard(runner, root)
     resolved = wiring.build_agents(config, root).factory.resolve(spec)
@@ -227,7 +227,7 @@ def score_specialist(
     if case_store.case_set_digest(root) != digest:
         raise StateConflict("cases_changed", i18n.t("evaluation.scoring.cases_changed"))
     _decided(root, config, spec, outcome, _audit(audit, agent_id, digest, outcome))
-    report = _report(config, spec, digest, score_id, outcome, rps)
+    report = _report(config, spec, digest, score_id, outcome, per_pass)
     line = json.dumps({**report.to_dict(), "at": iso_utc(time.time())}, ensure_ascii=False)
     append_line(wiring.state_dir(config, root) / SCORES_FILE, line)
     return report

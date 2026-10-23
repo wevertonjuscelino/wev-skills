@@ -106,6 +106,16 @@ class ScoringTest(unittest.TestCase):
             self.root, self.config, SubprocessRunner(), agent, AGENT, self.audit
         )
 
+    def test_build_cases_unchanged(self) -> None:
+        self.add_cases("c1", "c2")
+        report = self.score(FakeAgent(lambda s: set()))
+        new = self.config.specialists.score_max_new_lessons
+        self.assertEqual(report.planned_runs, (1 + new) * 2 + new)
+        self.assertEqual(
+            (report.baseline, report.runs_used, report.depth), ({"c1": 0, "c2": 0}, 4, "")
+        )
+        self.assertEqual((report.accepted, report.retired, report.new), ((), (), ()))
+
     def test_planned_runs_formula(self) -> None:
         self.assertEqual(planned_runs(4, 2, 1, 2, 3), (1 + 2 + 3 + 1) * 4 * 2 + 3)
 

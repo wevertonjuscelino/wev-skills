@@ -13,7 +13,7 @@ from wev_skills.core.errors import ProviderError
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.core.textsafe import clean_text
 from wev_skills.evaluation import snapshot
-from wev_skills.evaluation.cases import Case
+from wev_skills.evaluation.cases import REVIEW_KIND, Case
 from wev_skills.evaluation.workspace import case_workspace, passed, run_check, skip_git_cleanup
 from wev_skills.review.guide import ReviewGuide
 from wev_skills.security.permissions import PermissionPolicy
@@ -80,12 +80,12 @@ def _attempt(setup: Setup, spec: AgentSpec, case: Case, path: Path) -> tuple[boo
 
 def case_runs(setup: Setup, case: Case) -> int:
     """Agent runs one sample of ``case`` can use."""
-    return setup.shape.finders + setup.shape.verifiers if case.kind == "review" else 1
+    return setup.shape.finders + setup.shape.verifiers if case.kind == REVIEW_KIND else 1
 
 
 def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure | None, int]:
     """One sample: whether it passed, its failure, and the agent runs it used."""
-    if case.kind == "review":
+    if case.kind == REVIEW_KIND:
         from wev_skills.evaluation.review_attempt import review_sample  # lazy: imports this module
 
         return review_sample(setup, spec, case)

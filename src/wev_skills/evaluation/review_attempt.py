@@ -31,7 +31,9 @@ def review_sample(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Fail
     """Run one review of ``case`` at its ``head_commit``; a review that cannot finish is a fail
     that still costs the runs it used."""
     diff = (setup.root / CASES_DIR / case.id / DIFF_NAME).read_text(encoding="utf-8")
-    decide = LocalPolicyProvider(LimitsConfig()).resolve_conflict  # the vote rule only
+    decide = LocalPolicyProvider(
+        LimitsConfig()
+    ).resolve_conflict  # only the vote rule is used: limits do not matter
     with case_workspace(setup.runner, setup.root, case, setup.scratch, case.head_commit) as path:
         try:
             inputs = VoteInputs(

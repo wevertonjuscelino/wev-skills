@@ -140,5 +140,6 @@
   "evaluation.compare.bad_rev": "{rev} does not name a commit; nothing was run",
   "evaluation.compare.spec_missing": "{path} does not exist at that revision",
   "evaluation.compare.no_cases": "No review case applies to this specialist; there is nothing to compare",
-  "evaluation.compare.git_timeout": "A git call timed out while reading the revision"
+  "evaluation.compare.git_timeout": "A git call timed out while reading the revision",
+  "evaluation.compare.not_reviewer": "{agent} is not the configured reviewer (review.agent); only the reviewer can be compared"
 }

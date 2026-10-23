@@ -70,11 +70,13 @@ def _pass_counts(value: object) -> dict[str, int] | None:
     return {str(k): int(v) for k, v in value.items()}
 
 
-def _improving(record: Mapping[str, object], fingerprint: str, depth: str) -> bool:
+def _improving(record: Mapping[str, object], fingerprint: str, depth: str, agent: str) -> bool:
     """A recorded comparison counts only when ``improves`` is true on its own numbers:
     a hand-edited flag does not pass."""
     baseline, current = _pass_counts(record.get("baseline")), _pass_counts(record.get("current"))
     if record.get("fingerprint") != fingerprint or record.get("depth") != depth:
+        return False
+    if record.get("agent") != agent:  # the comparison must be of the configured reviewer
         return False
     if baseline is None or current is None:
         return False
@@ -105,7 +107,9 @@ def finish_refusal(
     if last is None or last.fingerprint != fingerprint:
         return StateConflict("review_stale", i18n.t("review.gate.stale"))
     protected = [p for p in (REVIEW_FILE, reviewer_path(config)) if p in changed]
-    if protected and not any(_improving(c, fingerprint, depth) for c in comparisons):
+    if protected and not any(
+        _improving(c, fingerprint, depth, config.review.agent) for c in comparisons
+    ):
         return StateConflict(
             "reviewer_unscored", i18n.t("review.gate.reviewer_unscored", paths=", ".join(protected))
         )
