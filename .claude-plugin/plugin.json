@@ -1,6 +1,6 @@
 {
   "name": "wev-skills",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "description": "Evidence-oriented orchestration for AI coding agents: skills that drive a local JSON CLI for run state, plans, task contracts, permissions, approvals, loop detection, verification evidence, custom agents, remote tmux control and a scripted evaluation harness.",
   "author": {
     "name": "Weverton Juscelino"
