@@ -27,11 +27,13 @@ def _guide_text(guide: ReviewGuide) -> str:
     return "\n".join(_fenced(text, f"REVIEW.md {name}") for name, text in parts.items() if text)
 
 
-def _listing(records: Sequence[FindingRecord]) -> str:
+def _listing(records: Sequence[FindingRecord], first_index: int | None = None) -> str:
     rows = [
         {"id": r.id, "file": r.file, "line": r.line, "title": r.title, "body": r.body}
         for r in records
     ]
+    if first_index is not None:
+        rows = [{"index": first_index + i, **row} for i, row in enumerate(rows)]
     return json.dumps(rows, ensure_ascii=False)
 
 
@@ -74,6 +76,6 @@ def verifier_prompt(
         lang,
         guide=_guide_text(guide),
         candidates=_fenced(json.dumps(rows, ensure_ascii=False), "candidate findings"),
-        rechecks=_fenced(_listing(rechecks), "findings to recheck"),
+        rechecks=_fenced(_listing(rechecks, len(candidates)), "findings to recheck"),
         diff=_fenced(diff, "diff"),
     )

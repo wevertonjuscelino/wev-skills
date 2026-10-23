@@ -15,6 +15,7 @@ from wev_skills.review.findings import (
 )
 from wev_skills.review.guide import ReviewGuide
 from wev_skills.review.prompts import finder_prompt, verifier_prompt
+from wev_skills.state.review_records import FindingRecord
 
 
 def item(**over: object) -> dict[str, object]:
@@ -69,7 +70,27 @@ class ParseFindingsTest(unittest.TestCase):
         self.assertEqual(len(finding_id("a.py", 3, "x")), 12)
 
 
+class RedactAndFenceTest(unittest.TestCase):
+    def test_secret_in_body_is_redacted(self) -> None:
+        secret = "ghp_" + "a" * 36
+        found = parse_findings(answer(item(body=f"leaks {secret} here", title=f"t {secret}")))
+        self.assertNotIn(secret, found[0].body + found[0].title)
+        self.assertEqual(parse_findings(answer(item(file=f"{secret}.py"))), ())
+
+    def test_code_fenced_answer_parses(self) -> None:
+        self.assertEqual(len(parse_findings("```json\n" + answer(item()) + "\n```")), 1)
+
+
 class VotesTest(unittest.TestCase):
+    def test_recheck_is_indexed_after_candidates(self) -> None:
+        recheck = FindingRecord("abc", 1, "a.py", 2, "t", "b", "nit", False, 1, 1)
+        prompt = verifier_prompt(
+            "d", (raw("a.py", 1), raw("a.py", 2)), (recheck,), ReviewGuide(), "en"
+        )
+        self.assertIn('"index": 2, "id": "abc"', prompt)
+        vote = {"votes": [{"index": 2, "real": True, "tag": "nit", "kind": "bug"}]}
+        self.assertEqual(parse_votes(json.dumps(vote), 3)[0].index, 2)
+
     def test_votes_parse_and_drop_bad_index(self) -> None:
         def vote(**o: object) -> dict[str, object]:
             return {"index": 0, "real": True, "tag": "nit", "kind": "bug", **o}

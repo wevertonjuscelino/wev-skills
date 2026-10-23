@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Any, TypeGuard
 
 from wev_skills.core.errors import PermissionDenied
+from wev_skills.evaluation.score_pass import unfence
 from wev_skills.security.paths import resolve_within
+from wev_skills.security.redact import redact
 from wev_skills.security.untrusted import sanitize, scan
 
 MAX_FINDINGS = 20
@@ -53,7 +55,7 @@ def _items(answer: str, key: str) -> list[Any]:
     if len(answer) > MAX_ANSWER_CHARS:
         return []
     try:
-        data = json.loads(answer)
+        data = json.loads(unfence(answer))
     except ValueError, RecursionError:
         return []
     items = data.get(key) if isinstance(data, dict) else None
@@ -80,8 +82,9 @@ def _finding(item: object) -> RawFinding | None:
     title = _clean(item.get("title"), TITLE_MAX)
     body = _clean(item.get("body"), BODY_MAX, multiline=True)
     line, tag, wide = item.get("line"), item.get("tag"), item.get("class_wide", False)
-    if file is None or title is None or body is None or "\0" in file:
+    if file is None or title is None or body is None or "\0" in file or redact(file) != file:
         return None
+    title, body = redact(title), redact(body)  # a secret the finder read must not be stored
     if not _is_int(line) or tag not in TAGS or not isinstance(wide, bool):
         return None
     return RawFinding(file, line, title, body, tag, wide)
@@ -93,6 +96,7 @@ def parse_findings(answer: str) -> tuple[RawFinding, ...]:
 
 
 def parse_votes(answer: str, count: int) -> tuple[Vote, ...]:
+    """``count`` is candidates plus rechecks: rechecks are indexed after the candidates."""
     votes: dict[int, Vote] = {}
     for item in _items(answer, "votes"):
         if not isinstance(item, dict):
