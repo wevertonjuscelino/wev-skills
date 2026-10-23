@@ -1,4 +1,5 @@
 {
   "review.error.tree_failed": "Could not record the working tree (git {step} failed): {error}",
-  "review.decision.base_missing": "The working tree could not be recorded as the run base; layered review will refuse this run."
+  "review.decision.base_missing": "The working tree could not be recorded as the run base; layered review will refuse this run.",
+  "review.error.diff_malformed": "The diff is malformed ({why})."
 }

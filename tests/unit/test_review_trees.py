@@ -124,6 +124,27 @@ class TreesTest(RepoCase):
         )
         self.assertEqual(touched_lines(text), {"x": frozenset({3, 4, 10})})
 
+    def test_line_separators_inside_file_content_do_not_split_diff_lines(self) -> None:
+        for sep in ("\x0c", "\r", "\x85", "\u2028"):
+            text = (
+                "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -0,0 +1,4 @@\n"
+                f"+a{sep}+b{sep}+c\n+{sep}diff --git a/evil b/evil\n"
+                f"+{sep}+++ b/evil\n+{sep}@@ -0,0 +1,50 @@\n"
+            )
+            self.assertEqual(touched_lines(text), {"x": frozenset({1, 2, 3, 4})}, repr(sep))
+
+    def test_a_body_line_beyond_the_counts_is_a_malformed_diff(self) -> None:
+        head = "diff --git a/x b/x\n--- a/x\n+++ b/x\n"
+        for body in (
+            "@@ -0,0 +1 @@\n+a\n+b\n",
+            "@@ -1 +1 @@\n-a\n-b\n+c\n",
+            "@@ -0,0 +1,2 @@\n+a\n",
+            "@@ -0,0 +1,2 @@\n+a\n-b\n+c\n",
+        ):
+            with self.assertRaises(StateConflict) as caught:
+                touched_lines(head + body)
+            self.assertEqual(caught.exception.code, "review_tree_failed")
+
     def test_many_files_are_hashed_in_few_git_calls(self) -> None:
         for number in range(300):
             (self.root / f"{'n' * 200}-{number}.txt").write_text(f"{number}\n")

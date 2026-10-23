@@ -103,6 +103,30 @@ def diff_trees(runner: Runner, root: Path, old: str, new: str, context: int = 3)
     return _checked(run_git(runner, root, *argv, f"--unified={context}", old, new), "diff")
 
 
+def _malformed(why: str) -> StateConflict:
+    message = i18n.t("review.error.diff_malformed", why=why)
+    return StateConflict("review_tree_failed", message, {"step": "diff"})
+
+
+def _consume(left: list[int], line: str) -> list[int]:
+    """The old and new body lines still due after ``line``; a line the counts do not allow
+    means the diff is malformed."""
+    if line.startswith("\\"):  # "\ No newline at end of file"
+        return left
+    old, new = left
+    if line.startswith("-"):
+        old -= 1
+    elif line.startswith("+"):
+        new -= 1
+    elif line.startswith(" "):
+        old, new = old - 1, new - 1
+    else:
+        raise _malformed(line[:40])
+    if old < 0 or new < 0:
+        raise _malformed(line[:40])
+    return [old, new]
+
+
 def touched_lines(diff: str) -> dict[str, frozenset[int]]:
     """New-side line numbers added or changed per path in a ``--unified=0`` diff.
 
@@ -117,15 +141,12 @@ def touched_lines(diff: str) -> dict[str, frozenset[int]]:
     path: str | None = None
     in_header = False
     left = [0, 0]  # old and new body lines still to read in the current hunk
-    for line in diff.splitlines():
+    lines = diff.split("\n")  # only \n ends a diff line; splitlines() also splits file content
+    if lines[-1] == "":
+        lines.pop()
+    for line in lines:
         if left[0] or left[1]:
-            if line.startswith("-"):
-                left[0] -= 1
-            elif line.startswith("+"):
-                left[1] -= 1
-            elif line.startswith(" "):
-                left[0] -= 1
-                left[1] -= 1
+            left = _consume(left, line)
             continue
         if line.startswith(_DIFF_START):
             in_header, path = True, None
@@ -135,6 +156,8 @@ def touched_lines(diff: str) -> dict[str, frozenset[int]]:
             path = (header.group(1) or "").rstrip("\t") or None  # git ends a spaced path with a tab
             continue
         hunk = _HUNK.match(line)
+        if not hunk and line[:1] in ("+", "-") and not (in_header and line[:4] in ("--- ", "+++ ")):
+            raise _malformed(line[:40])  # a body line outside any hunk
         if hunk:
             in_header = False
             old = int(hunk.group(1) if hunk.group(1) is not None else 1)
@@ -143,4 +166,6 @@ def touched_lines(diff: str) -> dict[str, frozenset[int]]:
             left = [old, new]
             if new and path is not None:
                 found.setdefault(path, set()).update(range(start, start + new))
-    return {name: frozenset(lines) for name, lines in found.items()}
+    if left[0] or left[1]:
+        raise _malformed("truncated hunk")
+    return {name: frozenset(rows) for name, rows in found.items()}
