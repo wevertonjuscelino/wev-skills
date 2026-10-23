@@ -257,7 +257,9 @@ def review_task(
         message = i18n.t("orch.error.review_unverified", task=task_id, status=record.status.value)
         raise ValidationError("task_not_verified", message, {"task_id": task_id})
     stamp, text = engine.stamp(), engine.clean(summary)
-    review = ReviewRecord(task_id, stamp, reviewer, accepted, text)
+    review = ReviewRecord(
+        task_id, stamp, reviewer, accepted, text, progress.recorded_tree(state, task_id)
+    )
     verdict = "accept" if accepted else "reject"
     note = i18n.t("orch.decision.review", task=task_id, reviewer=reviewer, verdict=verdict)
 

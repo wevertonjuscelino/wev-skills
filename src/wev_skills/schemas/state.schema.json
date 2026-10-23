@@ -385,7 +385,8 @@
         "at": { "type": "string" },
         "reviewer": { "type": "string" },
         "accepted": { "type": "boolean" },
-        "summary": { "type": "string" }
+        "summary": { "type": "string" },
+        "fingerprint": { "type": "string" }
       }
     },
     "nullableRepo": {

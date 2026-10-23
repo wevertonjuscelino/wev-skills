@@ -127,6 +127,7 @@ class ReviewRecord(Serializable):
     reviewer: str
     accepted: bool
     summary: str
+    fingerprint: str = ""
 
 
 @dataclass(frozen=True)

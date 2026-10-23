@@ -96,7 +96,10 @@ def review_accepted(state: RunState, task_id: str) -> bool:
     record = state.tasks.get(task_id)
     if review is None or record is None or not review.accepted:
         return False
-    return review.at >= record.finished_at
+    # The tree the task recorded must still be the one the reviewer saw, and a redone
+    # task needs a new review even when its tree comes out identical.
+    bound = review.fingerprint and review.fingerprint == recorded_tree(state, task_id)
+    return bool(bound) and review.at >= record.finished_at
 
 
 def task_complete(state: RunState, task_id: str) -> bool:
@@ -179,6 +182,12 @@ def verified_trees(state: RunState) -> list[tuple[str, str]]:
         if kind == GuardEventKind.TASK_ATTEMPT.value and status == VERIFIED_VALUE and fingerprint:
             found.append((str(event.get("task_id", "")), fingerprint))
     return found
+
+
+def recorded_tree(state: RunState, task_id: str) -> str:
+    """The tree fingerprint of the task's last ``verified`` record, ``""`` when it has none."""
+    found = [tree for owner, tree in verified_trees(state) if owner == task_id]
+    return found[-1] if found else ""
 
 
 def changed_after_verification(state: RunState, tree: str) -> tuple[str, ...]:
