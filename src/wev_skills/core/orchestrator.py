@@ -21,6 +21,7 @@ from wev_skills.core import (
     planning,
     progress,
     report,
+    review_cap,
     run_start,
     task_check,
     task_exec,
@@ -109,7 +110,7 @@ class Orchestrator(Engine):
     def guard_check(self, task_id: str | None = None) -> GuardVerdict:
         state = self.load()
         if task_id is None:
-            return self.run_verdict(state)
+            return review_cap.run_guard_verdict(self, state)
         task = progress.plan_task(state, task_id)
         return progress.task_verdict(
             progress.guard_events(state, task_id),

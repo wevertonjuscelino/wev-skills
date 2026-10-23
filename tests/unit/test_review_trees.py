@@ -12,7 +12,7 @@ from unittest import mock
 from wev_skills import cli, i18n
 from wev_skills.core.errors import StateConflict
 from wev_skills.core.ports import SubprocessRunner
-from wev_skills.review.trees import diff_trees, touched_lines, write_tree
+from wev_skills.review.trees import diff_trees, touched_lines, touched_or_cut_lines, write_tree
 from wev_skills.state.model import RunState
 
 DIFF = """diff --git a/a.py b/a.py
@@ -206,6 +206,11 @@ class TreesTest(RepoCase):
 
     def test_touched_lines_reads_hunks(self) -> None:
         self.assertEqual(touched_lines(DIFF), {"a.py": frozenset({3, 4}), "b.py": frozenset({10})})
+
+    def test_a_cut_touches_the_lines_around_it_only_in_the_cut_variant(self) -> None:
+        self.assertEqual(touched_or_cut_lines(DIFF)["d.py"], frozenset({3, 4}))
+        self.assertEqual(touched_or_cut_lines(DIFF)["a.py"], touched_lines(DIFF)["a.py"] | {10, 11})
+        self.assertNotIn("d.py", touched_lines(DIFF))
 
     def test_a_pure_deletion_touches_no_line(self) -> None:
         self.assertNotIn("c.py", touched_lines(DIFF))

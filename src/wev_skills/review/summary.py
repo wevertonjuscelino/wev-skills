@@ -22,7 +22,8 @@ def summarize(findings: Sequence[FindingRecord], skipped: int, lang: str) -> str
         head = i18n.t("review.summary.nothing", lang)
     lines = [head]
     for tag in ORDER:
-        lines.extend(f"- {f.file}:{f.line} [{tag}] {f.title}" for f in live if f.tag == tag)
+        label = i18n.t(f"review.label.{tag}", lang)
+        lines.extend(f"- {f.file}:{f.line} [{label}] {f.title}" for f in live if f.tag == tag)
     if skipped > 0:
         lines.append(i18n.t("review.summary.skipped", lang, count=skipped))
     return "\n".join(lines)

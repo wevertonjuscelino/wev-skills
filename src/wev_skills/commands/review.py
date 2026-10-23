@@ -20,7 +20,7 @@ from wev_skills.core.textsafe import clean_text
 from wev_skills.review import guide, resolve
 from wev_skills.review.round import run_round
 from wev_skills.review.summary import STATUS_OPEN, summarize
-from wev_skills.state.review_records import all_findings
+from wev_skills.state.review_records import FindingRecord, all_findings
 
 SHOWN_MAX = 300
 
@@ -29,6 +29,15 @@ def _md_check(args: argparse.Namespace) -> dict[str, Any]:
     root = resolve_scope(args.config).root
     loaded = guide.load_guide(root)
     return {"valid": True, "present": (root / guide.FILE_NAME).is_file(), "guide": asdict(loaded)}
+
+
+def _shown(finding: FindingRecord) -> dict[str, Any]:
+    """The finding as a dict, with a round-closed ``resolved_by`` (``round:N``) in words."""
+    data = finding.to_dict()
+    kind, _, number = finding.resolved_by.partition(":")
+    if kind == "round" and number:
+        data["resolved_by"] = i18n.t("review.resolved_by.round", number=number)
+    return data
 
 
 def _run(args: argparse.Namespace) -> dict[str, Any]:
@@ -46,7 +55,7 @@ def _show(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "run_id": state.run_id,
         "round": last.to_dict() if last else None,
-        "open": [f.to_dict() for f in findings if f.status == STATUS_OPEN],
+        "open": [_shown(f) for f in findings if f.status == STATUS_OPEN],
         "summary": summary,
     }
 

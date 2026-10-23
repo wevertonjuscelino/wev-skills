@@ -190,6 +190,37 @@ class RoundTests(ReviewRepo):
         self.assertEqual(caught.exception.code, "revision_mismatch")
         self.assertEqual(self.state().review_rounds, ())
 
+    def test_guard_check_reports_the_review_stop_until_acknowledged(self) -> None:
+        self.three_rounds()
+        with self.assertRaises(GuardTripped):
+            self.run_round(FakeAgent())
+        verdict = self.orch().guard_check()
+        self.assertEqual((verdict.action.value, verdict.rule), ("stop", "review_rounds"))
+        self.assertEqual(self.orch().run_verdict(self.state()).action.value, "continue")
+        result = guard_ack.acknowledge(self.orch(), None, "one more", "ana", "tty")
+        self.assertEqual(result["after"]["action"], "continue")
+        self.assertEqual(self.orch().guard_check().action.value, "continue")
+
+    def test_a_deleted_flagged_line_is_rechecked(self) -> None:
+        self.start()
+        self.edit(5, "x5 = 'changed'")
+        self.run_round(one_finding_agent())
+        rows = (self.root / "a.py").read_text().splitlines(keepends=True)
+        self.write("a.py", "".join(rows[:4] + rows[5:]))
+        agent = FakeAgent(verifier_replies=[votes(vote(0, real=False))])
+        second = self.run_round(agent)
+        self.assertEqual(second.runs_used, 2)  # the verifier ran on the recheck
+        (old,) = all_findings(self.state().review_rounds)
+        self.assertEqual((old.status, old.resolved_by), ("fixed", "round:2"))
+
+    def test_summary_labels_follow_the_language(self) -> None:
+        self.start()
+        self.edit(5, "x5 = 'changed'")
+        record = self.run_round(one_finding_agent())
+        text = summarize(record.findings, 0, "pt-BR")
+        self.assertIn("[Importante]", text)
+        self.assertNotIn("[important]", text)
+
     def test_fixed_recheck_marks_the_earlier_finding(self) -> None:
         self.start()
         self.edit(5, "x5 = 'changed'")

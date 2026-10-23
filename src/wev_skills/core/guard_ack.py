@@ -10,21 +10,20 @@ from wev_skills.core import progress
 from wev_skills.core.contracts import GuardAction
 from wev_skills.core.engine import Engine, with_trip
 from wev_skills.core.errors import ValidationError
+from wev_skills.core.review_cap import ACKNOWLEDGED, pending_stop, run_guard_verdict
 from wev_skills.guards.events import reset_event
 from wev_skills.guards.execution import GuardVerdict
 from wev_skills.state.model import RunState, with_decision, with_guard_event
 from wev_skills.state.records import GuardTrip
-from wev_skills.state.review_records import RULE_REVIEW_ROUNDS
 
 SOURCE = "guard-acknowledge"
 SCOPE_RUN = "run"
 SCOPE_TASK = "task"
-ACKNOWLEDGED = "acknowledged"
 
 
 def _verdict(engine: Engine, state: RunState, task_id: str | None) -> GuardVerdict:
     if task_id is None:
-        return engine.run_verdict(state)
+        return run_guard_verdict(engine, state)
     task = progress.plan_task(state, task_id)
     return progress.task_verdict(
         progress.guard_events(state, task_id),
@@ -36,15 +35,6 @@ def _verdict(engine: Engine, state: RunState, task_id: str | None) -> GuardVerdi
 
 def _summary(verdict: GuardVerdict) -> dict[str, Any]:
     return {"action": verdict.action.value, "rule": verdict.rule, "reasons": list(verdict.reasons)}
-
-
-def _review_stop(engine: Engine, state: RunState) -> GuardVerdict | None:
-    """The run's own stop for having used every review round, until a person acknowledges it."""
-    trips = [t for t in state.guard_trips if not t.task_id and t.rule == RULE_REVIEW_ROUNDS]
-    cap = engine.services.config.review.max_rounds + state.review_allowance
-    if not trips or trips[-1].action == ACKNOWLEDGED or len(state.review_rounds) < cap:
-        return None
-    return GuardVerdict(GuardAction.STOP, RULE_REVIEW_ROUNDS, trips[-1].reasons)
 
 
 def acknowledge(
@@ -60,11 +50,9 @@ def acknowledge(
         raise ValidationError("reason_required", i18n.t("guard.error.reason_required"))
     current = engine.load()
     before = _verdict(engine, current, task_id)
-    review_stop = _review_stop(engine, current) if task_id is None else None
-    if before.action is GuardAction.CONTINUE and review_stop is None:
+    review_stop = pending_stop(engine, current) if task_id is None else None
+    if before.action is GuardAction.CONTINUE:
         raise ValidationError("guard_not_tripped", i18n.t("guard.error.not_tripped"))
-    if before.action is GuardAction.CONTINUE and review_stop is not None:
-        before = review_stop
     scope = SCOPE_RUN if task_id is None else SCOPE_TASK
     previous = _summary(before)
     audit = {

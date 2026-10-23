@@ -42,5 +42,9 @@
   "review.run.help": "Run one review round over the changes of the active run",
   "review.show.help": "Show the last review round and the findings still open",
   "review.resolve.help": "Close a Nit or Pre-existing finding (an Important one needs review dismiss)",
-  "review.dismiss.help": "Close any review finding; human operator only (needs a terminal and a typed word)"
+  "review.dismiss.help": "Close any review finding; human operator only (needs a terminal and a typed word)",
+  "review.label.important": "Important",
+  "review.label.nit": "Nit",
+  "review.label.pre_existing": "Pre-existing",
+  "review.resolved_by.round": "review round {number}"
 }

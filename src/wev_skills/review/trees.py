@@ -128,6 +128,18 @@ def _consume(left: list[int], line: str) -> list[int]:
 
 
 def touched_lines(diff: str) -> dict[str, frozenset[int]]:
+    """New-side line numbers added or changed per path in a ``--unified=0`` diff (see ``_scan``)."""
+    return _scan(diff, False)
+
+
+def touched_or_cut_lines(diff: str) -> dict[str, frozenset[int]]:
+    """``touched_lines`` plus, for a pure deletion after new line ``c``, the lines ``c`` and
+    ``c + 1`` around the cut. Used to find findings whose line was removed; it does not
+    decide Pre-existing."""
+    return _scan(diff, True)
+
+
+def _scan(diff: str, cuts: bool) -> dict[str, frozenset[int]]:
     """New-side line numbers added or changed per path in a ``--unified=0`` diff.
 
     Read by git's structure: ``+++`` names the path only in the header after a
@@ -164,8 +176,9 @@ def touched_lines(diff: str) -> dict[str, frozenset[int]]:
             start = int(hunk.group(2))
             new = int(hunk.group(3) if hunk.group(3) is not None else 1)
             left = [old, new]
-            if new and path is not None:
-                found.setdefault(path, set()).update(range(start, start + new))
+            if path is not None and (new or cuts):
+                around = range(start, start + new) if new else (start, start + 1)
+                found.setdefault(path, set()).update(around)
     if left[0] or left[1]:
         raise _malformed("truncated hunk")
     return {name: frozenset(rows) for name, rows in found.items()}

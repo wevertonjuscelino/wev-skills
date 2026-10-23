@@ -14,7 +14,7 @@ from wev_skills.core.errors import GuardTripped, StateConflict, ValidationError
 from wev_skills.core.ports import AgentRunner
 from wev_skills.review.guide import load_guide
 from wev_skills.review.summary import STATUS_OPEN, summarize
-from wev_skills.review.trees import diff_trees, touched_lines, write_tree
+from wev_skills.review.trees import diff_trees, touched_lines, touched_or_cut_lines, write_tree
 from wev_skills.review.vote import VoteInputs, VoteResult, find_and_vote
 from wev_skills.state.model import RunState
 from wev_skills.state.records import GuardTrip
@@ -31,7 +31,7 @@ RECHECK_WINDOW = 3
 CLAUDE_MD = "CLAUDE.md"
 MAX_CLAUDE_MD_CHARS = 20_000
 STATUS_FIXED = "fixed"
-RESOLVED_BY_ROUND = "round {number}"
+RESOLVED_BY_ROUND = "round:{number}"
 
 
 def _risk(state: RunState) -> RiskLevel:
@@ -114,7 +114,10 @@ def _rechecks(engine: Engine, state: RunState, scene: _Scene) -> tuple[FindingRe
         if finding.round not in since:
             origin = next(r for r in state.review_rounds if r.number == finding.round)
             diff = diff_trees(engine.services.runner, scene.root, origin.tree, scene.tree, 0)
-            since[finding.round] = touched_lines(diff)
+            since[finding.round] = touched_or_cut_lines(diff)
+        # shortcut: the window compares the origin round's line number with current-tree
+        # lines, so insertions above a finding can move it out of the window; upgrade by
+        # mapping the line through the diff when that misses real fixes.
         rows = since[finding.round].get(finding.file, frozenset())
         if any(abs(row - finding.line) <= RECHECK_WINDOW for row in rows):
             found.append(finding)
