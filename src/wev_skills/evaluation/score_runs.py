@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 from collections.abc import Callable, Sequence
@@ -11,15 +12,18 @@ from pathlib import Path
 from wev_skills import i18n
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.core.errors import ProviderError
+from wev_skills.core.fsutil import atomic_write_text
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.core.textsafe import clean_text
 from wev_skills.evaluation import snapshot
 from wev_skills.evaluation.cases import Case
 from wev_skills.evaluation.workspace import case_workspace, passed, run_check, skip_git_cleanup
 from wev_skills.security.permissions import PermissionPolicy
+from wev_skills.security.redact import redact
 
 ERROR_CHARS = 200
 CONTEXT_CHARS = 8000
+MAX_TRANSCRIPT_CHARS = 2_000_000  # one long agent run fits; a runaway stream is cut
 """Most characters of a check's output or an agent's diff handed to the lesson request."""
 
 
@@ -36,6 +40,8 @@ class Setup:
     timeout: float
     guard: Callable[[], None]
     """Called right after every agent run, before any git call; raises if git was tampered."""
+    logs: Path | None = None
+    """Where each agent run's event stream is kept, redacted and capped, for diagnosis."""
 
 
 @dataclass(frozen=True)
@@ -54,9 +60,24 @@ class Tally:
     runs: int
 
 
+def _keep(logs: Path, case: Case, transcript: str) -> None:
+    """Save one run's event stream as ``<case>-<n>.jsonl``, redacted and cut at a cap."""
+    if not transcript:
+        return
+    taken = len(list(logs.glob(f"{case.id}-*.jsonl"))) if logs.is_dir() else 0
+    text = redact(transcript)
+    if len(text) > MAX_TRANSCRIPT_CHARS:
+        dropped = len(text) - MAX_TRANSCRIPT_CHARS
+        marker = json.dumps({"type": "wev_truncated", "dropped": dropped})
+        text = text[:MAX_TRANSCRIPT_CHARS] + "\n" + marker
+    atomic_write_text(logs / f"{case.id}-{taken + 1}.jsonl", text + "\n")
+
+
 def _attempt(setup: Setup, spec: AgentSpec, case: Case, path: Path) -> tuple[bool, Failure | None]:
     before = snapshot.take(path)
     ran = setup.agent.run_agent(path, spec, case.objective, setup.timeout)
+    if setup.logs is not None:
+        _keep(setup.logs, case, ran.transcript)  # before the guard: a tampering run is kept too
     setup.guard()
     after = snapshot.take(path)  # before run_check copies the case files in
     if not ran.ok and not ran.timed_out:

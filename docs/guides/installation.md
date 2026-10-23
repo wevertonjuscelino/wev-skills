@@ -72,7 +72,7 @@ Status: **implemented and tested** with fake harness CLIs and a local source (un
 | macOS or Linux | The state store | It uses POSIX file locks. Windows is not supported |
 | `git` | `wev run start`, `wev run resume`, `wev state drift` | The engine snapshots the repository state. Outside a git repository the runs still work, with less to compare |
 | Claude Code | The plugin: skills, subagents, hooks | Only for the plugin steps. The CLI works without it. Tested with Claude Code 2.1.296 for `claude plugin validate`; nothing else was run through Claude Code |
-| `claude` CLI | `wev specialists score` and `score_on_finish` only | Starts `claude -p` unattended and spends tokens. Implemented but untested until the owner runs it; confirm on the first real run that the wev hooks fire (see [SECURITY.md](../../SECURITY.md), "Unattended scoring") |
+| `claude` CLI | `wev specialists score` and `score_on_finish` only | Starts `claude -p` unattended and spends tokens. First real run done on 2026-10-23; the wev hooks fire inside it, checked by hand (see [SECURITY.md](../../SECURITY.md), "Unattended scoring") |
 | `ssh` and `tmux` on the host | The optional remote module | See the [remote operations guide](remote-ops.md) |
 | `ruff`, `mypy` (or `uvx`) | `make lint` only | Optional; see [Running the tests and lint](#running-the-tests-and-lint) |
 
