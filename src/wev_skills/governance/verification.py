@@ -10,10 +10,13 @@ rewrites both files is not caught.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from wev_skills.core._codec import Serializable
+
 if TYPE_CHECKING:
-    from wev_skills.governance.approvals import ApprovalRequest, Mismatch
+    from wev_skills.governance.approvals import ApprovalRequest
 
 BINDING_MISMATCH = "binding_mismatch"
 GRANT_NOT_IN_AUDIT = "grant_not_in_audit"
@@ -21,6 +24,14 @@ DENIAL_NOT_IN_AUDIT = "denial_not_in_audit"
 DENIAL_OVERWRITTEN = "denial_overwritten"
 RECORD_MISSING = "record_missing"
 _KEY_FIELDS = ("id", "generation", "binding", "decided_at")
+
+
+@dataclass(frozen=True)
+class Mismatch(Serializable):
+    """One disagreement between the approvals file and the audit log."""
+
+    id: str
+    problem: str
 
 
 def _key(data: Mapping[str, Any]) -> tuple[Any, ...]:
@@ -71,7 +82,6 @@ def mismatches(
         EVENT_GRANTED,
         EVENT_REOPENED,
         REPLACES_FIELD,
-        Mismatch,
     )
 
     granted_events = _events(events, EVENT_GRANTED)

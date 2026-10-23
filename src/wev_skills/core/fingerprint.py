@@ -94,6 +94,11 @@ def _walk_fingerprint(cwd: str, prefixes: Sequence[str]) -> str:
     return FS_PREFIX + digest.hexdigest()
 
 
+def head_commit(runner: Runner, cwd: str) -> str:
+    """The commit ``HEAD`` names at ``cwd``; empty outside a repository or before a commit."""
+    return (_git(runner, HEAD_ARGV, cwd) or "").strip()
+
+
 def tree_fingerprint(runner: Runner, cwd: str, exclude: Sequence[str] = ()) -> str:
     """Hash of the tree at ``cwd``; ``exclude`` lists paths relative to ``cwd`` to ignore."""
     prefixes = _prefixes(exclude)

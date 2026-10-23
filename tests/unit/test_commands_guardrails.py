@@ -256,6 +256,7 @@ class ApprovalCommandTests(GuardrailsCase):
         self.assertEqual(out["decided_tty"], TEST_TERMINAL)
         self.assertEqual(out["confirmation"]["terminal"], TEST_TERMINAL)
         self.assertGreater(out["expires_at"], out["decided_at"])
+        self.assertTrue(out["tree"])  # a push grant is tied to the tree (approval_anchor)
         event = self.audit()[-1]
         self.assertEqual(event["type"], "approval.granted")
         self.assertEqual(event["data"]["decided_tty"], TEST_TERMINAL)

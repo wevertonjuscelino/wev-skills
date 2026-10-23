@@ -37,6 +37,7 @@ from wev_skills.core.errors import (
     WevError,
 )
 from wev_skills.core.ports import Clock, SystemClock
+from wev_skills.governance.approval_anchor import AnchorSource, anchor_fields, moved
 from wev_skills.governance.approval_identity import (
     ID_HASH_CHARS,
     ID_PREFIX,
@@ -49,6 +50,7 @@ from wev_skills.governance.approval_identity import (
     resolved_cwd,
 )
 from wev_skills.governance.audit import AUDIT_FILE_NAME, AuditLog
+from wev_skills.governance.verification import Mismatch, mismatches
 from wev_skills.security.redact import redact, redact_argv
 
 SCHEMA_VERSION = 2
@@ -102,14 +104,8 @@ class ApprovalRequest(Serializable):
     decided_at: float | None = None
     expires_at: float | None = None
     used_at: float | None = None
-
-
-@dataclass(frozen=True)
-class Mismatch(Serializable):
-    """One disagreement between the approvals file and the audit log."""
-
-    id: str
-    problem: str
+    head: str = ""
+    tree: str = ""
 
 
 def _error(kind: type[WevError], code: str, **params: object) -> WevError:
@@ -162,12 +158,14 @@ class ApprovalStore:
         ttl_seconds: float = DEFAULT_TTL_SECONDS,
         audit: AuditLog | None = None,
         run_lookup: RunLookup | None = None,
+        anchor: AnchorSource | None = None,
     ) -> None:
         self._path = Path(path)
         self._clock: Clock = clock if clock is not None else SystemClock()
         self._ttl = float(ttl_seconds)
         self._audit = audit or AuditLog(self._path.with_name(AUDIT_FILE_NAME))
         self._run_lookup = run_lookup if run_lookup is not None else self._active_run
+        self._anchor = anchor
 
     def _active_run(self) -> str | None:
         """The active run of the state directory this file lives in; ``None`` when unreadable."""
@@ -199,12 +197,14 @@ class ApprovalStore:
         fsutil.atomic_write_text(self._path, text)
 
     def _effective(self, record: ApprovalRequest) -> ApprovalRequest:
-        """``record`` as it counts now: a grant past its expiry is ``expired``."""
+        """``record`` as it counts now: a grant past its expiry is ``expired``, and one whose
+        ``HEAD`` or tree has moved (``approval_anchor``) is ``pending`` a fresh grant."""
         if record.status is not ApprovalStatus.GRANTED:
             return record
         if record.expires_at is None or self._clock.now() > record.expires_at:
             return replace(record, status=ApprovalStatus.EXPIRED)
-        return record
+        stale = moved(record.head, record.tree, self._anchor)
+        return replace(record, status=ApprovalStatus.PENDING) if stale else record
 
     def _change(
         self, approval_id_: str, event: str, change: Callable[[ApprovalRequest], ApprovalRequest]
@@ -299,6 +299,7 @@ class ApprovalStore:
                 decided_tty=terminal,
                 decided_at=now,
                 expires_at=now + self._ttl,
+                **anchor_fields(record.argv, self._anchor),
             )
 
         return self._change(approval_id_, EVENT_GRANTED, change)
@@ -353,6 +354,12 @@ class ApprovalStore:
         tokens = normalize_action(action)
         return self._usable(self._load().get(approval_id(tokens)), tokens, cwd)
 
+    def is_stale(self, action: Action, cwd: str = "") -> bool:
+        """A live grant of ``action`` that ``HEAD`` or the tree has outgrown; ``cwd`` is unused."""
+        found = self._load().get(approval_id(normalize_action(action)))
+        live = found if found is not None and found.status is ApprovalStatus.GRANTED else None
+        return live is not None and self._effective(live).status is ApprovalStatus.PENDING
+
     def is_denied(self, action: Action, cwd: str = "") -> bool:
         """The operator denied these words in this run, so asking again is moot. ``cwd`` is
         accepted for the gate's signature and ignored: a denial is not tied to a directory."""
@@ -377,6 +384,8 @@ class ApprovalStore:
                 self._save({**records, record.id: expired})
                 self._audit.append(EVENT_EXPIRED, _decision_event(expired))
                 return False
+            if self._effective(record).status is ApprovalStatus.PENDING:
+                return False  # stale: HEAD or the tree moved since the grant
             if not self._usable(record, tokens, cwd):
                 self._audit.append(EVENT_UNVERIFIED, _decision_event(record))
                 return False
@@ -387,6 +396,4 @@ class ApprovalStore:
 
     def verify(self) -> tuple[Mismatch, ...]:
         """Disagreements between the approvals file and the audit log (see ``verification``)."""
-        from wev_skills.governance.verification import mismatches
-
         return mismatches(tuple(self._load().values()), self._audit.read())

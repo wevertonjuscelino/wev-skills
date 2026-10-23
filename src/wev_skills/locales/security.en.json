@@ -91,6 +91,7 @@
   "security.error.program_not_on_safe_path": "Program {program!r} was not found in the directories listed in permissions.exec_path. The engine does not use $PATH; the operator can add the program's directory to permissions.exec_path.",
   "security.error.program_in_run_root": "Program {program!r} resolves to a file inside the run's working tree, which the agent can write. Name it by an explicit relative path (./tool) and ask for approval.",
   "security.approval.secret_in_action": "The approval was not filed: the action holds text that looks like a secret, so it could not be shown exactly. Pass the secret through a file or an environment variable instead of the command line.",
+  "security.approval.stale_grant": "{reason} The earlier grant no longer counts: HEAD or the working tree changed since it was given, so grant it again.",
   "security.human.type_word": "Type {word} and press Enter to confirm (anything else cancels):",
   "security.human.mismatch": "The confirmation word did not match; nothing was changed.",
   "security.human.limit": "This confirmation is friction and a record, not proof of who is typing.",
