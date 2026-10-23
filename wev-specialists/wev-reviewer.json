@@ -41,8 +41,7 @@
     "allow": [
       "Read",
       "Grep",
-      "Glob",
-      "Bash"
+      "Glob"
     ],
     "deny": [
       "Edit",
@@ -55,7 +54,7 @@
       "plan",
       "execute"
     ],
-    "max_risk": "high",
+    "max_risk": "low",
     "may_mutate": false,
     "may_use_remote": false
   },
@@ -78,9 +77,7 @@
     "on_failure": "escalate",
     "to": "architect"
   },
-  "required_checks": [
-    "git diff --stat"
-  ],
+  "required_checks": [],
   "output_format": {
     "en": "Status line, then one entry per finding: severity | path:line | problem | evidence | suggested fix. Then Checked and Not checked lists.",
     "pt-BR": "Linha de status, depois uma entrada por achado: severidade | caminho:linha | problema | evidência | correção sugerida. Depois as listas Checado e Não checado."
