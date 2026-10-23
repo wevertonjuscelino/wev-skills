@@ -3,7 +3,8 @@
 ``approval grant``, ``approval deny``, ``approval request --reopen-denied``, ``guard
 acknowledge``, ``task reopen`` and ``run adopt`` need a terminal on stdin and stdout, show
 the full action and make the operator type a word printed on screen. There is no flag and
-no environment variable that replaces this.
+no environment variable that replaces this. ``specialists score`` is not one of them: the
+hook asks for it, and its score decisions record no person.
 
 It is friction and a record, not authentication. Inside one user account the CLI cannot tell
 who is typing, and a determined process can allocate a pseudo-terminal and answer the

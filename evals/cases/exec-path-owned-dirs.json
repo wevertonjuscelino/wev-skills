@@ -1,0 +1,21 @@
+{
+  "id": "exec-path-owned-dirs",
+  "title": "Installer adds only safe PATH directories to permissions.exec_path",
+  "source": "e2e",
+  "ref": "e3d7b2b",
+  "agents": [
+    "wev-engineer"
+  ],
+  "base_commit": "611c4e74d9c59501f5bce72bf7d04f5bd4f5dc5c",
+  "objective": "In install.sh, after installing with `--harness codex --rea-mode direct`, add to permissions.exec_path of the user config each directory on PATH that holds npx or docker, recording the real path of each, so that rea serve can find npx. Skip a directory that is inside the install tree or the temporary directory, and skip one that other users can write to, printing a line for each skipped directory; when the directory is writable by its group or by others the line reads exactly \"Not adding <dir> to permissions.exec_path: group or other users can write to it.\" An existing exec_path list must be kept without duplicates.",
+  "check": [
+    "python3",
+    "-m",
+    "unittest",
+    "tests.unit.test_install_sh.ExecPathTest.test_a_group_writable_directory_is_refused"
+  ],
+  "files": [
+    "tests/__init__.py",
+    "tests/unit/test_install_sh.py"
+  ]
+}

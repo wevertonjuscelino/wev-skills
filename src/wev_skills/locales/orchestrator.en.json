@@ -160,6 +160,7 @@
   "orch.error.no_active_run": "No active run under {state_dir}: every run is finished, or none was started. Start one with 'wev run start', or name a finished run with --run.",
   "orch.decision.finished": "Run finished ({outcome}); the plan reminder and the hooks go quiet for it.",
   "orch.finish.complete": "complete",
+  "orch.finish.score_failed": "the score failed ({error}); see the audit log",
   "orch.finish.incomplete": "incomplete",
   "orch.run.brief.help": "Print a compact plain-text brief of the active run: objective, phase, one line per task, the current task's acceptance criteria, pending approvals and the next step.",
   "orch.run.finish.help": "Mark a run as done, whatever its outcome, so it is no longer the active run. The record is kept and can still be read.",

@@ -109,3 +109,13 @@ budget does not terminate processes. Task budgets and their existing guards stil
 
 Learning uses only runs whose recorded repository matches the current project; records
 without a repository identity and runs belonging to another project are ignored.
+
+## Lessons decided by score
+
+`wev specialists score <id>` can decide lessons without a person, by running the stored cases of [the evaluation guide](evaluation.md) with and without a candidate lesson. Status: implemented and tested with fakes; the real `claude -p` path is implemented but untested until the owner runs it. The command is person-only (Claude Code asks, other harnesses deny, an agent never runs it) because it spends tokens. With `specialists.score_on_finish` true, `run finish` starts the same unattended runs without that gate, which is why the key is off by default. A score run can take far longer than an agent's Bash call allows (Claude Code's Bash tool stops a command after 2 minutes by default, 10 at most), so run it, and `run finish` with `score_on_finish`, from a terminal or in the background; a killed run leaves tokens spent and a `wev-scoring-*` temporary directory behind. Before the first agent run it prints the planned run count and the cap to stderr.
+
+- A lesson enters as `active` with `accepted_by` `score` (a value reserved like `engine`) only when no case loses a pass and the total rises. A tie stays `proposed`. Ablation retires a score-accepted active lesson on the same rule. Each decision writes an audit event (`specialists.auto_accept` or `specialists.auto_retire`) before the specialist file.
+- A person's acceptance or retirement is final against score. A lesson that score retired comes back as `proposed` at the next `specialists learn`.
+- Besides the lessons learned from engine records, score may ask the model for at most `specialists.score_max_new_lessons` lessons per run, written only from failed cases. The answer is untrusted text: it is filtered (length, control and invisible characters, newlines, fence look-alikes, a fixed English list of forbidden terms, the untrusted-text scan) and shown only inside the untrusted-data fence, under a fixed line saying it is model-written and accepted by score. The filter drops some legitimate English lessons. A losing or tied model lesson is not stored.
+- Variants whose candidate lesson is not shown (above `max_lessons_rendered`) are skipped, and work above `score_max_runs` is deferred. `score_on_finish` scores at `run finish`.
+- The controls are guardrails for a fallible agent, not a boundary against an adversarial one; see [SECURITY.md](../../SECURITY.md), "Unattended scoring", and its known limits.

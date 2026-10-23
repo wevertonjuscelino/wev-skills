@@ -4,14 +4,23 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from wev_skills import i18n
 from wev_skills.adapters.claude_code.subagent import export_all
 from wev_skills.agents import learning
-from wev_skills.agents.experience import ACTIVE, PROPOSED, PROPOSER, RETIRED, STALE, Lesson
+from wev_skills.agents.experience import (
+    ACTIVE,
+    KIND_MODEL,
+    PROPOSED,
+    PROPOSER,
+    RETIRED,
+    SCORER,
+    STALE,
+    Lesson,
+)
 from wev_skills.agents.output import OutputScope, confine, confine_export_dir, confine_export_file
 from wev_skills.agents.registry import load_file
 from wev_skills.agents.spec import AgentSpec, LocalText
@@ -171,7 +180,7 @@ def _decide(
     ``record`` runs before the write, so a failed audit leaves no decision behind."""
     agent_id, lesson_id = ids
     status, operator = decided
-    if operator == PROPOSER:
+    if operator in (PROPOSER, SCORER):
         message = i18n.t("agents.specialists.operator_reserved", operator=operator)
         raise ValidationError("operator_reserved", message, {"operator": operator})
     with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
@@ -210,6 +219,70 @@ def retire_lesson(
     """Any lesson not yet retired is retired, by ``operator``; relearning keeps it retired."""
     allowed = (ACTIVE, STALE, PROPOSED)
     return _decide(root, config, ids, allowed, (RETIRED, operator), seen, record)
+
+
+@dataclass(frozen=True)
+class ScoreDecisions:
+    """What one score run decided: lessons it wrote and lessons it accepted or retired."""
+
+    new: tuple[Lesson, ...] = ()
+    accepted: tuple[str, ...] = ()
+    retired: tuple[str, ...] = ()
+
+
+def _by_score(current: Lesson, accept: bool) -> Lesson:
+    """Score accepts only proposed lessons and retires only active or stale ones that no
+    person decided on; every person's decision is final against it."""
+    if current.accepted_by not in (PROPOSER, SCORER):
+        return current
+    if accept and current.status == PROPOSED:
+        return replace(current, status=ACTIVE, accepted_by=SCORER)
+    if not accept and current.status in (ACTIVE, STALE):
+        return replace(current, status=RETIRED, accepted_by=SCORER)
+    return current
+
+
+def _check_scores(decisions: ScoreDecisions) -> None:
+    both = set(decisions.accepted) & set(decisions.retired)
+    if both:
+        message = i18n.t("agents.specialists.score_both", lesson=sorted(both)[0])
+        raise ValidationError("score_both", message, {"lesson": sorted(both)[0]})
+    for item in decisions.new:
+        if (item.kind, item.status, item.accepted_by) != (KIND_MODEL, PROPOSED, PROPOSER):
+            message = i18n.t("agents.specialists.score_new", lesson=item.id)
+            raise ValidationError("score_new", message, {"lesson": item.id})
+
+
+def record_scores(
+    root: Path,
+    config: Config,
+    agent_id: str,
+    seen: tuple[Lesson, ...],
+    decisions: ScoreDecisions,
+    record: Record,
+) -> AgentSpec:
+    """Apply a score run's decisions under the lock, only if the lessons still equal ``seen``.
+    ``record`` (the audit) runs before the write, so a failed audit leaves nothing behind."""
+    _check_scores(decisions)
+    with locked(state_dir(config, root) / "specialists", config.limits.lock_timeout_seconds):
+        spec = _load(root, config, agent_id)
+        if spec.experience != seen:
+            message = i18n.t("agents.specialists.lessons_changed", specialist=agent_id)
+            raise StateConflict("lessons_changed", message, {"specialist": agent_id})
+        present = {item.id for item in spec.experience}
+        added = tuple(item for item in decisions.new if item.id not in present)
+        pool = replace(spec, experience=(*spec.experience, *added))  # new first, then decided
+        for lesson_id in (*decisions.accepted, *decisions.retired):
+            _find(pool, lesson_id)
+        accepted, retired = set(decisions.accepted), set(decisions.retired)
+        lessons = tuple(
+            _by_score(item, item.id in accepted) if item.id in accepted | retired else item
+            for item in pool.experience
+        )
+        record()
+        updated = replace(spec, experience=lessons)
+        _write(root, config, updated)
+    return updated
 
 
 def export(root: Path, config: Config, lang: str | None = None) -> list[Path]:

@@ -157,6 +157,16 @@ class SpecialistsConfig(Serializable):
     max_lessons: int = 30
     """Active lessons one specialist may hold; beyond it one must be retired first."""
     stale_after_runs: int = 20
+    score_samples: int = 3
+    """Times a scored case is run per scoring pass."""
+    score_max_runs: int = 60
+    """Most agent runs one scoring pass may start."""
+    score_max_new_lessons: int = 3
+    """Most lessons one scoring pass may propose."""
+    score_timeout_seconds: float = 900.0
+    """Time one scored run may take."""
+    score_on_finish: bool = False
+    """Score the specialists a run used when the run finishes."""
 
 
 @dataclass(frozen=True)
