@@ -1,4 +1,4 @@
-"""Layered review: ``review run|show|resolve|dismiss`` and ``review md check``.
+"""Layered review: ``review run|show|stats|resolve|dismiss`` and ``review md check``.
 
 ``review dismiss`` is a human-operator command: it needs a terminal and a typed word
 (``commands._human``), and an agent never runs it.
@@ -14,11 +14,12 @@ from wev_skills import i18n
 from wev_skills.commands import Subparsers
 from wev_skills.commands._agent_runner import claude_agent_runner
 from wev_skills.commands._human import confirm_human, summary_lines
-from wev_skills.commands._orchestration import add_run_argument, orchestrator_for
+from wev_skills.commands._orchestration import add_run_argument, locate, orchestrator_for
 from wev_skills.commands._scope import resolve_scope
 from wev_skills.core.textsafe import clean_text
 from wev_skills.review import guide, resolve
 from wev_skills.review.round import run_round
+from wev_skills.review.stats import REVIEWS_FILE, review_stats
 from wev_skills.review.summary import STATUS_OPEN, summarize
 from wev_skills.state.review_records import FindingRecord, all_findings
 
@@ -58,6 +59,10 @@ def _show(args: argparse.Namespace) -> dict[str, Any]:
         "open": [_shown(f) for f in findings if f.status == STATUS_OPEN],
         "summary": summary,
     }
+
+
+def _stats(args: argparse.Namespace) -> dict[str, Any]:
+    return review_stats(locate(args).state_dir / REVIEWS_FILE)
 
 
 def _resolve(args: argparse.Namespace) -> dict[str, Any]:
@@ -113,6 +118,8 @@ def register(subparsers: Subparsers) -> None:
     show = actions.add_parser("show", help=i18n.t("review.show.help"))
     add_run_argument(show)
     show.set_defaults(handler=_show)
+    stats = actions.add_parser("stats", help=i18n.t("review.stats.help"))
+    stats.set_defaults(handler=_stats)
     closing = actions.add_parser("resolve", help=i18n.t("review.resolve.help"))
     _decision_arguments(closing)
     closing.set_defaults(handler=_resolve)

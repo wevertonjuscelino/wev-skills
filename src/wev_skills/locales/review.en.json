@@ -41,6 +41,7 @@
   "review.arg.reason": "What the reason is, in words",
   "review.run.help": "Run one review round over the changes of the active run",
   "review.show.help": "Show the last review round and the findings still open",
+  "review.stats.help": "Show review noise stats per depth, from reviews.jsonl",
   "review.resolve.help": "Close a Nit or Pre-existing finding (an Important one needs review dismiss)",
   "review.dismiss.help": "Close any review finding; human operator only (needs a terminal and a typed word)",
   "review.label.important": "Important",

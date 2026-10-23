@@ -13,6 +13,7 @@ from wev_skills.core.engine import Engine, with_trip
 from wev_skills.core.errors import GuardTripped, StateConflict, ValidationError
 from wev_skills.core.ports import AgentRunner
 from wev_skills.review.guide import load_guide
+from wev_skills.review.stats import BY_ENGINE, REVIEWS_FILE, record_outcome, record_round
 from wev_skills.review.summary import STATUS_OPEN, summarize
 from wev_skills.review.trees import diff_trees, touched_lines, touched_or_cut_lines, write_tree
 from wev_skills.review.vote import VoteInputs, VoteResult, find_and_vote
@@ -154,6 +155,17 @@ def _vote(
     return find_and_vote(inputs), number
 
 
+def _record(
+    engine: Engine, state: RunState, record: ReviewRoundRecord, closed: list[FindingRecord]
+) -> None:
+    """Append the round and its engine-fixed findings to reviews.jsonl, after the commit."""
+    path, at = engine.services.state_dir / REVIEWS_FILE, engine.stamp()
+    record_round(path, at, state.run_id, record)
+    depths = {r.number: r.depth for r in state.review_rounds}
+    for finding in closed:
+        record_outcome(path, at, state.run_id, finding, depths[finding.round], BY_ENGINE)
+
+
 def run_round(engine: Engine, agent: AgentRunner, lang: str) -> ReviewRoundRecord:
     """Run one round and record it. Raises before any agent runs when the round is refused.
 
@@ -167,9 +179,11 @@ def run_round(engine: Engine, agent: AgentRunner, lang: str) -> ReviewRoundRecor
     scene = _scene(engine, state, len(state.review_rounds) + 1, config.full_rounds)
     result, number = _vote(engine, agent, state, scene, shape, lang)
     rounds = state.review_rounds
+    closed: list[FindingRecord] = []
     for fixed_id in result.fixed:
         by = RESOLVED_BY_ROUND.format(number=number)
         rounds = with_finding_closed(rounds, fixed_id, STATUS_FIXED, STATUS_FIXED, "", by)
+        closed.append(next(f for f in all_findings(rounds) if f.id == fixed_id))
     summary = engine.clean(summarize([*all_findings(rounds), *result.kept], result.skipped, lang))
     record = ReviewRoundRecord(
         number, engine.stamp(), scene.scope, scene.tree, scene.fingerprint, config.depth,
@@ -185,4 +199,5 @@ def run_round(engine: Engine, agent: AgentRunner, lang: str) -> ReviewRoundRecor
         event,
         base=state,
     )
+    _record(engine, state, record, closed)
     return record

@@ -9,6 +9,7 @@ from typing import Any
 from wev_skills import i18n
 from wev_skills.core.engine import Engine
 from wev_skills.core.errors import NotFound, PermissionDenied, ValidationError
+from wev_skills.review.stats import BY_AGENT, BY_PERSON, REVIEWS_FILE, record_outcome
 from wev_skills.review.summary import STATUS_OPEN
 from wev_skills.state.model import RunState
 from wev_skills.state.review_records import (
@@ -59,4 +60,9 @@ def close(
 
     data = {"finding_id": finding_id, "outcome": outcome, "reason": text, "by": by}
     state = engine.commit(change, "review.dismissed" if person else "review.resolved", data)
-    return {"run_id": state.run_id, "finding": find(state, finding_id).to_dict()}
+    closed = find(state, finding_id)
+    depth = next(r.depth for r in state.review_rounds if r.number == closed.round)
+    by_whom = BY_PERSON if person else BY_AGENT
+    path = engine.services.state_dir / REVIEWS_FILE
+    record_outcome(path, engine.stamp(), state.run_id, closed, depth, by_whom)
+    return {"run_id": state.run_id, "finding": closed.to_dict()}

@@ -41,6 +41,7 @@
   "review.arg.reason": "O motivo, em palavras",
   "review.run.help": "Roda uma rodada de revisão sobre as mudanças da execução ativa",
   "review.show.help": "Mostra a última rodada de revisão e os achados ainda em aberto",
+  "review.stats.help": "Mostra as estatísticas de ruído da revisão por profundidade, de reviews.jsonl",
   "review.resolve.help": "Encerra um achado Detalhe ou Preexistente (um Importante exige review dismiss)",
   "review.dismiss.help": "Encerra qualquer achado de revisão; só para o operador humano (exige terminal e uma palavra digitada)",
   "review.label.important": "Importante",
