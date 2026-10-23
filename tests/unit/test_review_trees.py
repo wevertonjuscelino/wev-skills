@@ -116,9 +116,29 @@ class TreesTest(RepoCase):
         diff = diff_trees(self.runner, self.root, old, write_tree(self.runner, self.root), 0)
         self.assertEqual(touched_lines(diff), {"a b.py": frozenset({2})})
 
-    def test_an_added_line_that_looks_like_a_header_is_not_one(self) -> None:
-        text = "--- a/x\n+++ b/x\n@@ -1,0 +2,1 @@\n+++ b/evil\n@@ -5 +7 @@\n+z\n"
-        self.assertEqual(touched_lines(text), {"x": frozenset({2, 7})})
+    def test_content_lines_that_look_like_headers_stay_credited_to_the_file(self) -> None:
+        text = (
+            "diff --git a/x b/x\n--- a/x\n+++ b/x\n"
+            "@@ -3,2 +3,2 @@\n--- a/y\n-old\n+++ b/evil\n+new\n"
+            "@@ -9,0 +10 @@\n+z\n"
+        )
+        self.assertEqual(touched_lines(text), {"x": frozenset({3, 4, 10})})
+
+    def test_many_files_are_hashed_in_few_git_calls(self) -> None:
+        for number in range(300):
+            (self.root / f"{'n' * 200}-{number}.txt").write_text(f"{number}\n")
+        calls: list[tuple[str, ...]] = []
+
+        class Counting(SubprocessRunner):
+            def run(self, argv, cwd, timeout, env):  # type: ignore[no-untyped-def]
+                calls.append(tuple(argv))
+                return super().run(argv, cwd, timeout, env)
+
+        tree = write_tree(Counting(), self.root)
+        self.assertEqual(
+            len(git(self.root, "ls-tree", "-r", "--name-only", tree).splitlines()), 302
+        )
+        self.assertLess(len(calls), 12)
 
     def test_write_tree_runs_no_attribute_driven_filter(self) -> None:
         marker = self.root.parent / f"{self.root.name}-marker"
