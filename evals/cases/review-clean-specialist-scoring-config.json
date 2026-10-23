@@ -1,0 +1,14 @@
+{
+  "id": "review-clean-specialist-scoring-config",
+  "title": "Clean: adds five defaulted, schema-bounded scoring settings that no later commit had to fix",
+  "source": "review",
+  "ref": "4db33f9",
+  "agents": [
+    "wev-reviewer"
+  ],
+  "base_commit": "ab3ee1f93c8e880d55e19d2bc931957fb9717b89",
+  "objective": "Add the specialist scoring configuration: the number of samples per scored case, the cap on agent runs and on new lessons per scoring pass, the time one scored run may take, and whether specialists are scored when a run finishes. Each setting has a default and a bounded entry in the config schema, and a test covers them.",
+  "kind": "review",
+  "head_commit": "4db33f955aaadcf3607ac677a9eb0316a2f27f39",
+  "expect": []
+}

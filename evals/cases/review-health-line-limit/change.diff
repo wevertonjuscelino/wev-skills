@@ -1,0 +1,387 @@
+diff --git a/src/wev_skills/third_party/health.py b/src/wev_skills/third_party/health.py
+new file mode 100644
+index 0000000..9e47a32
+--- /dev/null
++++ b/src/wev_skills/third_party/health.py
+@@ -0,0 +1,218 @@
++"""Health checks for an installed third-party version. Nothing from the version dir is imported."""
++
++from __future__ import annotations
++
++import json
++import queue
++import subprocess
++import sys
++import threading
++import time
++from dataclasses import dataclass
++from pathlib import Path
++from typing import IO, Any
++
++from wev_skills import __version__
++from wev_skills.core.ports import Runner
++from wev_skills.third_party.fetch import mcp_argv
++from wev_skills.third_party.sources import Source
++
++HEALTH_TIMEOUT = 60.0
++MAX_LINE = 1024 * 1024
++MAX_SKILL_BYTES = 1024 * 1024
++PROTOCOL = "2025-06-18"
++
++
++@dataclass(frozen=True)
++class HealthReport:
++    ok: bool
++    code: str
++    detail: str
++
++
++def _fail(code: str, detail: str = "") -> HealthReport:
++    return HealthReport(False, code, detail)
++
++
++def _reader(stream: IO[str], lines: queue.Queue[str | None]) -> None:
++    try:
++        while True:
++            line = stream.readline(MAX_LINE + 1)
++            lines.put(line or None)
++            if not line:
++                return
++    except OSError, ValueError:
++        lines.put(None)
++
++
++class _BadJsonRpc(Exception):
++    pass
++
++
++class _Timeout(Exception):
++    pass
++
++
++def _read_reply(lines: queue.Queue[str | None], request_id: int, deadline: float) -> Any:
++    while True:
++        try:
++            line = lines.get(timeout=max(deadline - time.monotonic(), 0.001))
++        except queue.Empty:
++            raise _Timeout from None
++        if not line or len(line) > MAX_LINE:
++            raise _BadJsonRpc
++        try:
++            message = json.loads(line)
++        except ValueError:
++            raise _BadJsonRpc from None
++        if not isinstance(message, dict):
++            raise _BadJsonRpc
++        if "id" not in message:
++            continue  # a notification from the server
++        if message["id"] != request_id or not isinstance(message.get("result"), dict):
++            raise _BadJsonRpc
++        return message["result"]
++
++
++def _send(proc: subprocess.Popen[str], payload: dict[str, Any]) -> None:
++    assert proc.stdin is not None  # noqa: S101 - opened with PIPE
++    proc.stdin.write(json.dumps({"jsonrpc": "2.0", **payload}) + "\n")
++    proc.stdin.flush()
++
++
++def _tool_names(result: Any) -> list[str]:
++    tools = result.get("tools")
++    if not isinstance(tools, list) or not tools:
++        raise _NoTools
++    names = [t.get("name") if isinstance(t, dict) else None for t in tools]
++    if not all(isinstance(n, str) for n in names):
++        raise _BadJsonRpc
++    return [n for n in names if isinstance(n, str)]
++
++
++class _NoTools(Exception):
++    pass
++
++
++def _converse(proc: subprocess.Popen[str], deadline: float) -> list[str]:
++    assert proc.stdout is not None  # noqa: S101 - opened with PIPE
++    lines: queue.Queue[str | None] = queue.Queue()
++    threading.Thread(target=_reader, args=(proc.stdout, lines), daemon=True).start()
++    info = {"name": "wev-skills", "version": __version__}
++    _send(
++        proc,
++        {
++            "id": 1,
++            "method": "initialize",
++            "params": {"protocolVersion": PROTOCOL, "capabilities": {}, "clientInfo": info},
++        },
++    )
++    _read_reply(lines, 1, deadline)
++    _send(proc, {"method": "notifications/initialized"})
++    _send(proc, {"id": 2, "method": "tools/list"})
++    return _tool_names(_read_reply(lines, 2, deadline))
++
++
++def _health_mcp(version: str, npx: str) -> HealthReport:
++    argv = [npx, *mcp_argv(version)[1:]]
++    deadline = time.monotonic() + HEALTH_TIMEOUT
++    try:
++        proc = subprocess.Popen(  # noqa: S603 - argv list, no shell
++            argv,
++            stdin=subprocess.PIPE,
++            stdout=subprocess.PIPE,
++            stderr=subprocess.DEVNULL,
++            text=True,
++            shell=False,
++        )
++    except OSError as exc:
++        return _fail("spawn_failed", type(exc).__name__)
++    try:
++        names = _converse(proc, deadline)
++    except _Timeout:
++        return _fail("timeout")
++    except _NoTools:
++        return _fail("no_tools")
++    except _BadJsonRpc, OSError:
++        return _fail("bad_jsonrpc")
++    finally:
++        proc.kill()
++        proc.wait()
++        for pipe in (proc.stdin, proc.stdout):
++            if pipe:
++                pipe.close()
++    return HealthReport(True, "ok", f"{len(names)} tools")
++
++
++def _frontmatter(path: Path) -> dict[str, str] | None:
++    with path.open("rb") as handle:
++        raw = handle.read(MAX_SKILL_BYTES + 1)
++    if len(raw) > MAX_SKILL_BYTES:
++        return None
++    lines = raw.decode("utf-8", errors="replace").split("\n")
++    if not lines or lines[0].rstrip("\r") != "---":
++        return None
++    meta: dict[str, str] = {}
++    for line in lines[1:]:
++        line = line.rstrip("\r")
++        if line == "---":
++            return meta
++        key, sep, value = line.partition(":")
++        if sep and key and key == key.lstrip():
++            meta[key] = value.strip().strip("\"'")
++    return None
++
++
++def _skill_ok(path: Path, base: Path) -> bool:
++    if not path.resolve().is_relative_to(base.resolve()):
++        return False
++    meta = _frontmatter(path)
++    if meta is None:
++        return False
++    return meta.get("name") == path.parent.name and bool(meta.get("description"))
++
++
++def _health_skills(base: Path) -> HealthReport:
++    files = sorted(base.glob("skills/*/SKILL.md")) if base.is_dir() else []
++    if not files:
++        return _fail("no_skills")
++    for path in files:
++        try:
++            good = _skill_ok(path, base)
++        except OSError:
++            good = False
++        if not good:
++            return _fail(f"bad_skill:{path.parent.name}")
++    return HealthReport(True, "ok", f"{len(files)} skills")
++
++
++def _health_wev(base: Path, version: str, runner: Runner, python: str) -> HealthReport:
++    result = runner.run([python, str(base / "bin" / "wev"), "version"], None, HEALTH_TIMEOUT, None)
++    if result.timed_out:
++        return _fail("timeout")
++    if result.exit_code != 0:
++        return _fail("spawn_failed", f"exit {result.exit_code}")
++    try:
++        printed = json.loads(result.stdout).get("version")
++    except ValueError, AttributeError:
++        printed = None
++    if printed != version.removeprefix("v"):
++        return _fail("version_mismatch", f"printed {str(printed)[:40]!r}")
++    return HealthReport(True, "ok", str(printed))
++
++
++def health(
++    source: Source,
++    version: str,
++    home: Path,
++    runner: Runner,
++    *,
++    npx: str = "npx",
++    python: str = sys.executable,
++) -> HealthReport:
++    base = home / source.name / version
++    if source.health == "mcp":
++        return _health_mcp(version, npx)
++    if source.health == "skills":
++        return _health_skills(base)
++    return _health_wev(base, version, runner, python)
+diff --git a/tests/fixtures/fake_npx_mcp.py b/tests/fixtures/fake_npx_mcp.py
+new file mode 100755
+index 0000000..33e9799
+--- /dev/null
++++ b/tests/fixtures/fake_npx_mcp.py
+@@ -0,0 +1,35 @@
++#!/usr/bin/env python3
++"""Stand-in for ``npx -y rea-agents@V mcp``: JSON-RPC over stdio, scripted by FAKE_MCP_MODE.
++
++Modes: ok (default), empty-tools, garbage, hang, exit-non-zero. Not evidence about the real server.
++"""
++
++import json
++import os
++import sys
++import time
++
++mode = os.environ.get("FAKE_MCP_MODE", "ok")
++if mode == "exit-non-zero":
++    sys.exit(3)
++if mode == "hang":
++    time.sleep(600)
++if mode == "garbage":
++    print("this is not json", flush=True)
++    time.sleep(5)
++    sys.exit(0)
++
++
++def reply(request_id: object, result: object) -> None:
++    print(json.dumps({"jsonrpc": "2.0", "id": request_id, "result": result}), flush=True)
++
++
++for line in sys.stdin:
++    message = json.loads(line)
++    method = message.get("method")
++    if method == "initialize":
++        reply(message["id"], {"protocolVersion": "2025-06-18", "capabilities": {}})
++    elif method == "tools/list":
++        tools = [] if mode == "empty-tools" else [{"name": "inspect", "description": "x"}]
++        reply(message["id"], {"tools": tools})
++        break
+diff --git a/tests/unit/test_third_party_health.py b/tests/unit/test_third_party_health.py
+new file mode 100644
+index 0000000..1d9242b
+--- /dev/null
++++ b/tests/unit/test_third_party_health.py
+@@ -0,0 +1,116 @@
++"""Health checks: fake npx over stdio, temp dirs, no network."""
++
++from __future__ import annotations
++
++import os
++import tempfile
++import unittest
++from pathlib import Path
++from unittest import mock
++
++from wev_skills.core.ports import SubprocessRunner
++from wev_skills.third_party import health as health_mod
++from wev_skills.third_party import sources
++from wev_skills.third_party.health import health
++
++FAKE_NPX = str(Path(__file__).parent.parent / "fixtures" / "fake_npx_mcp.py")
++RUNNER = SubprocessRunner()
++REA = sources.source("rea")
++SKILLS = sources.source("agent-skills")
++WEV = sources.source("wev-skills")
++
++
++def mcp(mode: str, npx: str = FAKE_NPX) -> health_mod.HealthReport:
++    with mock.patch.dict(os.environ, {"FAKE_MCP_MODE": mode}):
++        return health(REA, "1.0.0", Path("/nonexistent"), RUNNER, npx=npx)
++
++
++def write_skill(root: Path, name: str, meta: str) -> None:
++    folder = root / "agent-skills" / "v1" / "skills" / name
++    folder.mkdir(parents=True)
++    (folder / "SKILL.md").write_text(f"---\n{meta}\n---\nbody\n", encoding="utf-8")
++
++
++def write_wev(root: Path, printed: str) -> None:
++    script = root / "wev-skills" / "v5.0.0" / "bin" / "wev"
++    script.parent.mkdir(parents=True)
++    script.write_text(f"import json\nprint(json.dumps({{'version': {printed!r}}}))\n")
++
++
++class McpTests(unittest.TestCase):
++    def test_ok(self) -> None:
++        self.assertTrue(mcp("ok").ok)
++
++    def test_empty_tools_list_fails(self) -> None:
++        self.assertEqual(mcp("empty-tools").code, "no_tools")
++
++    def test_garbage_fails(self) -> None:
++        self.assertEqual(mcp("garbage").code, "bad_jsonrpc")
++
++    def test_exit_non_zero_fails(self) -> None:
++        self.assertEqual(mcp("exit-non-zero").code, "bad_jsonrpc")
++
++    def test_missing_npx_fails(self) -> None:
++        self.assertEqual(mcp("ok", npx="/nonexistent/npx").code, "spawn_failed")
++
++    def test_mcp_timeout_fails(self) -> None:
++        with mock.patch.object(health_mod, "HEALTH_TIMEOUT", 1.0):
++            self.assertEqual(mcp("hang").code, "timeout")
++
++
++class SkillsTests(unittest.TestCase):
++    def check(self, root: Path) -> health_mod.HealthReport:
++        return health(SKILLS, "v1", root, RUNNER)
++
++    def test_ok(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            write_skill(Path(tmp), "a", "name: a\ndescription: does a")
++            self.assertTrue(self.check(Path(tmp)).ok)
++
++    def test_zero_skill_files_fails(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            (Path(tmp) / "agent-skills" / "v1" / "skills").mkdir(parents=True)
++            self.assertEqual(self.check(Path(tmp)).code, "no_skills")
++
++    def test_skill_name_mismatch_fails(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            write_skill(Path(tmp), "a", "name: b\ndescription: x")
++            self.assertEqual(self.check(Path(tmp)).code, "bad_skill:a")
++
++    def test_empty_description_fails(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            write_skill(Path(tmp), "a", "name: a\ndescription:")
++            self.assertEqual(self.check(Path(tmp)).code, "bad_skill:a")
++
++    def test_symlinked_skill_outside_version_dir_fails(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            root = Path(tmp)
++            outside = root / "outside"
++            outside.mkdir()
++            (outside / "SKILL.md").write_text("---\nname: a\ndescription: x\n---\n")
++            link = root / "agent-skills" / "v1" / "skills" / "a"
++            link.parent.mkdir(parents=True)
++            link.symlink_to(outside)
++            self.assertEqual(self.check(root).code, "bad_skill:a")
++
++
++class WevTests(unittest.TestCase):
++    def test_ok_with_leading_v(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            write_wev(Path(tmp), "5.0.0")
++            self.assertTrue(health(WEV, "v5.0.0", Path(tmp), RUNNER).ok)
++
++    def test_wrong_wev_version_fails(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            write_wev(Path(tmp), "4.9.9")
++            report = health(WEV, "v5.0.0", Path(tmp), RUNNER)
++            self.assertEqual(report.code, "version_mismatch")
++
++    def test_missing_binary_fails(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            (Path(tmp) / "wev-skills" / "v5.0.0").mkdir(parents=True)
++            self.assertEqual(health(WEV, "v5.0.0", Path(tmp), RUNNER).code, "spawn_failed")
++
++
++if __name__ == "__main__":
++    unittest.main()

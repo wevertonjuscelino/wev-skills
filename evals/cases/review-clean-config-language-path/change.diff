@@ -1,0 +1,111 @@
+diff --git a/src/wev_skills/commands/_orchestration.py b/src/wev_skills/commands/_orchestration.py
+index fcf2cce..725524a 100644
+--- a/src/wev_skills/commands/_orchestration.py
++++ b/src/wev_skills/commands/_orchestration.py
+@@ -123 +123,3 @@ def new_orchestrator(args: argparse.Namespace, run_id: str | None) -> tuple[Orch
+-    services = wiring.build_services(resolved.config, root, source=resolved.source)
++    services = wiring.build_services(
++        resolved.config, root, source=resolved.source, sources=resolved.sources
++    )
+diff --git a/src/wev_skills/config.py b/src/wev_skills/config.py
+index 7e9149f..72c9ac5 100644
+--- a/src/wev_skills/config.py
++++ b/src/wev_skills/config.py
+@@ -293,2 +293,2 @@ def resolve_config(explicit: str | None, root: str | os.PathLike[str]) -> Resolv
+-def explicit_language(source: str) -> str | None:
+-    """The ``language`` the config files at ``source`` set themselves, else ``None``.
++def explicit_language(path: str) -> str | None:
++    """The ``language`` the config file at ``path`` sets itself, else ``None``.
+@@ -296,3 +296,2 @@ def explicit_language(source: str) -> str | None:
+-    ``source`` may join several files (``resolve_config``); the last one setting it wins.
+-    The built-in default, a missing or unreadable file and a file without the key all give
+-    ``None``: only a language somebody wrote counts against the ``LANG`` environment.
++    A missing or unreadable file and a file without the key give ``None``: only a language
++    somebody wrote counts against the ``LANG`` environment.
+@@ -300,9 +299,5 @@ def explicit_language(source: str) -> str | None:
+-    found: str | None = None
+-    # shortcut: a path containing " + " is misread as two files and gives None; use another name.
+-    for path in () if source == SOURCE_DEFAULTS else source.split(SOURCE_JOIN):
+-        try:
+-            value = read_json_object(path).get("language")
+-        except NotFound, ValidationError:
+-            continue
+-        found = value if isinstance(value, str) else found
+-    return found
++    try:
++        value = read_json_object(path).get("language")
++    except NotFound, ValidationError:
++        return None
++    return value if isinstance(value, str) else None
+@@ -312,2 +307,2 @@ def pinned_snapshot(pinned: ResolvedConfig) -> dict[str, Any]:
+-    """The configuration a run stores. ``language`` is kept only when the file set it, so the
+-    run can tell an explicit language from the default."""
++    """The configuration a run stores. ``language`` is kept only when a file set it (the last
++    one wins), so the run can tell an explicit language from the default."""
+@@ -315 +310 @@ def pinned_snapshot(pinned: ResolvedConfig) -> dict[str, Any]:
+-    if explicit_language(pinned.source) is None:
++    if not any(explicit_language(path) for path in pinned.sources):
+diff --git a/src/wev_skills/core/active.py b/src/wev_skills/core/active.py
+index 90bef07..bba39e1 100644
+--- a/src/wev_skills/core/active.py
++++ b/src/wev_skills/core/active.py
+@@ -312,2 +312,3 @@ def ambient_language(cwd: Path, config_path: str | None = None) -> str | None:
+-    global ``--config``), else ``<repository root>/wev.config.json``. Only a ``language``
+-    written in a file counts; the built-in default does not. A lookup that fails gives
++    global ``--config``), else ``<repository root>/wev.config.json``, else the user file
++    (``user_config_path()``, skipped when a symlink). Only a ``language`` written in a file
++    counts; the built-in default does not. A lookup that fails gives
+diff --git a/src/wev_skills/core/wiring.py b/src/wev_skills/core/wiring.py
+index 7e0d1a5..2c82cf9 100644
+--- a/src/wev_skills/core/wiring.py
++++ b/src/wev_skills/core/wiring.py
+@@ -242,0 +243 @@ def build_services(
++    sources: tuple[str, ...] = (),
+@@ -263 +264 @@ def build_services(
+-        pinned=ResolvedConfig(config, source, config_digest(config)),
++        pinned=ResolvedConfig(config, source, config_digest(config), sources),
+diff --git a/tests/unit/test_config_user_tier.py b/tests/unit/test_config_user_tier.py
+index 64a1f77..5a20449 100644
+--- a/tests/unit/test_config_user_tier.py
++++ b/tests/unit/test_config_user_tier.py
+@@ -12 +12,3 @@ from tests.unit._agent_helpers import RepoCase, run
+-from wev_skills.config import config_digest, resolve_config, user_config_path
++from wev_skills.config import config_digest, pinned_snapshot, resolve_config, user_config_path
++from wev_skills.core.active import ambient_language
++from wev_skills.core.errors import ValidationError
+@@ -15 +17 @@ from wev_skills.config import config_digest, resolve_config, user_config_path
+-class UserTierTests(RepoCase):
++class UserTierBase(RepoCase):
+@@ -30,0 +33,2 @@ class UserTierTests(RepoCase):
++
++class UserTierTests(UserTierBase):
+@@ -112,0 +117,29 @@ class UserTierTests(RepoCase):
++
++    def test_a_user_jev_command_inside_the_repository_is_refused(self) -> None:
++        inside = self.tmp / "tools" / "jev"
++        self.write_user({"decision": {"jev": {"command": str(inside)}}})
++        with self.assertRaises(ValidationError) as caught:
++            resolve_config(None, self.tmp)
++        self.assertEqual(caught.exception.code, "invalid_config")
++
++
++class AmbientLanguageTests(UserTierBase):
++    """``ambient_language`` and the pinned snapshot read ``language`` from single files."""
++
++    def test_the_user_file_language_counts_without_a_repository_file(self) -> None:
++        self.write_user({"language": "pt-BR"})
++        self.assertEqual(ambient_language(self.tmp), "pt-BR")
++
++    def test_a_symlinked_user_file_is_skipped_for_the_language(self) -> None:
++        real = self.user.parent / "real.json"
++        real.write_text(json.dumps({"language": "pt-BR"}), encoding="utf-8")
++        self.user.symlink_to(real)
++        self.assertIsNone(ambient_language(self.tmp))
++
++    def test_a_repository_path_containing_a_plus_keeps_its_language(self) -> None:
++        root = self.tmp.parent / "C + C++"
++        (root / ".git").mkdir(parents=True)
++        (root / "wev.config.json").write_text('{"language": "pt-BR"}', encoding="utf-8")
++        self.assertEqual(ambient_language(root), "pt-BR")
++        pinned = resolve_config(None, root)
++        self.assertEqual(pinned_snapshot(pinned)["language"], "pt-BR")

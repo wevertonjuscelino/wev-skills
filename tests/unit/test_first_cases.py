@@ -17,7 +17,7 @@ TIMEOUT_SECONDS = 300.0
 class FirstCasesTest(unittest.TestCase):
     def test_each_case_passes_on_current_tree(self) -> None:
         env = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", ""), "PYTHONPATH": "src"}
-        cases = load_cases(ROOT)
+        cases = [c for c in load_cases(ROOT) if not c.head_commit]  # review cases have no check
         self.assertGreaterEqual(len(cases), 3)
         for case in cases:
             with self.subTest(case.id):

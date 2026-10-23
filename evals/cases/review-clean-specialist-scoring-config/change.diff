@@ -1,0 +1,111 @@
+diff --git a/docs/guides/configuration-and-providers.md b/docs/guides/configuration-and-providers.md
+index d16826b..dea492c 100644
+--- a/docs/guides/configuration-and-providers.md
++++ b/docs/guides/configuration-and-providers.md
+@@ -122,0 +123,16 @@ How `planning: auto` decides: economy plans anything above trivial; standard and
++### `specialists`
++
++| Key | Default | Meaning |
++|---|---|---|
++| `max_per_project` | `5` (1 to 20) | Most specialists a project may hold |
++| `max_lessons_rendered` | `12` (1 to 50) | Active lessons shown in an exported subagent and in a task contract |
++| `max_lessons` | `30` (1 to 30) | Active lessons one specialist may hold; beyond it one must be retired first |
++| `stale_after_runs` | `20` (minimum 1) | Runs without a lesson being seen after which the lesson becomes stale |
++| `score_samples` | `3` (1 to 10) | Times a scored case is run in one scoring pass |
++| `score_max_runs` | `60` (1 to 1000) | Most agent runs one scoring pass may start |
++| `score_max_new_lessons` | `3` (0 to 10) | Most lessons one scoring pass may propose; 0 proposes none |
++| `score_timeout_seconds` | `900.0` (0.1 to 3600) | Time one scored run may take |
++| `score_on_finish` | `false` | Whether a run's finish also scores the specialists it used |
++
++The first four keys are explained in the [specialists guide](specialists.md). The `score_*` keys bound a scoring pass; a run pinned before they existed reads their defaults (`implemented and tested`; see `tests/unit/test_config_specialists.py`). The scoring loop that reads them is not part of this change (`documented only`).
++
+diff --git a/docs/guides/configuration-and-providers.pt-BR.md b/docs/guides/configuration-and-providers.pt-BR.md
+index 52f15b9..ea104f3 100644
+--- a/docs/guides/configuration-and-providers.pt-BR.md
++++ b/docs/guides/configuration-and-providers.pt-BR.md
+@@ -124,0 +125,16 @@ Como `planning: auto` decide: economy planeja tudo acima de trivial; standard e
++### `specialists`
++
++| Chave | Padrão | Significado |
++|---|---|---|
++| `max_per_project` | `5` (1 a 20) | Máximo de especialistas que um projeto pode ter |
++| `max_lessons_rendered` | `12` (1 a 50) | Lições ativas mostradas num subagente exportado e num contrato de tarefa |
++| `max_lessons` | `30` (1 a 30) | Lições ativas que um especialista pode ter; acima disso é preciso aposentar uma antes |
++| `stale_after_runs` | `20` (mínimo 1) | Execuções sem que uma lição seja vista, após as quais ela fica obsoleta |
++| `score_samples` | `3` (1 a 10) | Vezes que um caso pontuado é executado numa rodada de pontuação |
++| `score_max_runs` | `60` (1 a 1000) | Máximo de execuções de agente que uma rodada de pontuação pode iniciar |
++| `score_max_new_lessons` | `3` (0 a 10) | Máximo de lições que uma rodada de pontuação pode propor; 0 não propõe nenhuma |
++| `score_timeout_seconds` | `900.0` (0,1 a 3600) | Tempo que uma execução pontuada pode levar |
++| `score_on_finish` | `false` | Se o fim de uma execução também pontua os especialistas que ela usou |
++
++As quatro primeiras chaves estão explicadas no [guia de especialistas](specialists.pt-BR.md). As chaves `score_*` limitam uma rodada de pontuação; uma execução fixada antes de elas existirem lê os padrões (implementado e testado; veja `tests/unit/test_config_specialists.py`). O laço de pontuação que as lê não faz parte desta mudança (somente documentado).
++
+diff --git a/src/wev_skills/config.py b/src/wev_skills/config.py
+index 72c9ac5..ad0476a 100644
+--- a/src/wev_skills/config.py
++++ b/src/wev_skills/config.py
+@@ -159,0 +160,10 @@ class SpecialistsConfig(Serializable):
++    score_samples: int = 3
++    """Times a scored case is run per scoring pass."""
++    score_max_runs: int = 60
++    """Most agent runs one scoring pass may start."""
++    score_max_new_lessons: int = 3
++    """Most lessons one scoring pass may propose."""
++    score_timeout_seconds: float = 900.0
++    """Time one scored run may take."""
++    score_on_finish: bool = False
++    """Score the specialists a run used when the run finishes."""
+diff --git a/src/wev_skills/schemas/config.schema.json b/src/wev_skills/schemas/config.schema.json
+index 278a497..8c511d4 100644
+--- a/src/wev_skills/schemas/config.schema.json
++++ b/src/wev_skills/schemas/config.schema.json
+@@ -137 +137,6 @@
+-        "stale_after_runs": { "type": "integer", "minimum": 1 }
++        "stale_after_runs": { "type": "integer", "minimum": 1 },
++        "score_samples": { "type": "integer", "minimum": 1, "maximum": 10 },
++        "score_max_runs": { "type": "integer", "minimum": 1, "maximum": 1000 },
++        "score_max_new_lessons": { "type": "integer", "minimum": 0, "maximum": 10 },
++        "score_timeout_seconds": { "type": "number", "minimum": 0.1, "maximum": 3600 },
++        "score_on_finish": { "type": "boolean" }
+diff --git a/tests/unit/test_config_specialists.py b/tests/unit/test_config_specialists.py
+index 8e55fb8..7984e86 100644
+--- a/tests/unit/test_config_specialists.py
++++ b/tests/unit/test_config_specialists.py
+@@ -23,0 +24,5 @@ class NewDefaultsTests(unittest.TestCase):
++        self.assertEqual(config.specialists.score_samples, 3)
++        self.assertEqual(config.specialists.score_max_runs, 60)
++        self.assertEqual(config.specialists.score_max_new_lessons, 3)
++        self.assertEqual(config.specialists.score_timeout_seconds, 900.0)
++        self.assertFalse(config.specialists.score_on_finish)
+@@ -40,0 +46,9 @@ class NewDefaultsTests(unittest.TestCase):
++            {"specialists": {"score_samples": 0}},
++            {"specialists": {"score_samples": 11}},
++            {"specialists": {"score_max_runs": 0}},
++            {"specialists": {"score_max_runs": 1001}},
++            {"specialists": {"score_max_new_lessons": -1}},
++            {"specialists": {"score_max_new_lessons": 11}},
++            {"specialists": {"score_timeout_seconds": 0}},
++            {"specialists": {"score_timeout_seconds": 3600.5}},
++            {"specialists": {"score_on_finish": "yes"}},
+@@ -49,0 +64,21 @@ class NewDefaultsTests(unittest.TestCase):
++    def test_the_score_bounds_are_accepted_at_their_edges(self) -> None:
++        edges = {
++            "score_samples": (1, 10),
++            "score_max_runs": (1, 1000),
++            "score_max_new_lessons": (0, 10),
++            "score_timeout_seconds": (0.1, 3600.0),
++        }
++        for key, values in edges.items():
++            for value in values:
++                with self.subTest(key=key, value=value):
++                    config = parse_config(None, {"specialists": {key: value}})
++                    self.assertEqual(getattr(config.specialists, key), value)
++
++    def test_a_state_pinned_without_score_keys_gets_their_defaults(self) -> None:
++        old = json.loads(json.dumps(DEFAULT_CONFIG))
++        for key in ("score_samples", "score_max_runs", "score_max_new_lessons"):
++            old["specialists"].pop(key, None)
++        old["specialists"].pop("score_timeout_seconds", None)
++        old["specialists"].pop("score_on_finish", None)
++        self.assertEqual(Config.from_dict(old).specialists, Config().specialists)
++

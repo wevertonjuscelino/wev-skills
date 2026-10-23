@@ -1,0 +1,25 @@
+{
+  "id": "review-health-line-limit",
+  "title": "Bug: the MCP health check bounds the length of one reply line",
+  "source": "review",
+  "ref": "310fbcc",
+  "agents": [
+    "wev-reviewer"
+  ],
+  "base_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
+  "objective": "Add src/wev_skills/third_party/health.py with health checks for a third-party version: for the rea MCP source start the server through npx, speak newline-delimited JSON-RPC over its stdio (initialize, notifications/initialized, tools/list) and report how many tools it lists; for a skills source check that the skill files are valid; for a wev source run the version's own check. Each check is bounded in time and in the size of what it reads, and reports a HealthReport(ok, code, params).",
+  "kind": "review",
+  "head_commit": "310fbcc5c395ad15e768ed8ebc1eb5b76a538d5d",
+  "expect": [
+    {
+      "file": "src/wev_skills/third_party/health.py",
+      "first": 21,
+      "last": 21
+    },
+    {
+      "file": "src/wev_skills/third_party/health.py",
+      "first": 62,
+      "last": 62
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "review-exec-path-writable",
+  "title": "Bug: the installer trusts a PATH directory unless other users can write to it",
+  "source": "review",
+  "ref": "58fd582",
+  "agents": [
+    "wev-reviewer"
+  ],
+  "base_commit": "611c4e74d9c59501f5bce72bf7d04f5bd4f5dc5c",
+  "objective": "In install.sh, add the directories on PATH that hold npx or docker to permissions.exec_path of the user config so that rea serve can find them. Skip a directory inside the install tree or the temporary directory, and skip one that other users can write to, printing a line for each skipped directory. An existing exec_path list is kept without duplicates.",
+  "kind": "review",
+  "head_commit": "58fd582080cc2698a86538d785cd5902ade76f5c",
+  "expect": [
+    {
+      "file": "install.sh",
+      "first": 247,
+      "last": 249
+    }
+  ]
+}
