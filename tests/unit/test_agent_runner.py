@@ -51,8 +51,8 @@ class AgentRunnerTests(unittest.TestCase):
         call = self.calls()[0]
         self.assertEqual(
             call["argv"],
-            ["-p", "Task:\ndo it", "--output-format", "json", "--restricted",
-             "--strict-mcp-config", "--plugin-dir", str(self.plugin),
+            ["-p", "Task:\ndo it", "--output-format", "stream-json", "--restricted",
+             "--strict-mcp-config", "--plugin-dir", str(self.plugin), "--verbose",
              "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk",
              "--no-session-persistence", "--append-system-prompt", body],
         )  # fmt: skip
@@ -71,6 +71,35 @@ class AgentRunnerTests(unittest.TestCase):
         self.runner.run_agent(self.workspace, SPEC, "do it", 30)
         argv = self.calls()[0]["argv"]
         self.assertEqual(argv[argv.index("--tools") + 1], "Read,Edit,Write,Glob,Grep,Bash")
+
+    def test_an_agent_run_reads_the_last_result_event_and_keeps_the_stream(self) -> None:
+        stream = "\n".join(
+            [
+                '{"type": "system", "subtype": "init"}',
+                '{"type": "assistant", "message": "rm -rf x"}',
+                '{"type": "result", "result": "done", "is_error": false}',
+            ]
+        )
+        with mock.patch.dict(os.environ, {"FAKE_CLAUDE_STDOUT": stream}):
+            result = self.runner.run_agent(self.workspace, SPEC, "do it", 30)
+        self.assertEqual((result.ok, result.output), (True, "done"))
+        self.assertIn("rm -rf x", result.transcript)
+
+    def test_an_event_after_the_result_does_not_hide_it(self) -> None:
+        stream = '{"type": "result", "result": "done"}\n{"type": "rate_limit_event"}'
+        with mock.patch.dict(os.environ, {"FAKE_CLAUDE_STDOUT": stream}):
+            result = self.runner.run_agent(self.workspace, SPEC, "do it", 30)
+        self.assertEqual((result.ok, result.output), (True, "done"))
+
+    def test_a_stream_without_a_result_event_is_not_ok(self) -> None:
+        stream = '{"type": "system"}\n{"type": "assistant"}'
+        with mock.patch.dict(os.environ, {"FAKE_CLAUDE_STDOUT": stream}):
+            result = self.runner.run_agent(self.workspace, SPEC, "do it", 30)
+        self.assertFalse(result.ok)
+        self.assertEqual(result.transcript, stream)
+
+    def test_a_question_keeps_no_transcript(self) -> None:
+        self.assertEqual(self.runner.ask("why?", 30).transcript, "")
 
     def test_ask_has_no_tools(self) -> None:
         self.runner.ask("why?", 30)

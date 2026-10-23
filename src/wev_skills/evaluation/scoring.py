@@ -38,6 +38,7 @@ from wev_skills.review.guide import ReviewGuide, load_guide
 from wev_skills.state.model import iso_utc
 
 SCORES_FILE = "scores.jsonl"
+LOGS_DIR = "score-logs"
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,7 @@ def scratch_setup(
     agent: AgentRunner,
     guard: Callable[[], None],
     review: tuple[ReviewShape, ReviewGuide],
+    logs: Path | None = None,
 ) -> Iterator[Setup]:
     """A ``Setup`` over a scratch directory outside the state dir, always removed."""
     cfg = config.specialists
@@ -175,7 +177,7 @@ def scratch_setup(
     try:
         yield Setup(
             root, runner, policy, agent, scratch, cfg.score_samples, cfg.score_timeout_seconds,
-            guard, *review, config.language,
+            guard, *review, config.language, logs,
         )  # fmt: skip
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
@@ -221,7 +223,8 @@ def score_specialist(
     print(i18n.t("evaluation.scoring.plan", planned=planned, cap=cap), file=sys.stderr)
     guard = tamper_guard(runner, root)
     resolved = wiring.build_agents(config, root).factory.resolve(spec)
-    with scratch_setup(root, config, runner, agent, guard, review) as setup:
+    logs = wiring.state_dir(config, root) / LOGS_DIR / score_id
+    with scratch_setup(root, config, runner, agent, guard, review, logs) as setup:
         outcome = _measure(setup, config, resolved, cases, score_id)
     guard()
     if case_store.case_set_digest(root) != digest:

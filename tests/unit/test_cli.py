@@ -62,6 +62,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 7)
         self.assertEqual(json.loads(err)["error"]["code"], "file_not_found")
 
+    def test_ctrl_c_prints_a_message_not_a_traceback(self) -> None:
+        err = io.StringIO()
+        interrupt = mock.patch.object(cli, "_run", side_effect=KeyboardInterrupt)
+        with interrupt, contextlib.redirect_stderr(err):
+            code = cli.main(["--version"])
+        self.assertEqual(code, 130)
+        self.assertNotIn("Traceback", err.getvalue())
+        self.assertIn("Ctrl-C", err.getvalue())
+
     def test_usage_errors_return_2(self) -> None:
         for argv in ([], ["nope"], ["config"], ["--bogus", "version"], ["config", "validate"]):
             with self.subTest(argv=argv):

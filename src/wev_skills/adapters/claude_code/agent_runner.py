@@ -6,7 +6,9 @@ import json
 import os
 import tempfile
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from wev_skills import i18n
 from wev_skills.adapters.claude_code.subagent import (
@@ -56,15 +58,27 @@ def _stderr_tail(stderr: str) -> str:
     return redact(tail).strip()
 
 
+def _result_event(stdout: str) -> dict[str, Any] | None:
+    """The final result object: the one ``json`` output, or the last ``result`` event of a
+    ``stream-json`` output (one JSON object per line)."""
+    for line in reversed(stdout.strip().splitlines()):
+        try:
+            data = json.loads(line)
+        except ValueError:
+            return None
+        if not isinstance(data, dict):
+            return None
+        if data.get("type", "result") == "result":
+            return data
+    return None
+
+
 def _parse(raw: RawCommandResult) -> AgentRunResult:
     if raw.timed_out:
         return AgentRunResult(False, i18n.t("agent_runner.timed_out"), True)
-    try:
-        data = json.loads(raw.stdout)
-        result = data.get("result")
-        failed = data.get("is_error") is True
-    except ValueError, AttributeError:
-        result, failed = None, False
+    data = _result_event(raw.stdout) or {}
+    result = data.get("result")
+    failed = data.get("is_error") is True
     if failed or not isinstance(result, str):
         tail = _stderr_tail(raw.stderr)
         message = i18n.t("agent_runner.bad_output", code=raw.exit_code, stderr=tail)
@@ -94,13 +108,13 @@ class ClaudeAgentRunner:
                     {"path": str(self._plugin_root / rel)},
                 )
 
-    def _base(self, prompt: str) -> list[str]:
+    def _base(self, prompt: str, output: str = "json") -> list[str]:
         return [
             self._program,
             "-p",
             prompt,
             "--output-format",
-            "json",
+            output,
             "--restricted",
             "--strict-mcp-config",
             "--plugin-dir",
@@ -121,7 +135,8 @@ class ClaudeAgentRunner:
         if system.startswith("-"):
             system = " " + system  # a leading dash would be read as a flag
         argv = [
-            *self._base("Task:\n" + objective),
+            *self._base("Task:\n" + objective, "stream-json"),
+            "--verbose",  # the CLI requires it for stream-json in print mode
             "--tools",
             tool_list,
             "--allowedTools",
@@ -132,7 +147,8 @@ class ClaudeAgentRunner:
             "--append-system-prompt",
             system,
         ]
-        return _parse(self._runner.run(argv, str(workspace), timeout, _child_env()))
+        raw = self._runner.run(argv, str(workspace), timeout, _child_env())
+        return replace(_parse(raw), transcript=raw.stdout)
 
     def ask(self, prompt: str, timeout: float) -> AgentRunResult:
         self._require_plugin()

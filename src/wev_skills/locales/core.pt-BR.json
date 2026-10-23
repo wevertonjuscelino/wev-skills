@@ -49,5 +49,6 @@
   "hooks.reason.engine_rea": "Este comando do wev muda como o servidor de engenharia reversa rea roda (o modo, a imagem de contêiner ou o registro nos seus harnesses); quem decide é uma pessoa.",
   "hooks.reason.engine_skills": "Este comando do wev instala, troca ou desfaz uma versão de skill de terceiros, ou vincula skills aos seus harnesses (baixa código da rede para o seu diretório de dados); quem decide é uma pessoa.",
   "hooks.reason.engine_harness": "Este comando wev instala ou remove o pacote wev em um harness (registra plugins e hooks na configuração dele); uma pessoa decide.",
-  "hooks.reason.engine_score": "Este comando do wev roda o especialista sem acompanhamento contra os casos commitados pelo CLI claude, o que gasta tokens (limitado por score_max_runs); quem decide é uma pessoa."
+  "hooks.reason.engine_score": "Este comando do wev roda o especialista sem acompanhamento contra os casos commitados pelo CLI claude, o que gasta tokens (limitado por score_max_runs); quem decide é uma pessoa.",
+  "cli.error.interrupted": "Interrompido (Ctrl-C). Nada mais foi executado; uma pontuação interrompida não decide nada."
 }

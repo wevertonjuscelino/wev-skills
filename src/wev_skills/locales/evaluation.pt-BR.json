@@ -141,5 +141,7 @@
   "evaluation.compare.spec_missing": "{path} não existe nessa revisão",
   "evaluation.compare.no_cases": "Nenhum caso de revisão se aplica a este especialista; não há o que comparar",
   "evaluation.compare.git_timeout": "Uma chamada do git estourou o tempo ao ler a revisão",
-  "evaluation.compare.not_reviewer": "{agent} não é o revisor configurado (review.agent); só o revisor pode ser comparado"
+  "evaluation.compare.not_reviewer": "{agent} não é o revisor configurado (review.agent); só o revisor pode ser comparado",
+  "evaluation.scoring.progress_pass": "{case}: passou ({seconds}s)",
+  "evaluation.scoring.progress_fail": "{case}: falhou ({seconds}s)"
 }

@@ -21,10 +21,11 @@ from wev_skills.agents.experience import ACTIVE, PROPOSED, PROPOSER, SCORER, Les
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.commands import specialists
 from wev_skills.config import Config
+from wev_skills.core import wiring
 from wev_skills.core.contracts import AgentRunResult
 from wev_skills.core.errors import GuardTripped, ProviderError, StateConflict, ValidationError
 from wev_skills.core.ports import SubprocessRunner
-from wev_skills.evaluation import snapshot
+from wev_skills.evaluation import score_runs, snapshot
 from wev_skills.evaluation.gitguard import MAX_READ_BYTES
 from wev_skills.evaluation.scoring import SCORES_FILE, planned_runs, score_specialist
 from wev_skills.governance.audit import AuditLog
@@ -239,6 +240,38 @@ class ScoringTest(unittest.TestCase):
         cap = self.config.specialists.score_max_runs
         expected = i18n.t("evaluation.scoring.plan", planned=report.planned_runs, cap=cap)
         self.assertEqual(seen[0], expected + "\n")
+
+    def test_each_agent_run_prints_one_progress_line(self) -> None:
+        self.add_cases("c1")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.score(FakeAgent(lambda s: set()))
+        lines = [line for line in err.getvalue().splitlines() if line.startswith("c1: ")]
+        self.assertEqual(len(lines), self.config.specialists.score_samples)
+        prefix = i18n.t("evaluation.scoring.progress_fail", case="c1", seconds=0).split("(")[0]
+        self.assertTrue(all(line.startswith(prefix) for line in lines))
+
+    def test_each_agent_run_keeps_its_transcript_redacted(self) -> None:
+        self.add_cases("c1")
+        agent = FakeAgent(lambda s: set())
+        agent.outcome = AgentRunResult(True, "done", transcript='{"cmd": "password=hunter2secret"}')
+        report = self.score(agent)
+        logs = wiring.state_dir(self.config, self.root) / "score-logs" / report.score_id
+        kept = sorted(logs.glob("c1-*.jsonl"))
+        self.assertEqual(len(kept), self.config.specialists.score_samples)
+        self.assertNotIn("hunter2secret", kept[0].read_text())
+        self.assertIn("[REDACTED]", kept[0].read_text())
+
+    def test_a_runaway_transcript_is_cut_at_the_cap(self) -> None:
+        self.add_cases("c1")
+        agent = FakeAgent(lambda s: set())
+        agent.outcome = AgentRunResult(True, "done", transcript="x" * 50)
+        with mock.patch.object(score_runs, "MAX_TRANSCRIPT_CHARS", 10):
+            report = self.score(agent)
+        logs = wiring.state_dir(self.config, self.root) / "score-logs" / report.score_id
+        text = (logs / "c1-1.jsonl").read_text()
+        self.assertTrue(text.startswith("x" * 10 + "\n"))
+        self.assertIn('"dropped": 40', text)
 
     def test_audit_events_carry_digest_and_counts(self) -> None:
         self.add_cases("c1", "c2")

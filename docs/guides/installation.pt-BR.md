@@ -72,7 +72,7 @@ Status: **implementado e testado** com CLIs de harness falsas e uma fonte local 
 | macOS ou Linux | O armazenamento de estado | Usa travas de arquivo POSIX. Windows não é suportado |
 | `git` | `wev run start`, `wev run resume`, `wev state drift` | O motor tira um instantâneo do estado do repositório. Fora de um repositório git as execuções ainda funcionam, com menos coisa a comparar |
 | Claude Code | O plugin: skills, subagentes, hooks | Só para os passos do plugin. A CLI funciona sem ele. Testado com o Claude Code 2.1.296 apenas no `claude plugin validate`; nada mais foi executado pelo Claude Code |
-| CLI `claude` | Só `wev specialists score` e `score_on_finish` | Inicia `claude -p` sem assistência e gasta tokens. Implementado mas não testado até o dono rodá-lo; confirme na primeira execução real que os hooks do wev disparam (veja [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md), "Execução não assistida da nota") |
+| CLI `claude` | Só `wev specialists score` e `score_on_finish` | Inicia `claude -p` sem assistência e gasta tokens. Primeira execução real feita em 2026-10-23; os hooks do wev disparam dentro dela, verificado à mão (veja [SECURITY.pt-BR.md](../../SECURITY.pt-BR.md), "Execução não assistida da nota") |
 | `ssh` e `tmux` no host | O módulo remoto opcional | Ver o [guia de operações remotas](remote-ops.pt-BR.md) |
 | `ruff`, `mypy` (ou `uvx`) | Só o `make lint` | Opcional; ver [Rodando os testes e o lint](#rodando-os-testes-e-o-lint) |
 
@@ -90,7 +90,7 @@ Saída real (o launcher foi executado para este guia):
 
 ```text
 {
-  "version": "6.0.0"
+  "version": "7.0.0"
 }
 ```
 

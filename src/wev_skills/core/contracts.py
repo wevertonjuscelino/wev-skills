@@ -265,6 +265,8 @@ class AgentRunResult(Serializable):
     ok: bool
     output: str
     timed_out: bool = False
+    transcript: str = ""
+    """The raw event stream of an agent run (empty for a question), kept for diagnosis."""
 
 
 @dataclass(frozen=True)

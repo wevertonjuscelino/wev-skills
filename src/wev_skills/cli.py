@@ -22,6 +22,7 @@ from wev_skills.core.errors import WevError
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
 EXIT_USAGE = 2
+EXIT_INTERRUPTED = 130  # the shell's code for a run stopped by Ctrl-C
 STREAMS = ("stdout", "stderr")
 
 
@@ -146,6 +147,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except WevError as exc:
         _emit_error(exc.to_dict())
         return exc.exit_code
+    except KeyboardInterrupt:
+        print(i18n.t("cli.error.interrupted"), file=sys.stderr)
+        return EXIT_INTERRUPTED
     except Exception as exc:  # noqa: BLE001 - last-resort boundary, reported without traceback
         if _debug():
             traceback.print_exc()
