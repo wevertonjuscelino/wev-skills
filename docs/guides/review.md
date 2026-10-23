@@ -99,7 +99,7 @@ With review on, `run finish` refuses:
 
 With review off, `run finish` does no git work for review and does not read `.wev/scores.jsonl`.
 
-Staleness is judged on the content tree (a git tree written with a temporary index), not on HEAD, so committing after a review or a comparison changes nothing; editing a file does. The comparison record keeps its `fingerprint` for history, adds the `tree` it was made on, and carries both `improves` (no case loses a pass and the total rises) and `not_lower` (no case loses a pass). The gate recomputes `not_lower` from the stored counts, so a hand-edited flag does not pass; lesson decisions in `specialists score` still use the stricter `improves`. This looser rule for a reviewer change is a ruling the owner has yet to confirm.
+Staleness is judged on the content tree (a git tree written with a temporary index), not on HEAD, so committing after a review or a comparison changes nothing; editing a file does. The comparison record keeps its `fingerprint` for history, adds the `tree` it was made on, and carries both `improves` (no case loses a pass and the total rises) and `not_lower` (no case loses a pass). The gate recomputes `not_lower` from the stored counts, so a hand-edited flag does not pass; lesson decisions in `specialists score` still use the stricter `improves`. The owner chose this looser rule for reviewer changes so that a neutral edit, such as a typo fix in `REVIEW.md`, can ship; a tie comparison can only come from `specialists score --compare`, which only a person runs.
 
 ## Plans and the pull request body
 
