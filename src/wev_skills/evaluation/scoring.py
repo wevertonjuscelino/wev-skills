@@ -8,7 +8,8 @@ import sys
 import tempfile
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,8 +20,10 @@ from wev_skills.agents.experience import ACTIVE, PROPOSED, SCORER, Lesson
 from wev_skills.agents.project import ScoreDecisions
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.config import Config
+from wev_skills.config_review import DEPTH_OFF, ReviewShape, review_shape
 from wev_skills.core import wiring
 from wev_skills.core._codec import Serializable
+from wev_skills.core.contracts import RiskLevel
 from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, ValidationError
 from wev_skills.core.fsutil import append_line
 from wev_skills.core.ports import AgentRunner, Runner
@@ -30,9 +33,11 @@ from wev_skills.evaluation.ratchet import improves
 from wev_skills.evaluation.score_pass import Pass
 from wev_skills.evaluation.score_runs import Setup
 from wev_skills.governance.audit import AuditLog
+from wev_skills.review.guide import ReviewGuide, load_guide
 from wev_skills.state.model import iso_utc
 
 SCORES_FILE = "scores.jsonl"
+REVIEW_KIND = "review"
 
 
 @dataclass(frozen=True)
@@ -48,11 +53,20 @@ class ScoreReport(Serializable):
     planned_runs: int
     skipped: tuple[str, ...] = ()
     deferred: tuple[str, ...] = ()
+    depth: str = ""
+    """``review.depth`` the review cases were scored at; empty when no review case ran."""
 
 
-def planned_runs(cases: int, proposals: int, active: int, samples: int, new_lessons: int) -> int:
-    """Agent runs plus lesson requests a full pass would use."""
-    return (1 + proposals + new_lessons + active) * cases * samples + new_lessons
+def planned_runs(
+    cases: int,
+    proposals: int,
+    active: int,
+    samples: int,
+    new_lessons: int,
+    runs_per_sample: int = 1,
+) -> int:
+    """Agent runs plus lesson requests a full pass would use; a review sample is several runs."""
+    return (1 + proposals + new_lessons + active) * cases * samples * runs_per_sample + new_lessons
 
 
 def _load(root: Path, config: Config, agent_id: str) -> AgentSpec:
@@ -64,10 +78,27 @@ def _load(root: Path, config: Config, agent_id: str) -> AgentSpec:
     )
 
 
-def _refuse_if_baseline_over_cap(config: Config, cases: int) -> None:
+def review_parts(
+    root: Path, config: Config, cases: tuple[case_store.Case, ...]
+) -> tuple[ReviewShape, ReviewGuide]:
+    """The round shape and ``REVIEW.md`` review cases are scored with; none without such cases."""
+    if not any(c.kind == REVIEW_KIND for c in cases):
+        return ReviewShape(0, 0, 0), ReviewGuide()
+    if config.review.depth == DEPTH_OFF:
+        raise ValidationError("score_review_off", i18n.t("evaluation.scoring.review_off"))
+    return review_shape(config.review, RiskLevel.LOW), load_guide(root)
+
+
+def sample_runs(shape: ReviewShape, cases: tuple[case_store.Case, ...]) -> tuple[int, int]:
+    """Agent runs one sample of every case uses, and of the costliest case."""
+    each = [shape.finders + shape.verifiers if c.kind == REVIEW_KIND else 1 for c in cases]
+    return sum(each), max(each, default=1)
+
+
+def _refuse_if_baseline_over_cap(config: Config, needed: int) -> None:
     """Only a baseline that alone exceeds the cap refuses; anything else is scored in part."""
     cfg = config.specialists
-    needed = cases * cfg.score_samples
+    needed *= cfg.score_samples
     if needed > cfg.score_max_runs:
         message = i18n.t("evaluation.scoring.over_cap", planned=needed, cap=cfg.score_max_runs)
         raise GuardTripped(
@@ -128,53 +159,47 @@ def _decided(
         project.record_scores(root, config, spec.id, spec.experience, decisions, record)
 
 
-def _in_scratch(
+@contextmanager
+def scratch_setup(
     root: Path,
     config: Config,
     runner: Runner,
     agent: AgentRunner,
-    spec: AgentSpec,
-    score_id: str,
     guard: Callable[[], None],
-) -> Outcome:
-    """Measure ``spec`` in a scratch directory outside the state dir, always removed."""
+    review: tuple[ReviewShape, ReviewGuide],
+) -> Iterator[Setup]:
+    """A ``Setup`` over a scratch directory outside the state dir, always removed."""
     cfg = config.specialists
     policy = wiring.build_grantless_policy(config, root)
-    resolved = wiring.build_agents(config, root).factory.resolve(spec)
-    cases = case_store.cases_for(case_store.load_cases(root), spec.id)
     scratch = Path(tempfile.mkdtemp(prefix="wev-scoring-"))
     try:
-        setup = Setup(
-            root,
-            runner,
-            policy,
-            agent,
-            scratch,
-            cfg.score_samples,
-            cfg.score_timeout_seconds,
-            guard,
-        )
-        return _measure(setup, config, resolved, cases, score_id)
+        yield Setup(
+            root, runner, policy, agent, scratch, cfg.score_samples, cfg.score_timeout_seconds,
+            guard, *review, config.language,
+        )  # fmt: skip
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def _planned(config: Config, spec: AgentSpec, cases: int) -> int:
+def _planned(config: Config, spec: AgentSpec, cases: int, per_sample: int) -> int:
     cfg = config.specialists
     proposals = sum(1 for item in spec.experience if item.status == PROPOSED)
     ablatable = sum(1 for i in spec.experience if i.status == ACTIVE and i.accepted_by == SCORER)
-    return planned_runs(cases, proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons)
+    return planned_runs(
+        cases, proposals, ablatable, cfg.score_samples, cfg.score_max_new_lessons, per_sample
+    )
 
 
 def _report(
-    config: Config, spec: AgentSpec, digest: str, score_id: str, outcome: Outcome
+    config: Config, spec: AgentSpec, digest: str, score_id: str, outcome: Outcome, rps: int
 ) -> ScoreReport:
     run = outcome.pass_
-    planned = _planned(config, spec, len(run.cases))
+    planned = _planned(config, spec, len(run.cases), rps)
+    depth = config.review.depth if any(c.kind == REVIEW_KIND for c in run.cases) else ""
     return ScoreReport(
         score_id, spec.id, digest, run.baseline.passes, outcome.accepted, outcome.retired,
         tuple(item.id for item in outcome.new), run.runs, planned,
-        tuple(run.skipped), tuple(run.deferred),
+        tuple(run.skipped), tuple(run.deferred), depth,
     )  # fmt: skip
 
 
@@ -187,18 +212,22 @@ def score_specialist(
     cases = case_store.cases_for(case_store.load_cases(root), agent_id)
     if not cases:
         raise ValidationError("score_no_cases", i18n.t("evaluation.scoring.no_cases"))
-    _refuse_if_baseline_over_cap(config, len(cases))
+    review = review_parts(root, config, cases)
+    per_pass, rps = sample_runs(review[0], cases)
+    _refuse_if_baseline_over_cap(config, per_pass)
     score_id = f"score-{uuid.uuid4().hex[:12]}"
     cap = config.specialists.score_max_runs
-    planned = _planned(config, spec, len(cases))
+    planned = _planned(config, spec, len(cases), rps)
     print(i18n.t("evaluation.scoring.plan", planned=planned, cap=cap), file=sys.stderr)
     guard = tamper_guard(runner, root)
-    outcome = _in_scratch(root, config, runner, agent, spec, score_id, guard)
+    resolved = wiring.build_agents(config, root).factory.resolve(spec)
+    with scratch_setup(root, config, runner, agent, guard, review) as setup:
+        outcome = _measure(setup, config, resolved, cases, score_id)
     guard()
     if case_store.case_set_digest(root) != digest:
         raise StateConflict("cases_changed", i18n.t("evaluation.scoring.cases_changed"))
     _decided(root, config, spec, outcome, _audit(audit, agent_id, digest, outcome))
-    report = _report(config, spec, digest, score_id, outcome)
+    report = _report(config, spec, digest, score_id, outcome, rps)
     line = json.dumps({**report.to_dict(), "at": iso_utc(time.time())}, ensure_ascii=False)
     append_line(wiring.state_dir(config, root) / SCORES_FILE, line)
     return report

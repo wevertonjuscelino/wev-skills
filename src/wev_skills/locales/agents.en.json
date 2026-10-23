@@ -116,5 +116,6 @@
   "agents.specialists.score_new": "Lesson {lesson} is not a proposed model lesson written by the engine; a score run may only add those",
   "agents.specialists.operator_reserved": "The operator name {operator} is reserved for lessons no person has decided on; run the command as another user",
   "agents.specialists.score": "Score a specialist against the committed cases and accept or retire lessons by score (spends tokens)",
-  "agents.specialists.scores": "Show the score history, newest last"
+  "agents.specialists.scores": "Show the score history, newest last",
+  "agents.specialists.compare": "Revision to compare the reviewer against; the result is recorded for run finish"
 }

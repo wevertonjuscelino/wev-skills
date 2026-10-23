@@ -134,5 +134,11 @@
   "evaluation.cases.head_required": "um caso de review precisa de head_commit",
   "evaluation.cases.diff_missing": "um caso de review precisa de change.diff na pasta do caso",
   "evaluation.cases.expect_outside": "o intervalo esperado em {file} não toca nenhuma linha de change.diff",
-  "evaluation.cases.diff_stale": "Estes casos de review têm um change.diff diferente de git diff base_commit head_commit: {ids}"
+  "evaluation.cases.diff_stale": "Estes casos de review têm um change.diff diferente de git diff base_commit head_commit: {ids}",
+  "evaluation.scoring.review_off": "Este especialista tem casos de revisão, mas review.depth está off; defina review.depth para pontuá-los. Nada foi executado.",
+  "evaluation.scoring.review_no_findings": "O revisor não manteve nenhum achado.",
+  "evaluation.compare.bad_rev": "{rev} não nomeia um commit; nada foi executado",
+  "evaluation.compare.spec_missing": "{path} não existe nessa revisão",
+  "evaluation.compare.no_cases": "Nenhum caso de revisão se aplica a este especialista; não há o que comparar",
+  "evaluation.compare.git_timeout": "Uma chamada do git estourou o tempo ao ler a revisão"
 }

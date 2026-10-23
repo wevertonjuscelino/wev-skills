@@ -134,5 +134,11 @@
   "evaluation.cases.head_required": "a review case needs head_commit",
   "evaluation.cases.diff_missing": "a review case needs change.diff in its case folder",
   "evaluation.cases.expect_outside": "the expected range in {file} touches no line of change.diff",
-  "evaluation.cases.diff_stale": "These review cases have a change.diff that differs from git diff base_commit head_commit: {ids}"
+  "evaluation.cases.diff_stale": "These review cases have a change.diff that differs from git diff base_commit head_commit: {ids}",
+  "evaluation.scoring.review_off": "This specialist has review cases, but review.depth is off; set review.depth to score them. Nothing was run.",
+  "evaluation.scoring.review_no_findings": "The reviewer kept no finding.",
+  "evaluation.compare.bad_rev": "{rev} does not name a commit; nothing was run",
+  "evaluation.compare.spec_missing": "{path} does not exist at that revision",
+  "evaluation.compare.no_cases": "No review case applies to this specialist; there is nothing to compare",
+  "evaluation.compare.git_timeout": "A git call timed out while reading the revision"
 }

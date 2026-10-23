@@ -116,5 +116,6 @@
   "agents.specialists.score_new": "A lição {lesson} não é uma lição de modelo proposta pelo engine; um score só pode adicionar essas",
   "agents.specialists.operator_reserved": "O nome de operador {operator} é reservado para lições que nenhuma pessoa decidiu; rode o comando com outro usuário",
   "agents.specialists.score": "Pontuar um especialista contra os casos commitados e aceitar ou aposentar lições pela pontuação (gasta tokens)",
-  "agents.specialists.scores": "Mostrar o histórico de pontuações, a mais recente por último"
+  "agents.specialists.scores": "Mostrar o histórico de pontuações, a mais recente por último",
+  "agents.specialists.compare": "Revisão contra a qual comparar o revisor; o resultado é registrado para o run finish"
 }
