@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- `wev specialists score` prints one progress line per agent run to stderr (case, pass or fail, seconds), and Ctrl-C in any `wev` command prints a short message and exits 130 instead of a traceback. Implemented and tested.
+
 ## [7.0.0] - 2026-10-23
 
 ### Added

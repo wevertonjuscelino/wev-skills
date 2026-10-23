@@ -254,6 +254,16 @@ class ScoringTest(unittest.TestCase):
         expected = i18n.t("evaluation.scoring.plan", planned=report.planned_runs, cap=cap)
         self.assertEqual(seen[0], expected + "\n")
 
+    def test_each_agent_run_prints_one_progress_line(self) -> None:
+        self.add_cases("c1")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.score(FakeAgent(lambda s: set()))
+        lines = [line for line in err.getvalue().splitlines() if line.startswith("c1: ")]
+        self.assertEqual(len(lines), self.config.specialists.score_samples)
+        prefix = i18n.t("evaluation.scoring.progress_fail", case="c1", seconds=0).split("(")[0]
+        self.assertTrue(all(line.startswith(prefix) for line in lines))
+
     def test_audit_events_carry_digest_and_counts(self) -> None:
         self.add_cases("c1", "c2")
         good, bad = lesson("do x"), lesson("bad advice", ACTIVE, SCORER)
