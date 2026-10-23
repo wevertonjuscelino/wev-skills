@@ -40,7 +40,8 @@
     "approval_notes": { "type": "array", "items": { "$ref": "#/$defs/approvalNote" } },
     "guard_trips": { "type": "array", "items": { "$ref": "#/$defs/guardTrip" } },
     "remote_runs": { "type": "array", "items": { "$ref": "#/$defs/remoteRun" } },
-    "plan_amendments": { "type": "array", "items": { "$ref": "#/$defs/planAmendment" } }
+    "plan_amendments": { "type": "array", "items": { "$ref": "#/$defs/planAmendment" } },
+    "base": { "type": "string" }
   },
   "$defs": {
     "stringList": { "type": "array", "items": { "type": "string" } },

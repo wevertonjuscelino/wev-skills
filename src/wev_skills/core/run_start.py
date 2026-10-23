@@ -13,6 +13,7 @@ from wev_skills.core.discovery import CheckSuggestion, discover_checks
 from wev_skills.core.engine import Change, Engine
 from wev_skills.core.errors import StateConflict, ValidationError
 from wev_skills.models.router import executor_tier
+from wev_skills.review.trees import write_tree
 from wev_skills.state.model import (
     Phase,
     RepoSnapshot,
@@ -38,6 +39,7 @@ class _Opening:
     objective: str
     mode: Mode
     repo: RepoSnapshot | None
+    base: str
     checks: tuple[CheckSuggestion, ...]
     classification: Classification
     strategy: Strategy
@@ -51,15 +53,25 @@ def strategy_for(engine: Engine, classification: Classification, mode: Mode) -> 
     return services.provider.select_strategy(classification, mode, tier)
 
 
+def _run_base(engine: Engine) -> str:
+    """The tree the run starts from; empty when git cannot record it, so a start still works."""
+    services = engine.services
+    try:
+        return write_tree(services.runner, services.root)
+    except StateConflict:
+        return ""
+
+
 def _open(engine: Engine, objective: str, mode: Mode, signals: TaskSignals) -> _Opening:
     if mode not in START_MODES:
         raise ValidationError("invalid_mode", i18n.t("orch.error.start_mode", mode=mode.value))
     text = engine.clean(objective)
     repo = engine.snapshot(str(engine.services.root))
+    base = _run_base(engine) if repo is not None else ""
     checks = discover_checks(repo.root if repo is not None else engine.services.root)
     classification = engine.services.provider.classify_task(replace(signals, objective=text))
     strategy = strategy_for(engine, classification, mode)
-    return _Opening(text, mode, repo, checks, classification, strategy)
+    return _Opening(text, mode, repo, base, checks, classification, strategy)
 
 
 def refuse_second_run(engine: Engine) -> None:
@@ -112,6 +124,7 @@ def _decisions(engine: Engine, opening: _Opening) -> Change:
             [c.to_dict() for c in checks],
         )
         current = with_strategy(with_classification(current, classification), strategy)
+        current = replace(current, base=opening.base)
         records = (
             engine.decision(
                 Phase.REQUEST,

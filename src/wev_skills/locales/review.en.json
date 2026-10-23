@@ -1,0 +1,3 @@
+{
+  "review.error.tree_failed": "Could not record the working tree (git {step} failed): {error}"
+}

@@ -179,6 +179,8 @@ class RunState(Serializable):
     remote_runs: tuple[RemoteRunRecord, ...] = ()
     """Remote commands this run started, one per task and host; absent in older states."""
     plan_amendments: tuple[PlanAmendment, ...] = ()
+    base: str = ""
+    """Git tree id of the working tree at ``run start``; empty outside a repository."""
 
     def __post_init__(self) -> None:
         if self.schema_version != SCHEMA_VERSION:
