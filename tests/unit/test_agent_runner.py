@@ -5,7 +5,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from wev_skills.adapters.claude_code.agent_runner import UNATTENDED_TOOLS, ClaudeAgentRunner
+from wev_skills.adapters.claude_code.agent_runner import (
+    READ_ONLY_TOOLS,
+    UNATTENDED_TOOLS,
+    ClaudeAgentRunner,
+)
 from wev_skills.adapters.claude_code.subagent import render_subagent
 from wev_skills.agents.factory import AgentFactory
 from wev_skills.agents.registry import AgentRegistry, builtin_directories
@@ -55,6 +59,18 @@ class AgentRunnerTests(unittest.TestCase):
         self.assertEqual(Path(call["cwd"]).resolve(), self.workspace.resolve())
         self.assertFalse(any(f in a for a in call["argv"] for f in FORBIDDEN))
         self.assertTrue(result.ok)
+
+    def test_runner_passes_read_only_tools(self) -> None:
+        self.runner.run_agent(self.workspace, SPEC, "look", 30, tools=READ_ONLY_TOOLS)
+        argv = self.calls()[0]["argv"]
+        self.assertEqual(argv[argv.index("--tools") + 1], "Read,Glob,Grep")
+        self.assertEqual(argv[argv.index("--allowedTools") + 1], "Read,Glob,Grep")
+
+    def test_runner_default_tools_unchanged(self) -> None:
+        self.assertEqual(UNATTENDED_TOOLS, ("Read", "Edit", "Write", "Glob", "Grep", "Bash"))
+        self.runner.run_agent(self.workspace, SPEC, "do it", 30)
+        argv = self.calls()[0]["argv"]
+        self.assertEqual(argv[argv.index("--tools") + 1], "Read,Edit,Write,Glob,Grep,Bash")
 
     def test_ask_has_no_tools(self) -> None:
         self.runner.ask("why?", 30)

@@ -67,7 +67,7 @@ class FakeAgent:
         self.extra_file = False
         self.outcome: AgentRunResult | None = None
 
-    def run_agent(self, workspace: Path, spec: AgentSpec, objective: str, timeout: float):  # type: ignore[no-untyped-def]
+    def run_agent(self, workspace: Path, spec: AgentSpec, objective: str, timeout: float, tools=()):  # type: ignore[no-untyped-def]
         self.runs += 1
         self.on_run()
         if self.extra_file:
