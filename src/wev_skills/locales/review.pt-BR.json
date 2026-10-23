@@ -3,5 +3,13 @@
   "review.decision.base_missing": "Não foi possível registrar a árvore de trabalho como base da execução; a revisão em camadas recusará esta execução.",
   "review.error.diff_malformed": "O diff está malformado ({why}).",
   "review.config.agent_required": "review.agent deve nomear um agente quando review.depth não é off",
-  "review.config.quorum_above_verifiers": "review.quorum ({quorum}) não pode exceder review.verifiers ({verifiers})"
+  "review.config.quorum_above_verifiers": "review.quorum ({quorum}) não pode exceder review.verifiers ({verifiers})",
+  "review.error.invalid_md": "REVIEW.md é inválido na linha {line}: {why}",
+  "review.error.unknown_heading": "título desconhecido \"{title}\"",
+  "review.error.bad_max": "max deve ser um inteiro de 0 a {maximum}",
+  "review.error.too_long": "o arquivo tem mais de {limit} caracteres",
+  "review.error.outside_repo": "o arquivo é um link que sai do repositório",
+  "review.md.help": "Orientação e verificações para revisores",
+  "review.md.group_help": "Trabalhar com o REVIEW.md",
+  "review.md.check_help": "Valida o REVIEW.md (arquivo ausente significa padrões)"
 }

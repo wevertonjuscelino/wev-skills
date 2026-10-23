@@ -3,5 +3,13 @@
   "review.decision.base_missing": "The working tree could not be recorded as the run base; layered review will refuse this run.",
   "review.error.diff_malformed": "The diff is malformed ({why}).",
   "review.config.agent_required": "review.agent must name an agent when review.depth is not off",
-  "review.config.quorum_above_verifiers": "review.quorum ({quorum}) must not exceed review.verifiers ({verifiers})"
+  "review.config.quorum_above_verifiers": "review.quorum ({quorum}) must not exceed review.verifiers ({verifiers})",
+  "review.error.invalid_md": "REVIEW.md is invalid at line {line}: {why}",
+  "review.error.unknown_heading": "unknown heading \"{title}\"",
+  "review.error.bad_max": "max must be an integer from 0 to {maximum}",
+  "review.error.too_long": "the file is over {limit} characters",
+  "review.error.outside_repo": "the file is a link that leaves the repository",
+  "review.md.help": "Reviewer guidance and checks",
+  "review.md.group_help": "Work with REVIEW.md",
+  "review.md.check_help": "Validate REVIEW.md (a missing file means defaults)"
 }
