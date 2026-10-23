@@ -8,9 +8,11 @@ Task-level operations live in ``task_flow``, ``task_exec`` and ``task_outcomes``
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from wev_skills import i18n
+from wev_skills.config_review import DEPTH_OFF
 from wev_skills.core import (
     active,
     brief,
@@ -21,6 +23,7 @@ from wev_skills.core import (
     planning,
     progress,
     report,
+    review_cap,
     run_start,
     task_check,
     task_exec,
@@ -31,9 +34,18 @@ from wev_skills.core import (
 )
 from wev_skills.core.contracts import Evidence, Mode, Plan, TaskSignals, TaskStatus
 from wev_skills.core.engine import Engine, restamp_started
-from wev_skills.core.errors import StateConflict
+from wev_skills.core.errors import StateConflict, WevError
 from wev_skills.core.run_start import START_MODES
+from wev_skills.evaluation.scoring import SCORES_FILE
 from wev_skills.guards.execution import GuardVerdict
+from wev_skills.review.changed import changed_paths
+from wev_skills.review.gate import (
+    config_weakened,
+    current_config,
+    finish_refusal,
+    read_comparisons,
+)
+from wev_skills.review.trees import write_tree
 from wev_skills.state.model import Phase, RunState, with_decision, with_phase, with_repo
 from wev_skills.state.resume import check_drift
 
@@ -109,7 +121,7 @@ class Orchestrator(Engine):
     def guard_check(self, task_id: str | None = None) -> GuardVerdict:
         state = self.load()
         if task_id is None:
-            return self.run_verdict(state)
+            return review_cap.run_guard_verdict(self, state)
         task = progress.plan_task(state, task_id)
         return progress.task_verdict(
             progress.guard_events(state, task_id),
@@ -137,6 +149,10 @@ class Orchestrator(Engine):
         The tree is compared once more with the last verified record; what changed after
         it is stored with the run, so the closed record is not judged by later work."""
         state = self.reconciled(self.load())
+        if state.phase is not Phase.DONE:
+            refusal = self._review_refusal(state)
+            if refusal is not None:
+                raise refusal
         changed = self._changed(state)
         complete = progress.run_complete(state) and not changed
         if state.phase is not Phase.DONE:
@@ -157,6 +173,30 @@ class Orchestrator(Engine):
             "changed_after_verification": list(changed),
             **self.step_fields(state),
         }
+
+    def _review_refusal(self, state: RunState) -> WevError | None:
+        config = self.services.config
+        runner, root = self.services.runner, Path(self.cwd(state))
+        changed: frozenset[str] = frozenset()
+        weakened, tree, comparisons = False, "", []
+        if config.review.depth != DEPTH_OFF:  # with review off this gate does no git work
+            if state.base:
+                tree = write_tree(runner, root)
+                changed = changed_paths(runner, root, state.base, tree)
+            weakened = config_weakened(config, current_config(state.config_source, root))
+            comparisons = read_comparisons(self.services.state_dir / SCORES_FILE)
+        return finish_refusal(state, config, tree, changed, comparisons, weakened)
+
+    def _review_stale(self, state: RunState) -> bool:
+        """The tree moved after the last review round. A closed run passed the gate, so it is
+        not compared again."""
+        if not state.review_rounds or state.phase is Phase.DONE:
+            return False
+        try:
+            tree = write_tree(self.services.runner, Path(self.cwd(state)))
+        except StateConflict:
+            return True
+        return tree != state.review_rounds[-1].tree
 
     def _changed(self, state: RunState) -> tuple[str, ...]:
         """Tasks that are "verified, then changed": computed now for an open run, read from
@@ -180,7 +220,9 @@ class Orchestrator(Engine):
         approvals = [r.to_dict() for r in self.services.approvals.list()]
         verdict = self.run_verdict(state)
         changed = self._changed(state)
-        built = report.build_report(state, approvals, verdict, lang, changed)
+        built = report.build_report(
+            state, approvals, verdict, lang, changed, self._review_stale(state)
+        )
         fields = self._steps(state, verdict)
         if changed and state.phase is not Phase.DONE and fields["next_step"].startswith(FINISH):
             recheck = [f"wev task check {task_id} --run {state.run_id}" for task_id in changed]

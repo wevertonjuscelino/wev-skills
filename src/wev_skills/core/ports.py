@@ -20,6 +20,10 @@ if TYPE_CHECKING:
     from wev_skills.agents.spec import AgentSpec
 
 
+UNATTENDED_TOOLS = ("Read", "Edit", "Write", "Glob", "Grep", "Bash")
+READ_ONLY_TOOLS = ("Read", "Glob", "Grep")
+
+
 class Runner(Protocol):
     def run(
         self,
@@ -32,7 +36,12 @@ class Runner(Protocol):
 
 class AgentRunner(Protocol):
     def run_agent(
-        self, workspace: Path, spec: AgentSpec, objective: str, timeout: float
+        self,
+        workspace: Path,
+        spec: AgentSpec,
+        objective: str,
+        timeout: float,
+        tools: Sequence[str] = UNATTENDED_TOOLS,
     ) -> AgentRunResult: ...
 
     def ask(self, prompt: str, timeout: float) -> AgentRunResult: ...

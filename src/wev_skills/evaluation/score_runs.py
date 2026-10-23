@@ -11,13 +11,15 @@ from pathlib import Path
 
 from wev_skills import i18n
 from wev_skills.agents.spec import AgentSpec
+from wev_skills.config_review import ReviewShape
 from wev_skills.core.errors import ProviderError
 from wev_skills.core.fsutil import atomic_write_text
 from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.core.textsafe import clean_text
 from wev_skills.evaluation import snapshot
-from wev_skills.evaluation.cases import Case
+from wev_skills.evaluation.cases import REVIEW_KIND, Case
 from wev_skills.evaluation.workspace import case_workspace, passed, run_check, skip_git_cleanup
+from wev_skills.review.guide import ReviewGuide
 from wev_skills.security.permissions import PermissionPolicy
 from wev_skills.security.redact import redact
 
@@ -40,6 +42,10 @@ class Setup:
     timeout: float
     guard: Callable[[], None]
     """Called right after every agent run, before any git call; raises if git was tampered."""
+    shape: ReviewShape = ReviewShape(0, 0, 0)
+    """Finders, verifiers and quorum of a review case's sample."""
+    guide: ReviewGuide = ReviewGuide()
+    lang: str = "en"
     logs: Path | None = None
     """Where each agent run's event stream is kept, redacted and capped, for diagnosis."""
 
@@ -95,29 +101,46 @@ def _attempt(setup: Setup, spec: AgentSpec, case: Case, path: Path) -> tuple[boo
     return False, Failure(case, output, snapshot.diff(before, after)[:CONTEXT_CHARS])
 
 
-def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure | None]:
-    started = time.monotonic()
+def case_runs(setup: Setup, case: Case) -> int:
+    """Agent runs one sample of ``case`` can use."""
+    return setup.shape.finders + setup.shape.verifiers if case.kind == REVIEW_KIND else 1
+
+
+def _sample(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure | None, int]:
+    """One sample: whether it passed, its failure, and the agent runs it used."""
+    if case.kind == REVIEW_KIND:
+        from wev_skills.evaluation.review_attempt import review_sample  # lazy: imports this module
+
+        return review_sample(setup, spec, case)
     with case_workspace(setup.runner, setup.root, case, setup.scratch) as path:
         try:
             ok, failure = _attempt(setup, spec, case, path)
+            return ok, failure, 1
         except BaseException as exc:  # the agent may have planted git state: no git call
             skip_git_cleanup(exc)
             raise
+
+
+def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure | None, int]:
+    started = time.monotonic()
+    ok, failure, used = _sample(setup, spec, case)
     key = "evaluation.scoring.progress_pass" if ok else "evaluation.scoring.progress_fail"
     seconds = round(time.monotonic() - started)
     print(i18n.t(key, case=case.id, seconds=seconds), file=sys.stderr, flush=True)
-    return ok, failure
+    return ok, failure, used
 
 
 def run_configuration(setup: Setup, spec: AgentSpec, cases: Sequence[Case]) -> Tally:
     """Run ``spec`` ``setup.samples`` times on each case; keep the first failure of each case."""
     passes: dict[str, int] = {}
     failures: dict[str, Failure] = {}
+    runs = 0
     for case in cases:
         passes[case.id] = 0
         for _ in range(setup.samples):
-            ok, failure = _run_once(setup, spec, case)
+            ok, failure, used = _run_once(setup, spec, case)
+            runs += used
             passes[case.id] += int(ok)
             if failure is not None:
                 failures.setdefault(case.id, failure)
-    return Tally(passes, tuple(failures.values()), len(cases) * setup.samples)
+    return Tally(passes, tuple(failures.values()), runs)

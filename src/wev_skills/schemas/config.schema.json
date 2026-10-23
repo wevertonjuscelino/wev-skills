@@ -141,6 +141,21 @@
         "score_timeout_seconds": { "type": "number", "minimum": 0.1, "maximum": 3600 },
         "score_on_finish": { "type": "boolean" }
       }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent": { "type": "string" },
+        "depth": { "enum": ["off", "quick", "standard", "deep"] },
+        "finders": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "verifiers": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "quorum": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "max_rounds": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "full_rounds": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "max_runs_per_round": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "timeout_seconds": { "type": "number", "minimum": 0.1, "maximum": 3600 }
+      }
     }
   },
   "$defs": {

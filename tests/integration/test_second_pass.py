@@ -59,7 +59,17 @@ class PlanRewriteTests(CliFlowCase):
         self.ok("task", "next")
         self.ok("task", "start", "notes")
         self.assertFalse(self.ok("task", "check", "notes")["all_met"])
-        self.write("plan.json", json.dumps({"objective": "notes", "tasks": [self.filled(EASY)]}))
+        self.write(
+            "plan.json",
+            json.dumps(
+                {
+                    "risk_notes": "None.",
+                    "revert": "git revert",
+                    "objective": "notes",
+                    "tasks": [self.filled(EASY)],
+                }
+            ),
+        )
         code, _, err = self.wev("plan", "set", "--file", "plan.json")
         self.assertEqual((code, err["code"]), (2, "plan_amendment_required"))
         self.assertIn("--amend --reason", err["details"]["next_step"])
@@ -168,7 +178,12 @@ class HonestDirectPathTests(CliFlowCase):
     def test_plan_mode_ends_at_a_review_instruction(self) -> None:
         started = self.ok("run", "start", "--mode", "plan", "--objective", "Investigate")
         task = {"id": "a", "title": "profile", "objective": "a", "checks": ["make test"]}
-        self.write("plan.json", json.dumps({"objective": "x", "tasks": [task]}))
+        self.write(
+            "plan.json",
+            json.dumps(
+                {"risk_notes": "None.", "revert": "git revert", "objective": "x", "tasks": [task]}
+            ),
+        )
         planned = self.ok(*self.follow(started["next_step"]))
         step = planned["next_step"]
         self.assertFalse(step.startswith("wev "), step)

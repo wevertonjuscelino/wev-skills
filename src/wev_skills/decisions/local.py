@@ -313,14 +313,18 @@ class LocalPolicyProvider:
         score = len(supporting) / len(evidence) if evidence else 0.0
         return Verdict(accepted=accepted, score=score, reasons=tuple(reasons), source=PROVIDER_ID)
 
-    def resolve_conflict(self, verdicts: Sequence[Verdict]) -> Verdict:
+    def resolve_conflict(self, verdicts: Sequence[Verdict], quorum: int | None = None) -> Verdict:
         if not verdicts:
             raise ValidationError("no_verdicts", i18n.t("decisions.error.no_verdicts"))
+        if quorum is not None and not 1 <= quorum <= len(verdicts):
+            message = i18n.t("decisions.error.bad_quorum", quorum=quorum, count=len(verdicts))
+            raise ValidationError("bad_quorum", message)
+        needed = len(verdicts) if quorum is None else quorum
         merged: list[str] = []
         for verdict in verdicts:
             merged.extend(r for r in verdict.reasons if r not in merged)
         return Verdict(
-            accepted=all(v.accepted for v in verdicts),
+            accepted=sum(v.accepted for v in verdicts) >= needed,
             score=min(v.score for v in verdicts),
             reasons=tuple(merged),
             source=PROVIDER_ID,

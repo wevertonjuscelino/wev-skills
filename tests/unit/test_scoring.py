@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
+from tests.fixtures.fake_agent import FakeAgent
 from wev_skills import i18n
 from wev_skills.agents import project
 from wev_skills.agents.experience import ACTIVE, PROPOSED, PROPOSER, SCORER, Lesson, LessonEvidence
@@ -55,31 +56,6 @@ def shown(spec: AgentSpec, text: str) -> bool:
         item.text == text and item.status == ACTIVE and item.accepted_by != PROPOSER
         for item in spec.experience
     )
-
-
-class FakeAgent:
-    """Writes the fix for the cases ``fixes(spec)`` names; ``ask`` gives scripted answers."""
-
-    def __init__(self, fixes: Callable[[AgentSpec], set[str]], answers: tuple[str, ...] = ()):
-        self.fixes, self.answers = fixes, list(answers)
-        self.runs = 0
-        self.prompts: list[str] = []
-        self.on_run: Callable[[], None] = lambda: None
-        self.extra_file = False
-        self.outcome: AgentRunResult | None = None
-
-    def run_agent(self, workspace: Path, spec: AgentSpec, objective: str, timeout: float):  # type: ignore[no-untyped-def]
-        self.runs += 1
-        self.on_run()
-        if self.extra_file:
-            (workspace / "scratch.txt").write_text("agent-wrote-this\n")
-        if objective in self.fixes(spec):
-            (workspace / f"fix-{objective}.txt").write_text("x")
-        return self.outcome or AgentRunResult(True, "done")
-
-    def ask(self, prompt: str, timeout: float):  # type: ignore[no-untyped-def]
-        self.prompts.append(prompt)
-        return AgentRunResult(True, self.answers.pop(0) if self.answers else "no")
 
 
 class ScoringTest(unittest.TestCase):
@@ -130,6 +106,16 @@ class ScoringTest(unittest.TestCase):
         return score_specialist(
             self.root, self.config, SubprocessRunner(), agent, AGENT, self.audit
         )
+
+    def test_build_cases_unchanged(self) -> None:
+        self.add_cases("c1", "c2")
+        report = self.score(FakeAgent(lambda s: set()))
+        new = self.config.specialists.score_max_new_lessons
+        self.assertEqual(report.planned_runs, (1 + new) * 2 + new)
+        self.assertEqual(
+            (report.baseline, report.runs_used, report.depth), ({"c1": 0, "c2": 0}, 4, "")
+        )
+        self.assertEqual((report.accepted, report.retired, report.new), ((), (), ()))
 
     def test_planned_runs_formula(self) -> None:
         self.assertEqual(planned_runs(4, 2, 1, 2, 3), (1 + 2 + 3 + 1) * 4 * 2 + 3)

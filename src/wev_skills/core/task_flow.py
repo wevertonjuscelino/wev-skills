@@ -59,7 +59,9 @@ def _with_plan(engine: Engine, state: RunState) -> RunState:
     if steps.needs_checks(state):
         message = i18n.t("orch.hint.supply_checks")
         raise ValidationError("checks_required", message, {"next_step": step})
-    return plan_flow.adopt_plan(engine, planning.synthesize_plan(state), "plan.synthesized")
+    return plan_flow.adopt_plan(
+        engine, planning.synthesize_plan(state), plan_flow.SYNTHESIZED_EVENT
+    )
 
 
 def _request_approval(engine: Engine, state: RunState, task: PlanTask) -> str:

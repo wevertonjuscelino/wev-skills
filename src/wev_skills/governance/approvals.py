@@ -37,6 +37,7 @@ from wev_skills.core.errors import (
     WevError,
 )
 from wev_skills.core.ports import Clock, SystemClock
+from wev_skills.governance.approval_anchor import AnchorSource, anchor_fields, moved
 from wev_skills.governance.approval_identity import (
     ID_HASH_CHARS,
     ID_PREFIX,
@@ -49,6 +50,7 @@ from wev_skills.governance.approval_identity import (
     resolved_cwd,
 )
 from wev_skills.governance.audit import AUDIT_FILE_NAME, AuditLog
+from wev_skills.governance.verification import Mismatch, audit_key, mismatches
 from wev_skills.security.redact import redact, redact_argv
 
 SCHEMA_VERSION = 2
@@ -102,14 +104,8 @@ class ApprovalRequest(Serializable):
     decided_at: float | None = None
     expires_at: float | None = None
     used_at: float | None = None
-
-
-@dataclass(frozen=True)
-class Mismatch(Serializable):
-    """One disagreement between the approvals file and the audit log."""
-
-    id: str
-    problem: str
+    head: str = ""
+    tree: str = ""
 
 
 def _error(kind: type[WevError], code: str, **params: object) -> WevError:
@@ -142,7 +138,7 @@ def _denials(records: Records, tokens: Sequence[str], run_id: str) -> list[Appro
 
 def _decision_event(record: ApprovalRequest) -> dict[str, Any]:
     fields = ("id", "generation", "binding", "action", "cwd", "run_id", "status")
-    decided = ("decided_by", "decided_tty", "decided_at", "expires_at", "used_at")
+    decided = ("decided_by", "decided_tty", "decided_at", "expires_at", "used_at", "head", "tree")
     return {name: record.to_dict()[name] for name in (*fields, *decided)}
 
 
@@ -150,8 +146,7 @@ def _matches(event: dict[str, Any], kind: str, record: ApprovalRequest) -> bool:
     data = event.get("data")
     if event.get("type") != kind or not isinstance(data, dict):
         return False
-    wanted = (record.id, record.generation, record.binding, record.decided_at)
-    return tuple(data.get(k) for k in ("id", "generation", "binding", "decided_at")) == wanted
+    return audit_key(data) == audit_key(record.to_dict())
 
 
 class ApprovalStore:
@@ -162,12 +157,14 @@ class ApprovalStore:
         ttl_seconds: float = DEFAULT_TTL_SECONDS,
         audit: AuditLog | None = None,
         run_lookup: RunLookup | None = None,
+        anchor: AnchorSource | None = None,
     ) -> None:
         self._path = Path(path)
         self._clock: Clock = clock if clock is not None else SystemClock()
         self._ttl = float(ttl_seconds)
         self._audit = audit or AuditLog(self._path.with_name(AUDIT_FILE_NAME))
         self._run_lookup = run_lookup if run_lookup is not None else self._active_run
+        self._anchor = anchor
 
     def _active_run(self) -> str | None:
         """The active run of the state directory this file lives in; ``None`` when unreadable."""
@@ -199,12 +196,14 @@ class ApprovalStore:
         fsutil.atomic_write_text(self._path, text)
 
     def _effective(self, record: ApprovalRequest) -> ApprovalRequest:
-        """``record`` as it counts now: a grant past its expiry is ``expired``."""
+        """``record`` as it counts now: a grant past its expiry is ``expired``, and one whose
+        ``HEAD`` or tree has moved (``approval_anchor``) is ``pending`` a fresh grant."""
         if record.status is not ApprovalStatus.GRANTED:
             return record
         if record.expires_at is None or self._clock.now() > record.expires_at:
             return replace(record, status=ApprovalStatus.EXPIRED)
-        return record
+        stale = moved(record.argv, record.head, record.tree, self._anchor)
+        return replace(record, status=ApprovalStatus.PENDING) if stale else record
 
     def _change(
         self, approval_id_: str, event: str, change: Callable[[ApprovalRequest], ApprovalRequest]
@@ -299,6 +298,7 @@ class ApprovalStore:
                 decided_tty=terminal,
                 decided_at=now,
                 expires_at=now + self._ttl,
+                **anchor_fields(record.argv, self._anchor),
             )
 
         return self._change(approval_id_, EVENT_GRANTED, change)
@@ -353,6 +353,12 @@ class ApprovalStore:
         tokens = normalize_action(action)
         return self._usable(self._load().get(approval_id(tokens)), tokens, cwd)
 
+    def is_stale(self, action: Action, cwd: str = "") -> bool:
+        """A live grant of ``action`` that ``HEAD`` or the tree has outgrown; ``cwd`` is unused."""
+        found = self._load().get(approval_id(normalize_action(action)))
+        live = found if found is not None and found.status is ApprovalStatus.GRANTED else None
+        return live is not None and self._effective(live).status is ApprovalStatus.PENDING
+
     def is_denied(self, action: Action, cwd: str = "") -> bool:
         """The operator denied these words in this run, so asking again is moot. ``cwd`` is
         accepted for the gate's signature and ignored: a denial is not tied to a directory."""
@@ -372,12 +378,15 @@ class ApprovalStore:
             record = records.get(approval_id(tokens))
             if record is None or record.status is not ApprovalStatus.GRANTED:
                 return False
-            if self._effective(record).status is ApprovalStatus.EXPIRED:
+            current = self._effective(record)
+            if current.status is ApprovalStatus.EXPIRED:
                 expired = replace(record, status=ApprovalStatus.EXPIRED)
                 self._save({**records, record.id: expired})
                 self._audit.append(EVENT_EXPIRED, _decision_event(expired))
                 return False
-            if not self._usable(record, tokens, cwd):
+            if current.status is ApprovalStatus.PENDING:
+                return False  # stale: HEAD or the tree moved since the grant
+            if not (self._bound(record, tokens, cwd) and self._audited(record)):
                 self._audit.append(EVENT_UNVERIFIED, _decision_event(record))
                 return False
             used = replace(record, status=ApprovalStatus.CONSUMED, used_at=self._clock.now())
@@ -387,6 +396,4 @@ class ApprovalStore:
 
     def verify(self) -> tuple[Mismatch, ...]:
         """Disagreements between the approvals file and the audit log (see ``verification``)."""
-        from wev_skills.governance.verification import mismatches
-
         return mismatches(tuple(self._load().values()), self._audit.read())

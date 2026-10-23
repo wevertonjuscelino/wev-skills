@@ -1,0 +1,14 @@
+{
+  "id": "review-clean-config-language-path",
+  "title": "Clean: reads each config file's language on its own, and no later commit touched those lines",
+  "source": "review",
+  "ref": "60f932f",
+  "agents": [
+    "wev-reviewer"
+  ],
+  "base_commit": "c05fe71e70b41de64cc13f259b2343297677147e",
+  "objective": "Keep the explicit language of a config path that contains a plus sign: read the language from each config file the run resolved instead of splitting the joined source string, and pass the resolved sources to the services that need them.",
+  "kind": "review",
+  "head_commit": "60f932fa93a75dafd184b9b23e691c701de1a339",
+  "expect": []
+}

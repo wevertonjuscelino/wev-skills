@@ -23,10 +23,12 @@ from wev_skills.config import (
 )
 from wev_skills.core.contracts import RiskLevel
 from wev_skills.core.errors import PermissionDenied
+from wev_skills.core.fingerprint import head_commit, tree_fingerprint
 from wev_skills.core.ports import Clock, Runner, SubprocessRunner, SystemClock
 from wev_skills.decisions import DecisionProvider
 from wev_skills.decisions import factory as decision_factory
 from wev_skills.execution.executor import CommandExecutor
+from wev_skills.governance.approval_anchor import Anchor, AnchorSource
 from wev_skills.governance.approvals import ApprovalStatus, ApprovalStore
 from wev_skills.governance.audit import AuditLog
 from wev_skills.models.router import ModelRouter
@@ -59,11 +61,27 @@ def build_tool_registry() -> ToolRegistry:
     return ToolRegistry.default()
 
 
+def build_anchor(root: str | Path, state: Path, runner: Runner | None = None) -> AnchorSource:
+    """``HEAD`` and the tree fingerprint of ``root`` (state directory left out), read when a
+    grant for a command with an external effect is given or checked."""
+    from wev_skills.core.engine import excluded_paths  # the engine imports this module
+
+    base, git = str(root), runner or SubprocessRunner()
+
+    def anchor() -> Anchor:
+        tree = tree_fingerprint(git, base, excluded_paths(base, state))
+        return Anchor(head=head_commit(git, base), tree=tree)
+
+    return anchor
+
+
 def build_approval_store(
-    config: Config, root: str | Path, clock: Clock | None = None
+    config: Config, root: str | Path, clock: Clock | None = None, runner: Runner | None = None
 ) -> ApprovalStore:
     ttl = config.permissions.approval_ttl_seconds
-    return ApprovalStore(state_dir(config, root) / APPROVALS_FILE, clock, ttl)
+    place = state_dir(config, root)
+    anchor = build_anchor(root, place, runner)
+    return ApprovalStore(place / APPROVALS_FILE, clock, ttl, anchor=anchor)
 
 
 def build_audit_log(config: Config, root: str | Path, clock: Clock | None = None) -> AuditLog:
@@ -247,7 +265,7 @@ def build_services(
     protected = protect_state_dir(config, base)
     real_runner = runner or SubprocessRunner()
     real_clock = clock or SystemClock()
-    approvals = build_approval_store(protected, base, real_clock)
+    approvals = build_approval_store(protected, base, real_clock, real_runner)
     return Services(
         config=protected,
         root=base,

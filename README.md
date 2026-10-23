@@ -23,6 +23,7 @@ The standard-library-only Python engine provides the `wev` JSON CLI. A Claude Co
 | Agent registry, inheritance and subagent export | Implemented and tested | Exported agents have not been loaded in a live session |
 | Objective interview: at most three questions per round | Implemented and tested | Local CLI and stored briefs; model-led interview unvalidated |
 | Project specialists, bounded experience and run budgets | Implemented and tested | Engine records only; advisory lessons; command units, not tokens or money |
+| Layered review: `wev review` (REVIEW.md, finders and verifiers, rounds, finish gate), `run report --format pr`, `specialists score --compare` | Implemented and tested with fake agents; a real `claude -p` round and a real reviewer score are implemented but untested | Off by default; the finders' reads are unscoped; a guardrail, not a boundary; see [the review guide](docs/guides/review.md) |
 | Skills, hooks and plugin manifests | Implemented and tested | Format and subprocess tests; live integration untested |
 | Optional JEV, SSH/tmux and evaluation adapters | Simulated with mocks | A recorded JEV response and simulated remote hosts |
 | Codex, Gemini CLI and OpenCode: package export, install, uninstall, hook codecs | Implemented and tested with fake harness CLIs; not run against the real harnesses yet (e2e part) | A policy ask becomes allow plus a warning there; see [SECURITY.md](SECURITY.md) |
@@ -127,6 +128,7 @@ Objective intake is documented in [the interview guide](docs/guides/intake.md). 
 | Plan → task → execute → verify → report; resume and execution guards | [Orchestration](docs/guides/orchestration.md) | `wev-orchestrate` |
 | JSON agent specs, templates, inheritance and permission ceilings | [Creating agents](docs/guides/creating-agents.md) | `wev-agent-builder` |
 | Deterministic evaluation of harness mechanics | [Evaluation](docs/guides/evaluation.md) | `wev-harness-evaluation` |
+| Optional layered review of a run's changes, `REVIEW.md`, review cases and PR body | [Layered review](docs/guides/review.md) | `wev-orchestrate` |
 | Inventory-based SSH and task-owned tmux sessions | [Remote operations](docs/guides/remote-ops.md) | `wev-remote-ops` |
 | Evidence-backed reverse engineering with the rea tools (change plan or clean-room specification) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Managed project guidelines in `CLAUDE.md` | [Guidelines skill](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |

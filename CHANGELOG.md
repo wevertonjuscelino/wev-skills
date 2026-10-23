@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Layered review upgrade note: task reviews (`task review`) recorded before this change carry no tree fingerprint and no longer count as accepted, so a run in flight that needs an independent review must have its tasks reviewed again. `review_stale` and the `--compare` record are judged on the content tree (a commit alone changes nothing); a reviewer change passes the finish gate when no case loses a pass (a tie counts, so a neutral edit can ship); a review prompt over 100,000 characters is refused (`review_diff_too_large`); with `review.depth` off nothing about review is computed or read. Implemented and tested with fake agents.
+
 ### Added
 
 - `wev specialists score` keeps each agent run's event stream, redacted and cut at 2,000,000 characters, in `.wev/score-logs/<score id>/<case>-<n>.jsonl`; the unattended run now uses `--output-format stream-json --verbose`. Implemented and tested with a fake CLI. The docs record that the wev hooks fire inside the unattended run, checked by hand on 2026-10-23.

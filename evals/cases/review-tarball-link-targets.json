@@ -1,0 +1,20 @@
+{
+  "id": "review-tarball-link-targets",
+  "title": "Bug: tarball extraction refuses symlinks by looking at their targets",
+  "source": "review",
+  "ref": "aa1eb23",
+  "agents": [
+    "wev-reviewer"
+  ],
+  "base_commit": "25f579142e0fa73f4a865a901b55e51f58475bf2",
+  "objective": "Keep the links extracted from a release tarball inside the version directory and bound the archive: refuse a member whose name or link target could reach outside the directory it is extracted into, and refuse an archive that is too large or has too many members, leaving nothing behind after a refusal.",
+  "kind": "review",
+  "head_commit": "aa1eb235b5934387b7d291c306c6b128c58dfd4c",
+  "expect": [
+    {
+      "file": "src/wev_skills/third_party/fetch.py",
+      "first": 72,
+      "last": 76
+    }
+  ]
+}

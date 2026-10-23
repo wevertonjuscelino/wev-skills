@@ -19,7 +19,7 @@ def case_data(**over: object) -> dict[str, object]:
         "source": "e2e",
         "ref": "r",
         "agents": [],
-        "base_commit": "abc",
+        "base_commit": "abc1234",
         "objective": "do it",
         "check": CHECK,
         "files": [],

@@ -113,7 +113,8 @@ class RoundTripTests(unittest.TestCase):
     def test_schema_field_set_equals_dataclass_fields(self) -> None:
         spec = schema.load("state")
         self.assertEqual(set(spec["properties"]), set(new_state().to_dict()))
-        optional = {"remote_runs", "plan_amendments"}  # absent in states written before them
+        # absent in states written before them
+        optional = {"remote_runs", "plan_amendments", "base", "review_rounds", "review_allowance"}
         self.assertEqual(set(spec["required"]), set(spec["properties"]) - optional)
 
     def test_from_dict_rejects_unknown_task_field_and_wrong_version(self) -> None:

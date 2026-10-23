@@ -40,7 +40,10 @@
     "approval_notes": { "type": "array", "items": { "$ref": "#/$defs/approvalNote" } },
     "guard_trips": { "type": "array", "items": { "$ref": "#/$defs/guardTrip" } },
     "remote_runs": { "type": "array", "items": { "$ref": "#/$defs/remoteRun" } },
-    "plan_amendments": { "type": "array", "items": { "$ref": "#/$defs/planAmendment" } }
+    "plan_amendments": { "type": "array", "items": { "$ref": "#/$defs/planAmendment" } },
+    "base": { "type": "string" },
+    "review_rounds": { "type": "array", "items": { "$ref": "#/$defs/reviewRound" } },
+    "review_allowance": { "type": "integer", "minimum": 0 }
   },
   "$defs": {
     "stringList": { "type": "array", "items": { "type": "string" } },
@@ -92,7 +95,9 @@
       "additionalProperties": false,
       "properties": {
         "objective": { "type": "string" },
-        "tasks": { "type": "array", "items": { "$ref": "#/$defs/planTask" } }
+        "tasks": { "type": "array", "items": { "$ref": "#/$defs/planTask" } },
+        "risk_notes": { "type": "string" },
+        "revert": { "type": "string" }
       }
     },
     "planTask": {
@@ -275,6 +280,47 @@
         }
       }
     },
+    "reviewFinding": {
+      "type": "object",
+      "required": [
+        "id", "round", "file", "line", "title", "body", "tag", "class_wide", "votes_real",
+        "votes_total"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "round": { "type": "integer" },
+        "file": { "type": "string" },
+        "line": { "type": "integer" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "tag": { "enum": ["important", "nit", "pre_existing"] },
+        "class_wide": { "type": "boolean" },
+        "votes_real": { "type": "integer" },
+        "votes_total": { "type": "integer" },
+        "status": { "enum": ["open", "fixed", "dismissed"] },
+        "outcome": { "type": "string" },
+        "reason": { "type": "string" },
+        "resolved_by": { "type": "string" }
+      }
+    },
+    "reviewRound": {
+      "type": "object",
+      "required": ["number", "at", "scope", "tree", "fingerprint", "depth"],
+      "additionalProperties": false,
+      "properties": {
+        "number": { "type": "integer" },
+        "at": { "type": "string" },
+        "scope": { "enum": ["full", "diff"] },
+        "tree": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "depth": { "type": "string" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/reviewFinding" } },
+        "skipped": { "type": "integer" },
+        "runs_used": { "type": "integer" },
+        "summary": { "type": "string" }
+      }
+    },
     "guardTrip": {
       "type": "object",
       "required": ["at", "task_id", "action", "rule"],
@@ -385,7 +431,8 @@
         "at": { "type": "string" },
         "reviewer": { "type": "string" },
         "accepted": { "type": "boolean" },
-        "summary": { "type": "string" }
+        "summary": { "type": "string" },
+        "fingerprint": { "type": "string" }
       }
     },
     "nullableRepo": {

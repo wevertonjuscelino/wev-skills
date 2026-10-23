@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -18,11 +19,12 @@ from wev_skills.adapters.claude_code.subagent import (
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.core.contracts import AgentRunResult, RawCommandResult
 from wev_skills.core.errors import ValidationError
-from wev_skills.core.ports import Runner
+from wev_skills.core.ports import READ_ONLY_TOOLS, UNATTENDED_TOOLS, Runner
 from wev_skills.security.redact import redact
 from wev_skills.security.untrusted import sanitize
 
-UNATTENDED_TOOLS = ("Read", "Edit", "Write", "Glob", "Grep", "Bash")
+# The tool sets live in core.ports; they are re-exported here.
+__all__ = ["READ_ONLY_TOOLS", "UNATTENDED_TOOLS", "ClaudeAgentRunner"]
 STDERR_TAIL_CHARS = 500
 SESSION_KEYS = ("CLAUDECODE", "CLAUDE_PID")
 SESSION_PREFIX = "CLAUDE_CODE_"
@@ -120,10 +122,15 @@ class ClaudeAgentRunner:
         ]
 
     def run_agent(
-        self, workspace: Path, spec: AgentSpec, objective: str, timeout: float
+        self,
+        workspace: Path,
+        spec: AgentSpec,
+        objective: str,
+        timeout: float,
+        tools: Sequence[str] = UNATTENDED_TOOLS,
     ) -> AgentRunResult:
         self._require_plugin()
-        tools = ",".join(UNATTENDED_TOOLS)
+        tool_list = ",".join(tools)
         system = _body(render_subagent(spec, max_lessons=self._max_lessons))
         if system.startswith("-"):
             system = " " + system  # a leading dash would be read as a flag
@@ -131,9 +138,9 @@ class ClaudeAgentRunner:
             *self._base("Task:\n" + objective, "stream-json"),
             "--verbose",  # the CLI requires it for stream-json in print mode
             "--tools",
-            tools,
+            tool_list,
             "--allowedTools",
-            tools,
+            tool_list,
             "--permission-mode",
             "dontAsk",
             "--no-session-persistence",

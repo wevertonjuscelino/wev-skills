@@ -91,6 +91,7 @@
   "security.error.program_not_on_safe_path": "O programa {program!r} não foi encontrado nos diretórios de permissions.exec_path. O motor não usa $PATH; o operador pode adicionar o diretório do programa a permissions.exec_path.",
   "security.error.program_in_run_root": "O programa {program!r} aponta para um arquivo dentro da árvore de trabalho da execução, que o agente pode escrever. Indique-o por caminho relativo explícito (./tool) e peça aprovação.",
   "security.approval.secret_in_action": "A aprovação não foi registrada: a ação contém texto que parece um segredo, então não poderia ser mostrada exatamente. Passe o segredo por um arquivo ou por uma variável de ambiente, não pela linha de comando.",
+  "security.approval.stale_grant": "{reason} A aprovação anterior não vale mais: o HEAD ou a árvore de trabalho mudou desde que ela foi dada, então aprove de novo.",
   "security.human.type_word": "Digite {word} e pressione Enter para confirmar (qualquer outra coisa cancela):",
   "security.human.mismatch": "A palavra de confirmação não confere; nada foi alterado.",
   "security.human.limit": "Esta confirmação é atrito e registro, não prova de quem está digitando.",

@@ -14,8 +14,18 @@ from wev_skills.core.errors import PermissionDenied, StateConflict, ValidationEr
 from wev_skills.core.ports import Runner
 from wev_skills.security.paths import resolve_within
 
+REVIEW_KIND = "review"
 CASES_DIR = Path("evals") / "cases"
 GIT_TIMEOUT_SECONDS = 30.0
+
+
+@dataclass(frozen=True)
+class Expect(Serializable):
+    """Where a review case's known bug lives: new-side lines ``first..last`` of ``file``."""
+
+    file: str
+    first: int
+    last: int
 
 
 @dataclass(frozen=True)
@@ -27,8 +37,11 @@ class Case(Serializable):
     agents: tuple[str, ...]
     base_commit: str
     objective: str
-    check: tuple[str, ...]
-    files: tuple[str, ...]
+    check: tuple[str, ...] = ()
+    files: tuple[str, ...] = ()
+    kind: str = "build"
+    head_commit: str = ""
+    expect: tuple[Expect, ...] = ()
 
 
 def _invalid(path: Path, detail: str) -> ValidationError:
@@ -48,6 +61,12 @@ def _read(root: Path, path: Path) -> Case:
     if path.stem != case.id:
         raise _invalid(path, i18n.t("evaluation.cases.id_mismatch", id=case.id))
     store = root / CASES_DIR / case.id
+    if case.kind == REVIEW_KIND:
+        from wev_skills.evaluation import review_cases  # lazy: review.trees imports this module
+
+        review_cases.validate(path, store, data, case)
+    elif not case.check:
+        raise _invalid(path, i18n.t("evaluation.cases.check_required"))
     for name in case.files:
         try:
             found = resolve_within(store, name)

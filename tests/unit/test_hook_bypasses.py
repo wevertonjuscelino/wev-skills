@@ -141,6 +141,7 @@ class EngineCommandTests(HookCase):
             "specialists accept project-test lesson-0123",
             "specialists retire project-test lesson-0123",
             "run adopt --run r1",
+            "review dismiss f1 --as wrong --reason x",
             "specialists score project-test",
             "run start --objective x --mode execute",
             "run finish",

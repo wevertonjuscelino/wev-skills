@@ -19,7 +19,7 @@ from wev_skills.agents.experience import AUTHORED_MAX, LESSON_TEXT_MAX, Lesson
 from wev_skills.commands import Subparsers
 from wev_skills.commands._human import confirm_human, summary_lines
 from wev_skills.commands._scope import resolve_scope
-from wev_skills.commands._scoring import score
+from wev_skills.commands._scoring import compare, score
 from wev_skills.core import wiring
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.textsafe import clean_text
@@ -98,6 +98,9 @@ def _decide(args: argparse.Namespace) -> dict[str, Any]:
 
 def _score(args: argparse.Namespace) -> dict[str, Any]:
     scope = resolve_scope(args.config)
+    if args.compare is not None:
+        found = compare(scope, args.id, args.compare).to_dict()
+        return {"compare": found, "config_source": scope.source}
     return {"score": score(scope, args.id).to_dict(), "config_source": scope.source}
 
 
@@ -136,6 +139,9 @@ def register(subparsers: Subparsers) -> None:
     action = actions.add_parser("score", help=i18n.t("agents.specialists.score"))
     action.set_defaults(handler=_score)
     action.add_argument("id")
+    action.add_argument(
+        "--compare", metavar="REV", default=None, help=i18n.t("agents.specialists.compare")
+    )
     action = actions.add_parser("scores", help=i18n.t("agents.specialists.scores"))
     action.set_defaults(handler=_scores)
     action.add_argument("id", nargs="?", default=None)

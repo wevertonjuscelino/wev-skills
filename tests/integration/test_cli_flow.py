@@ -109,7 +109,17 @@ class CliFlowCase(unittest.TestCase):
 
     def plan(self, *tasks: dict[str, Any]) -> Any:
         filled = [{"title": t["id"], "objective": f"do {t['id']}", **t} for t in tasks]
-        self.write("plan.json", json.dumps({"objective": "planned work", "tasks": filled}))
+        self.write(
+            "plan.json",
+            json.dumps(
+                {
+                    "risk_notes": "None.",
+                    "revert": "git revert",
+                    "objective": "planned work",
+                    "tasks": filled,
+                }
+            ),
+        )
         return self.ok("plan", "set", "--file", "plan.json")
 
     def begin(self, *signals: str) -> str:
@@ -280,6 +290,8 @@ class GatedTests(CliFlowCase):
             "plan.json",
             json.dumps(
                 {
+                    "risk_notes": "None.",
+                    "revert": "git revert",
                     "objective": "x",
                     "tasks": [
                         {"id": "a", "title": "a", "objective": "do a", "files": ["gated.txt"]}
@@ -560,7 +572,17 @@ class EveryPhaseTests(CliFlowCase):
         started = self.ok("run", "start", "--objective", "Refactor the parser", "--files", "8")
         self.assertTrue(started["strategy"]["needs_independent_review"])
         tasks = [{"id": "a", "title": "a", "objective": "do a", "files": ["greeting.txt"]}]
-        self.write("plan.json", json.dumps({"objective": "planned work", "tasks": tasks}))
+        self.write(
+            "plan.json",
+            json.dumps(
+                {
+                    "risk_notes": "None.",
+                    "revert": "git revert",
+                    "objective": "planned work",
+                    "tasks": tasks,
+                }
+            ),
+        )
         step, phases, commands = started["next_step"], [], []
         for _ in range(self.MAX_STEPS):
             argv = self.follow(step)
@@ -591,7 +613,12 @@ class EveryPhaseTests(CliFlowCase):
         code, _, err = self.wev("task", "next")
         self.assertEqual((code, err["code"]), (2, "checks_required"))
         tasks = [{"id": "a", "title": "a", "objective": "a", "checks": ["test -f greeting.txt"]}]
-        self.write("plan.json", json.dumps({"objective": "x", "tasks": tasks}))
+        self.write(
+            "plan.json",
+            json.dumps(
+                {"risk_notes": "None.", "revert": "git revert", "objective": "x", "tasks": tasks}
+            ),
+        )
         planned = self.ok(*self.follow(started["next_step"]))
         self.assertIn("wev task next", planned["next_step"])
 

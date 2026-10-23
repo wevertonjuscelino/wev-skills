@@ -11,7 +11,7 @@ from wev_skills.agents.spec import AgentSpec
 from wev_skills.config import Config
 from wev_skills.evaluation.cases import Case
 from wev_skills.evaluation.lesson_writer import lesson_request, parse_lesson
-from wev_skills.evaluation.score_runs import Setup, run_configuration
+from wev_skills.evaluation.score_runs import Setup, case_runs, run_configuration
 
 
 def with_lesson(spec: AgentSpec, lesson: Lesson) -> AgentSpec:
@@ -34,7 +34,7 @@ class Pass:
         self, setup: Setup, config: Config, spec: AgentSpec, cases: tuple[Case, ...], now: str
     ) -> None:
         self.setup, self.config, self.spec, self.cases, self.now = setup, config, spec, cases, now
-        self.cost = len(cases) * setup.samples
+        self.cost = setup.samples * sum(case_runs(setup, c) for c in cases)
         self.baseline = run_configuration(setup, spec, cases)
         self.runs = self.baseline.runs
         self.shown = self._shown(spec)

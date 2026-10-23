@@ -11,6 +11,7 @@ from wev_skills.config import PermissionsConfig
 from wev_skills.core.contracts import Mode, PermissionOutcome, RiskLevel
 from wev_skills.core.errors import ApprovalRequired, PermissionDenied, ValidationError
 from wev_skills.core.ports import CommandGate
+from wev_skills.governance.approval_anchor import Anchor
 from wev_skills.governance.approvals import ApprovalStatus, ApprovalStore
 from wev_skills.security.permissions import READ_ONLY_COMMANDS, PermissionPolicy, is_read_only
 from wev_skills.tools.registry import ToolRegistry, ToolSpec
@@ -34,7 +35,10 @@ class PolicyCase(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name).resolve()
-        self.store = ApprovalStore(self.root / "state" / "approvals.json", FixedClock())
+        # A fixed repository: a grant for a push is tied to it (approval_anchor) and stays valid.
+        repo = Anchor(head="c1", tree="t1")
+        path = self.root / "state" / "approvals.json"
+        self.store = ApprovalStore(path, FixedClock(), anchor=lambda: repo)
         self.policy = self.make()
 
     def make(self, **config: object) -> PermissionPolicy:

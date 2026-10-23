@@ -43,7 +43,8 @@ def _t(key: str, **params: object) -> str:
 
 def _store(scope: Scope) -> ApprovalStore:
     ttl = scope.config.permissions.approval_ttl_seconds
-    return ApprovalStore(scope.state_dir / APPROVALS_FILE, ttl_seconds=ttl)
+    anchor = wiring.build_anchor(scope.root, scope.state_dir)
+    return ApprovalStore(scope.state_dir / APPROVALS_FILE, ttl_seconds=ttl, anchor=anchor)
 
 
 def _audit(scope: Scope) -> AuditLog:

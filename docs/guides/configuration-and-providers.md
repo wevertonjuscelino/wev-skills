@@ -136,6 +136,22 @@ How `planning: auto` decides: economy plans anything above trivial; standard and
 
 The first four keys are explained in the [specialists guide](specialists.md). The `score_*` keys bound a scoring pass; a run pinned before they existed reads their defaults (`implemented and tested`; see `tests/unit/test_config_specialists.py`). The scoring loop that reads them (`wev specialists score`, and `run finish` when `score_on_finish` is true) is implemented and tested with fake runners and agents; the real `claude -p` path is implemented but untested until the owner runs it. See "Scored cases" in the [evaluation guide](evaluation.md).
 
+### `review`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `agent` | `""` | Agent that runs the finders and verifiers; required when `depth` is not `off` |
+| `depth` | `off` (`off`, `quick`, `standard`, `deep`) | Review depth. Presets (finders / verifiers / quorum): `quick` 1/1/1, `standard` 3/3/2, `deep` 5/5/3. A high-risk run uses at least `standard` when review is on; `off` stays off whatever the risk or the other keys say |
+| `finders` | `0` (0 to 10) | Finders per round; 0 takes the preset |
+| `verifiers` | `0` (0 to 10) | Verifiers per finding; 0 takes the preset |
+| `quorum` | `0` (0 to 10) | Verifier votes that keep a finding; 0 takes the preset. It may not exceed the verifiers in use |
+| `max_rounds` | `3` (1 to 10) | Most review rounds |
+| `full_rounds` | `2` (0 to 10) | Rounds that run every finder; later rounds narrow to what is still open |
+| `max_runs_per_round` | `12` (1 to 50) | Most finder and verifier runs one round may start |
+| `timeout_seconds` | `600.0` (0.1 to 3600) | Time one finder or verifier run may take |
+
+Status: the keys, their bounds and `review_shape` are implemented and tested (`tests/unit/test_config_review.py`); the rounds, the commands and the finish gate that read them are implemented and tested with fake agents (a real `claude -p` round is implemented but untested). See the [review guide](review.md).
+
 ## Model tiers and routing
 
 The router (`wev route-model`) picks a tier from the classification, then a model from that tier:

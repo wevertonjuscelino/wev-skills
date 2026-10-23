@@ -7,12 +7,15 @@ git queries the engine sends from attributes a test sets, and every other argv f
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import tempfile
 import unittest
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 from tests.unit._agent_helpers import make
 from wev_skills import i18n
@@ -62,7 +65,10 @@ class FakeRunner:
     def _git(self, args: tuple[str, ...]) -> tuple[int | None, str, str]:
         if not self.is_repo:
             return 128, "", "fatal: not a git repository"
+        while args[1:2] == ("-c",):  # the hardening flags run_git puts before the command
+            args = (args[0], *args[3:])
         answers = {
+            ("write-tree",): "tree123",
             ("rev-parse", "--show-toplevel"): self.root,
             ("rev-parse", "HEAD"): self.head,
             ("branch", "--show-current"): self.branch,
@@ -109,11 +115,23 @@ def catalog() -> wiring.AgentCatalog:
     return wiring.AgentCatalog(registry, AgentFactory(registry), frozenset())
 
 
+def isolate_user_config(case: unittest.TestCase) -> Path:
+    """Point HOME and XDG_CONFIG_HOME at a temp dir for ``case``: anything that resolves the
+    configuration (the finish gate does) must never read the real user's file."""
+    home = Path(tempfile.mkdtemp(prefix="wev-home-")).resolve()
+    case.addCleanup(shutil.rmtree, home, True)
+    env = mock.patch.dict(os.environ, {"HOME": str(home), "XDG_CONFIG_HOME": str(home / "config")})
+    env.start()
+    case.addCleanup(env.stop)
+    return home
+
+
 class OrchestratorCase(unittest.TestCase):
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name).resolve()
+        self.home = isolate_user_config(self)
         self.runner = FakeRunner(str(self.root))
         self.clock = TickClock()
         self.overrides: dict[str, Any] = {}
@@ -140,14 +158,19 @@ class OrchestratorCase(unittest.TestCase):
         fields = {"files_touched_estimate": 1, **signals}
         return self.orch().start(objective, mode, TaskSignals(objective, **fields), RUN_ID)
 
-    def plan_file(self, *tasks: dict[str, Any], objective: str = "Do the work") -> str:
+    def plan_file(
+        self, *tasks: dict[str, Any], objective: str = "Do the work", **notes: str
+    ) -> str:
+        """A plan file. It carries risk and revert notes (override with ``risk_notes=""``)."""
         path = self.root / "plan.json"
         filled = [{"title": t["id"], "objective": f"do {t['id']}", **t} for t in tasks]
-        path.write_text(json.dumps({"objective": objective, "tasks": filled}), encoding="utf-8")
+        head = {"risk_notes": "Test plan.", "revert": "git revert the commit.", **notes}
+        body = {"objective": objective, "tasks": filled, **head}
+        path.write_text(json.dumps(body), encoding="utf-8")
         return str(path)
 
-    def set_plan(self, *tasks: dict[str, Any]) -> dict[str, Any]:
-        return self.orch().set_plan(self.plan_file(*tasks))
+    def set_plan(self, *tasks: dict[str, Any], **notes: str) -> dict[str, Any]:
+        return self.orch().set_plan(self.plan_file(*tasks, **notes))
 
     def state(self) -> Any:
         return self.orch().load()

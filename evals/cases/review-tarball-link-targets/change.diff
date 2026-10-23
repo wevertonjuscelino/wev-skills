@@ -1,0 +1,238 @@
+diff --git a/src/wev_skills/commands/skills.py b/src/wev_skills/commands/skills.py
+index 7e4c5eb..2f7264b 100644
+--- a/src/wev_skills/commands/skills.py
++++ b/src/wev_skills/commands/skills.py
+@@ -121,0 +122,5 @@ def _release_for(src: Source, version: str | None) -> check_mod.Release:
++    link = src.changelog.format(version=version)
++    if src.kind == "npm":  # the registry must know the version before a ref is written
++        base = check_mod.BASE_URLS["npm"]
++        check_mod.get_json(check_mod.fetch, f"{base}/{src.package}/{version}")
++        return check_mod.Release(version, link, None)
+@@ -123 +128 @@ def _release_for(src: Source, version: str | None) -> check_mod.Release:
+-    return check_mod.Release(version, src.changelog.format(version=version), tarball)
++    return check_mod.Release(version, link, tarball)
+diff --git a/src/wev_skills/third_party/check.py b/src/wev_skills/third_party/check.py
+index e3ed19c..f50f7b8 100644
+--- a/src/wev_skills/third_party/check.py
++++ b/src/wev_skills/third_party/check.py
+@@ -70 +70 @@ def fetch(url: str, timeout: float) -> bytes:
+-def _get_json(opener: Opener, url: str) -> object:
++def get_json(opener: Opener, url: str) -> object:
+@@ -101 +101 @@ def _npm(src: Source, opener: Opener, base: str) -> Release:
+-    doc = _get_json(opener, f"{base}/{src.package}")
++    doc = get_json(opener, f"{base}/{src.package}")
+@@ -111 +111 @@ def _github_head(src: Source, opener: Opener, base: str) -> Release:
+-    doc = _get_json(opener, f"{base}/repos/{src.package}/commits/HEAD")
++    doc = get_json(opener, f"{base}/repos/{src.package}/commits/HEAD")
+@@ -122 +122 @@ def _github(src: Source, opener: Opener, base: str) -> Release:
+-        doc = _get_json(opener, f"{base}/repos/{src.package}/releases/latest")
++        doc = get_json(opener, f"{base}/repos/{src.package}/releases/latest")
+diff --git a/src/wev_skills/third_party/fetch.py b/src/wev_skills/third_party/fetch.py
+index 0694d43..4a39ab8 100644
+--- a/src/wev_skills/third_party/fetch.py
++++ b/src/wev_skills/third_party/fetch.py
+@@ -9,0 +10 @@ import tarfile
++import time
+@@ -25,0 +27 @@ ALLOWED_HOSTS: dict[str, frozenset[str]] = {
++MAX_MEMBERS = 10_000
+@@ -46,0 +49,3 @@ class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
++CHUNK = 64 * 1024
++
++
+@@ -47,0 +53,2 @@ def download(url: str, timeout: float) -> bytes:
++    """The body of ``url``; ``timeout`` bounds the whole download, not each socket read."""
++    deadline = time.monotonic() + timeout
+@@ -49,0 +57,2 @@ def download(url: str, timeout: float) -> bytes:
++    chunks: list[bytes] = []
++    size = 0
+@@ -51,16 +60,8 @@ def download(url: str, timeout: float) -> bytes:
+-        body: bytes = response.read(MAX_ARCHIVE + 1)
+-    if len(body) > MAX_ARCHIVE:
+-        raise CheckFailed("too_large")
+-    return body
+-
+-
+-def _inside(root: PurePosixPath, target: PurePosixPath) -> bool:
+-    parts: list[str] = []
+-    for part in (root / target).parts[len(root.parts) :]:
+-        if part == "..":
+-            if not parts:
+-                return False
+-            parts.pop()
+-        elif part != ".":
+-            parts.append(part)
+-    return True
++        while chunk := response.read1(CHUNK):
++            chunks.append(chunk)
++            size += len(chunk)
++            if size > MAX_ARCHIVE:
++                raise CheckFailed("too_large")
++            if time.monotonic() > deadline:
++                raise CheckFailed("timed_out")
++    return b"".join(chunks)
+@@ -72,5 +73 @@ def _check_member(member: tarfile.TarInfo) -> None:
+-    root = PurePosixPath("/root")
+-    if member.issym():
+-        link = PurePosixPath(member.linkname)
+-        unsafe = unsafe or link.is_absolute() or not _inside(root, name.parent / link)
+-    elif member.islnk():
++    if member.issym() or member.islnk():
+@@ -78 +75 @@ def _check_member(member: tarfile.TarInfo) -> None:
+-        unsafe = unsafe or link.is_absolute() or not _inside(root, link)
++        unsafe = unsafe or link.is_absolute() or ".." in link.parts
+@@ -83,0 +81 @@ def _check_members(archive: tarfile.TarFile) -> None:
++    """Walk the headers one by one, stopping at the first limit, before anything is written."""
+@@ -85 +83,3 @@ def _check_members(archive: tarfile.TarFile) -> None:
+-    for member in archive.getmembers():
++    for count, member in enumerate(archive, start=1):
++        if count > MAX_MEMBERS:
++            raise CheckFailed("too_many_members")
+@@ -92 +92,21 @@ def _check_members(archive: tarfile.TarFile) -> None:
+-def _unpack(data: bytes, work: Path) -> None:
++def _single_top(work: Path) -> Path:
++    """GitHub wraps the files in one directory; anything else is not a release tarball."""
++    entries = list(work.iterdir())
++    if any(entry.is_symlink() for entry in entries):
++        raise CheckFailed("unsafe_member")
++    if len(entries) != 1 or not entries[0].is_dir():
++        raise CheckFailed("bad_archive")
++    return entries[0]
++
++
++def _check_links(top: Path) -> None:
++    """Every link must land strictly inside ``top``, the directory that becomes the version."""
++    base = top.resolve()
++    for path in top.rglob("*"):
++        if path.is_symlink():
++            target = path.resolve()
++            if target == base or not target.is_relative_to(base):
++                raise CheckFailed("unsafe_member")
++
++
++def _unpack(data: bytes, work: Path) -> Path:
+@@ -99,11 +119,3 @@ def _unpack(data: bytes, work: Path) -> None:
+-    base = work.resolve()
+-    for path in work.rglob("*"):
+-        if path.is_symlink() and not path.resolve().is_relative_to(base):
+-            raise CheckFailed("unsafe_member")
+-
+-
+-def _place(work: Path, target: Path) -> None:
+-    """Move the archive's single top-level directory (GitHub adds one) to ``target``."""
+-    entries = list(work.iterdir())
+-    only = entries[0] if len(entries) == 1 and entries[0].is_dir() else work
+-    os.replace(only, target)
++    top = _single_top(work)
++    _check_links(top)
++    return top
+@@ -124 +136,6 @@ def _install_github(release: Release, target: Path, opener: Opener) -> None:
+-    data = opener(release.tarball, DOWNLOAD_TIMEOUT)
++    try:
++        data = opener(release.tarball, DOWNLOAD_TIMEOUT)
++    except CheckFailed:
++        raise
++    except OSError as exc:  # URLError, HTTPError, timeouts
++        raise CheckFailed("unreachable") from exc
+@@ -130,2 +147 @@ def _install_github(release: Release, target: Path, opener: Opener) -> None:
+-        _unpack(data, work)
+-        _place(work, target)
++        os.replace(_unpack(data, work), target)
+diff --git a/tests/unit/test_third_party_fetch.py b/tests/unit/test_third_party_fetch.py
+index 045fb11..5ab56f4 100644
+--- a/tests/unit/test_third_party_fetch.py
++++ b/tests/unit/test_third_party_fetch.py
+@@ -10,0 +11 @@ import tempfile
++import time
+@@ -11,0 +13 @@ import unittest
++import urllib.error
+@@ -15,0 +18 @@ from unittest import mock
++from tests.fixtures.fake_registry_server import fake_registry
+@@ -99,0 +103,77 @@ class FetchCase(unittest.TestCase):
++    def test_links_cannot_alias_the_source_directory(self) -> None:
++        def top_is_link(a: tarfile.TarFile) -> None:
++            add_link(a, "top", ".")
++            add_file(a, "top/x")
++
++        def up(a: tarfile.TarFile) -> None:
++            add_file(a, "top/f")
++            add_link(a, "top/l", "..")
++
++        def chained(a: tarfile.TarFile) -> None:
++            add_file(a, "top/f")
++            add_link(a, "top/d", ".")
++            add_link(a, "top/e", "d/../..")
++
++        def self_link(a: tarfile.TarFile) -> None:
++            add_file(a, "top/f")
++            add_link(a, "top/d", ".")
++
++        for build in (top_is_link, up, chained, self_link):
++            with self.subTest(build.__name__):
++                self.refused(tarball(build), "unsafe_member")
++
++    def test_benign_relative_link_is_kept(self) -> None:
++        def build(archive: tarfile.TarFile) -> None:
++            add_file(archive, "top/b")
++            add_link(archive, "top/a", "b")
++
++        self.assertEqual((self.install(tarball(build)) / "a").resolve().name, "b")
++
++    def test_summed_sizes_over_the_cap_refused(self) -> None:
++        def build(archive: tarfile.TarFile) -> None:
++            add_file(archive, "top/a", b"y" * 6)
++            add_file(archive, "top/b", b"y" * 6)
++
++        with mock.patch.object(fetch, "MAX_ARCHIVE", 10):
++            self.refused(tarball(build), "too_large")
++
++    def test_too_many_members_refused(self) -> None:
++        def build(archive: tarfile.TarFile) -> None:
++            for index in range(fetch.MAX_MEMBERS + 1):
++                info = tarfile.TarInfo(f"top/d{index}")
++                info.type = tarfile.DIRTYPE
++                archive.addfile(info)
++
++        self.refused(tarball(build), "too_many_members")
++
++    def test_two_top_level_entries_refused(self) -> None:
++        def build(archive: tarfile.TarFile) -> None:
++            add_file(archive, "one/a")
++            add_file(archive, "two/b")
++
++        self.refused(tarball(build), "bad_archive")
++
++    def test_network_errors_become_unreachable(self) -> None:
++        for error in (urllib.error.URLError("x"), TimeoutError(), ConnectionResetError()):
++            with self.subTest(error=type(error).__name__):
++
++                def opener(_url: str, _timeout: float, error: OSError = error) -> bytes:
++                    raise error
++
++                release = check.Release("v1.0.0", "https://c", URL)
++                with self.assertRaises(check.CheckFailed) as caught:
++                    fetch.install_version(GH, release, self.home, opener, Runner())  # type: ignore[arg-type]
++                self.assertEqual(caught.exception.code, "unreachable")
++
++    def test_download_stops_at_the_wall_clock_deadline_when_a_server_drips(self) -> None:
++        with fake_registry({"/a.tgz": (200, b"x" * 50, 0.2)}) as fake:
++            started = time.monotonic()
++            with self.assertRaises(check.CheckFailed) as caught:
++                fetch.download(f"{fake.url}/a.tgz", 0.6)
++        self.assertEqual(caught.exception.code, "timed_out")
++        self.assertLess(time.monotonic() - started, 3)
++
++    def test_download_returns_the_body(self) -> None:
++        with fake_registry({"/a.tgz": (200, b"abc")}) as fake:
++            self.assertEqual(fetch.download(f"{fake.url}/a.tgz", 5), b"abc")
++
+@@ -210,0 +291,10 @@ class InstallCliCase(unittest.TestCase):
++    def test_npm_version_must_exist_on_the_registry(self) -> None:
++        routes = {"/rea-agents/2.0.0": (200, b"{}")}
++        with fake_registry(routes) as fake, mock.patch.dict(check.BASE_URLS, {"npm": fake.url}):
++            code, payload = self.run_main("skills", "install", "rea", "--version", "2.0.0")
++            self.assertEqual((code, payload["version"]), (0, "2.0.0"))
++            code, _ = self.run_main("skills", "install", "rea", "--version", "9.9.9")
++        self.assertEqual(code, 8)
++        base = self.dir / "data/wev-skills/third-party/rea"
++        self.assertEqual([p.name for p in base.iterdir()], ["2.0.0"])
++

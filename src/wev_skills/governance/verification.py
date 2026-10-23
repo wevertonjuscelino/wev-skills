@@ -10,21 +10,35 @@ rewrites both files is not caught.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from wev_skills.core._codec import Serializable
+
 if TYPE_CHECKING:
-    from wev_skills.governance.approvals import ApprovalRequest, Mismatch
+    from wev_skills.governance.approvals import ApprovalRequest
 
 BINDING_MISMATCH = "binding_mismatch"
 GRANT_NOT_IN_AUDIT = "grant_not_in_audit"
 DENIAL_NOT_IN_AUDIT = "denial_not_in_audit"
 DENIAL_OVERWRITTEN = "denial_overwritten"
 RECORD_MISSING = "record_missing"
-_KEY_FIELDS = ("id", "generation", "binding", "decided_at")
+_KEY_FIELDS = ("id", "generation", "binding", "decided_at", "head", "tree")
+_KEY_DEFAULTS = {"head": "", "tree": ""}
+"""Fields an event written before grants were anchored lacks; they were empty then."""
 
 
-def _key(data: Mapping[str, Any]) -> tuple[Any, ...]:
-    return tuple(data.get(name) for name in _KEY_FIELDS)
+@dataclass(frozen=True)
+class Mismatch(Serializable):
+    """One disagreement between the approvals file and the audit log."""
+
+    id: str
+    problem: str
+
+
+def audit_key(data: Mapping[str, Any]) -> tuple[Any, ...]:
+    """What ties a record to its decision event: identity, decision time and anchor."""
+    return tuple(data.get(name, _KEY_DEFAULTS.get(name)) for name in _KEY_FIELDS)
 
 
 def _events(events: Sequence[Mapping[str, Any]], kind: str) -> list[Mapping[str, Any]]:
@@ -47,7 +61,7 @@ def _record_problems(
     expected = binding_hash(record.argv, record.cwd, record.run_id, record.generation)
     if record.binding != expected or record.action_hash != action_hash(record.argv):
         problems.append(BINDING_MISMATCH)
-    key = _key(record.to_dict())
+    key = audit_key(record.to_dict())
     honored = record.status in (ApprovalStatus.GRANTED, ApprovalStatus.CONSUMED)
     if honored and key not in granted:
         problems.append(GRANT_NOT_IN_AUDIT)
@@ -55,7 +69,7 @@ def _record_problems(
         (data.get("id"), data.get("generation")) == (record.id, record.generation)
         for data in denied
     )
-    if record.status is ApprovalStatus.DENIED and key not in {_key(data) for data in denied}:
+    if record.status is ApprovalStatus.DENIED and key not in {audit_key(data) for data in denied}:
         problems.append(DENIAL_NOT_IN_AUDIT)
     if record.status is not ApprovalStatus.DENIED and was_denied:
         problems.append(DENIAL_OVERWRITTEN)
@@ -71,11 +85,10 @@ def mismatches(
         EVENT_GRANTED,
         EVENT_REOPENED,
         REPLACES_FIELD,
-        Mismatch,
     )
 
     granted_events = _events(events, EVENT_GRANTED)
-    granted = {_key(data) for data in granted_events}
+    granted = {audit_key(data) for data in granted_events}
     denied = _events(events, EVENT_DENIED)
     found = [
         Mismatch(record.id, problem)

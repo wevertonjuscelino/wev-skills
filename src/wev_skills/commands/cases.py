@@ -14,7 +14,7 @@ from wev_skills.commands._scope import resolve_scope
 from wev_skills.core import wiring
 from wev_skills.core.errors import ValidationError
 from wev_skills.core.ports import SubprocessRunner
-from wev_skills.evaluation import cases, workspace
+from wev_skills.evaluation import cases, review_cases, workspace
 
 
 def _check_at_base(scope: Any, loaded: tuple[cases.Case, ...]) -> list[dict[str, Any]]:
@@ -36,7 +36,12 @@ def _run_all(
     scratch: Path,
 ) -> list[dict[str, Any]]:
     results = []
-    for case in loaded:
+    stale = [c.id for c in loaded if c.kind == "review" and not _diff_matches(runner, scope, c)]
+    if stale:
+        raise ValidationError(
+            "case_diff_stale", i18n.t("evaluation.cases.diff_stale", ids=", ".join(stale)), {}
+        )
+    for case in (c for c in loaded if c.kind == "build"):
         with workspace.case_workspace(runner, scope.root, case, scratch) as path:
             result = workspace.run_check(
                 runner,
@@ -55,6 +60,20 @@ def _run_all(
             }
         )
     return results
+
+
+def _diff_matches(runner: SubprocessRunner, scope: Any, case: cases.Case) -> bool:
+    """The stored change.diff is byte for byte what git prints between the case's commits."""
+    fresh = workspace.run_git(
+        runner,
+        scope.root,
+        *review_cases.DIFF_ARGS,
+        "--end-of-options",
+        case.base_commit,
+        case.head_commit,
+    )
+    stored = scope.root / cases.CASES_DIR / case.id / review_cases.DIFF_NAME
+    return fresh.exit_code == 0 and fresh.stdout.encode() == stored.read_bytes()
 
 
 def _verdict(results: list[dict[str, Any]]) -> list[dict[str, Any]]:

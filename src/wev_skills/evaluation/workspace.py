@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -27,10 +27,14 @@ GIT_HARDENING = ("-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null")
 GIT_ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
 
 
-def run_git(runner: Runner, root: Path, *args: str) -> RawCommandResult:
-    env = {key: os.environ[key] for key in ("PATH", "HOME") if key in os.environ} | GIT_ENV
+def run_git(
+    runner: Runner, root: Path, *args: str, env: Mapping[str, str] | None = None
+) -> RawCommandResult:
+    """One hardened git call; ``env`` is merged over the minimal environment."""
+    base = {key: os.environ[key] for key in ("PATH", "HOME") if key in os.environ} | GIT_ENV
+    merged = base | dict(env or {})
     argv = ("git", *GIT_HARDENING, *args)
-    return runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, env)
+    return runner.run(argv, str(root), GIT_TIMEOUT_SECONDS, merged)
 
 
 SKIP_GIT_ATTR = "wev_skip_git"
@@ -48,15 +52,19 @@ class GitTampered(StateConflict):
 
 
 @contextmanager
-def case_workspace(runner: Runner, root: Path, case: Case, scratch: Path) -> Iterator[Path]:
-    """Check out ``case.base_commit`` detached under ``scratch``; always remove it on exit."""
-    found = run_git(runner, root, "cat-file", "-e", f"{case.base_commit}^{{commit}}")
+def case_workspace(
+    runner: Runner, root: Path, case: Case, scratch: Path, commit: str | None = None
+) -> Iterator[Path]:
+    """Check out ``commit`` (default ``case.base_commit``) detached under ``scratch``;
+    always remove it on exit."""
+    commit = commit or case.base_commit
+    found = run_git(runner, root, "cat-file", "-e", f"{commit}^{{commit}}")
     if found.exit_code != 0:
-        message = i18n.t("evaluation.workspace.base_missing", id=case.id, commit=case.base_commit)
+        message = i18n.t("evaluation.workspace.base_missing", id=case.id, commit=commit)
         raise NotFound("case_base_missing", message, {"id": case.id})
     path = scratch / f"{case.id}-{uuid.uuid4().hex[:8]}"
     scratch.mkdir(parents=True, exist_ok=True)
-    added = run_git(runner, root, "worktree", "add", "--detach", str(path), case.base_commit)
+    added = run_git(runner, root, "worktree", "add", "--detach", str(path), commit)
     if added.exit_code != 0:
         message = i18n.t("evaluation.workspace.add_failed", id=case.id, error=added.stderr.strip())
         raise StateConflict("case_workspace_failed", message, {"id": case.id})

@@ -23,6 +23,7 @@ O motor Python, feito só com a biblioteca padrão, oferece a CLI JSON `wev`. Um
 | Registro de agentes, herança e exportação de subagentes | Implementado e testado | Agentes exportados não foram carregados em sessão real |
 | Entrevista de objetivo: até três perguntas por rodada | Implementado e testado | CLI local e briefs armazenados; entrevista conduzida por modelo não validada |
 | Especialistas de projeto, experiência limitada e orçamento de execução | Implementado e testado | Só registros do motor; lições consultivas; unidades de comando, não tokens ou dinheiro |
+| Revisão em camadas: `wev review` (REVIEW.md, localizadores e verificadores, rodadas, porta do finish), `run report --format pr`, `specialists score --compare` | Implementado e testado com agentes falsos; uma rodada real com `claude -p` e uma nota real do revisor estão implementadas mas não testadas | Desligada por padrão; as leituras dos localizadores não têm restrição de caminho; uma proteção, não uma fronteira; veja [o guia de revisão](docs/guides/review.pt-BR.md) |
 | Skills, hooks e manifestos do plugin | Implementado e testado | Testes de formato e subprocesso; integração real não testada |
 | Adaptadores opcionais JEV, SSH/tmux e avaliação | Simulado com mocks | Uma resposta JEV gravada e hosts remotos simulados |
 | Codex, Gemini CLI e OpenCode: exportação do pacote, instalação, desinstalação, codecs dos hooks | Implementado e testado com CLIs de harness falsas; ainda não executado contra os harnesses reais (parte e2e) | Um ask de política vira allow mais aviso nesses harnesses; veja [SECURITY.pt-BR.md](SECURITY.pt-BR.md) |
@@ -127,6 +128,7 @@ A entrada de objetivos está documentada no [guia de entrevista](docs/guides/int
 | Plano → tarefa → executar → verificar → relatar; retomada e guardas de execução | [Orquestração](docs/guides/orchestration.pt-BR.md) | `wev-orchestrate` |
 | Specs JSON de agentes, templates, herança e tetos de permissão | [Criando agentes](docs/guides/creating-agents.pt-BR.md) | `wev-agent-builder` |
 | Avaliação determinística da mecânica do harness | [Avaliação](docs/guides/evaluation.pt-BR.md) | `wev-harness-evaluation` |
+| Revisão em camadas opcional das mudanças de uma execução, `REVIEW.md`, casos de revisão e corpo do PR | [Revisão em camadas](docs/guides/review.pt-BR.md) | `wev-orchestrate` |
 | SSH com inventário e sessões tmux pertencentes à tarefa | [Operações remotas](docs/guides/remote-ops.pt-BR.md) | `wev-remote-ops` |
 | Engenharia reversa com evidências usando as ferramentas rea (plano de mudança ou especificação clean-room) | [Skill](skills/wev-reverse/SKILL.md) | `wev-reverse` |
 | Diretrizes gerenciadas de projeto no `CLAUDE.md` | [Skill de diretrizes](skills/wev-claude-md/SKILL.md) | `wev-claude-md` |

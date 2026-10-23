@@ -1,5 +1,7 @@
 {
   "objective": "Add a parser module and document it",
+  "risk_notes": "New module only; nothing imports it yet, so a bad parser cannot break existing code.",
+  "revert": "git revert the commit that adds src/parser.py and its docs.",
   "tasks": [
     {
       "id": "parser",

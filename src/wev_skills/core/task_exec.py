@@ -58,9 +58,15 @@ def _ask_for_approval(
     risk: RiskLevel,
     exc: ApprovalRequired,
 ) -> ApprovalRequired:
-    """Create the request a human can grant, note it in the state, and name that request."""
+    """Create the request a human can grant, note it in the state, and name that request.
+
+    A grant that ``HEAD`` or the tree has outgrown (``approval_anchor``) is named as stale.
+    """
+    cwd = str(exc.details.get("cwd", ""))
+    stale = engine.services.approvals.is_stale(tuple(argv), cwd)
+    message = i18n.t("security.approval.stale_grant", reason=exc.message) if stale else exc.message
     request = engine.services.approvals.request(
-        tuple(argv), risk, engine.clean(exc.message), REQUESTER, str(exc.details.get("cwd", ""))
+        tuple(argv), risk, engine.clean(exc.message), REQUESTER, cwd
     )
     engine.commit(
         lambda current: engine.note_approval(current, request.id, target, progress.KIND_COMMAND),
@@ -70,11 +76,12 @@ def _ask_for_approval(
     step = steps.approval_step(request.id)
     details = {
         "approval_id": request.id,
-        "reason": exc.message,
+        "reason": message,
         "next_step": step,
         "next_steps": [step],
+        **({"stale_grant": True} if stale else {}),
     }
-    return ApprovalRequired("approval_required", exc.message, details)
+    return ApprovalRequired("approval_required", message, details)
 
 
 def polling_accepted(state: RunState, task_id: str | None, target: str) -> bool:

@@ -310,6 +310,10 @@ def _find_cycle_members(tasks: tuple[PlanTask, ...]) -> list[str]:
 class Plan(Serializable):
     objective: str
     tasks: tuple[PlanTask, ...] = ()
+    risk_notes: str = ""
+    """What could go wrong; required with a medium or high risk (see ``plan_flow``)."""
+    revert: str = ""
+    """How to undo the change; required with a medium or high risk."""
 
     def problems(self) -> list[str]:
         """Return every structural problem found (empty when the plan is valid)."""

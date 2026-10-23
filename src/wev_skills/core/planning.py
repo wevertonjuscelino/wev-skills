@@ -95,6 +95,7 @@ def load_plan(path: str) -> Plan:
     clean = redact_mapping(data)
     tasks = [_normalized_task(task) for task in clean.get("tasks", [])]
     plan = Plan.from_dict({**clean, "tasks": tasks})
+    plan = replace(plan, risk_notes=plan.risk_notes.strip(), revert=plan.revert.strip())
     plan.validate()
     if not plan.tasks:
         raise ValidationError("invalid_plan", i18n.t("orch.error.empty_plan"))
