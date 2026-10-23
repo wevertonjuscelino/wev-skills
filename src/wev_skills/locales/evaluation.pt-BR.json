@@ -128,5 +128,11 @@
   "evaluation.scoring.git_config_changed": "O diretório git do repositório (config, hooks ou info) mudou durante a pontuação; nada foi decidido",
   "evaluation.scoring.bad_history": "Uma linha do histórico de pontuações não é JSON válido",
   "evaluation.scoring.plan": "A pontuação prevê até {planned} execuções de agente e pedidos de lição (limite {cap}, specialists.score_max_runs); isso pode demorar, então rode em um terminal ou em segundo plano",
-  "evaluation.scoring.agent_timed_out": "O agente excedeu o tempo antes de terminar; a verificação não foi executada."
+  "evaluation.scoring.agent_timed_out": "O agente excedeu o tempo antes de terminar; a verificação não foi executada.",
+  "evaluation.cases.check_required": "um caso de build precisa de um check não vazio",
+  "evaluation.cases.review_no_check": "um caso de review não aceita check nem files",
+  "evaluation.cases.head_required": "um caso de review precisa de head_commit",
+  "evaluation.cases.diff_missing": "um caso de review precisa de change.diff na pasta do caso",
+  "evaluation.cases.expect_outside": "o intervalo esperado em {file} não toca nenhuma linha de change.diff",
+  "evaluation.cases.diff_stale": "Estes casos de review têm um change.diff diferente de git diff base_commit head_commit: {ids}"
 }

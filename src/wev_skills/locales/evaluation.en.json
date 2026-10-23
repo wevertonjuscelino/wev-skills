@@ -128,5 +128,11 @@
   "evaluation.scoring.git_config_changed": "The repository's git directory (config, hooks or info) changed while scoring; nothing was decided",
   "evaluation.scoring.bad_history": "A line of the score history is not valid JSON",
   "evaluation.scoring.plan": "Scoring plans up to {planned} agent runs and lesson requests (cap {cap}, specialists.score_max_runs); this can take a long time, so run it from a terminal or in the background",
-  "evaluation.scoring.agent_timed_out": "The agent timed out before finishing; the check was not run."
+  "evaluation.scoring.agent_timed_out": "The agent timed out before finishing; the check was not run.",
+  "evaluation.cases.check_required": "a build case needs a non-empty check",
+  "evaluation.cases.review_no_check": "a review case takes neither check nor files",
+  "evaluation.cases.head_required": "a review case needs head_commit",
+  "evaluation.cases.diff_missing": "a review case needs change.diff in its case folder",
+  "evaluation.cases.expect_outside": "the expected range in {file} touches no line of change.diff",
+  "evaluation.cases.diff_stale": "These review cases have a change.diff that differs from git diff base_commit head_commit: {ids}"
 }

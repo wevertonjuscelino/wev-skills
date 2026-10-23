@@ -52,15 +52,19 @@ class GitTampered(StateConflict):
 
 
 @contextmanager
-def case_workspace(runner: Runner, root: Path, case: Case, scratch: Path) -> Iterator[Path]:
-    """Check out ``case.base_commit`` detached under ``scratch``; always remove it on exit."""
-    found = run_git(runner, root, "cat-file", "-e", f"{case.base_commit}^{{commit}}")
+def case_workspace(
+    runner: Runner, root: Path, case: Case, scratch: Path, commit: str | None = None
+) -> Iterator[Path]:
+    """Check out ``commit`` (default ``case.base_commit``) detached under ``scratch``;
+    always remove it on exit."""
+    commit = commit or case.base_commit
+    found = run_git(runner, root, "cat-file", "-e", f"{commit}^{{commit}}")
     if found.exit_code != 0:
-        message = i18n.t("evaluation.workspace.base_missing", id=case.id, commit=case.base_commit)
+        message = i18n.t("evaluation.workspace.base_missing", id=case.id, commit=commit)
         raise NotFound("case_base_missing", message, {"id": case.id})
     path = scratch / f"{case.id}-{uuid.uuid4().hex[:8]}"
     scratch.mkdir(parents=True, exist_ok=True)
-    added = run_git(runner, root, "worktree", "add", "--detach", str(path), case.base_commit)
+    added = run_git(runner, root, "worktree", "add", "--detach", str(path), commit)
     if added.exit_code != 0:
         message = i18n.t("evaluation.workspace.add_failed", id=case.id, error=added.stderr.strip())
         raise StateConflict("case_workspace_failed", message, {"id": case.id})
