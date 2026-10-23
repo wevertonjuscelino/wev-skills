@@ -147,7 +147,8 @@ def _decisions(engine: Engine, opening: _Opening) -> Change:
         )
         for record in records:
             current = with_decision(current, record)
-        if opening.repo is not None and not opening.base:
+        reviewing = engine.services.config.review.depth != DEPTH_OFF
+        if reviewing and opening.repo is not None and not opening.base:
             missing = i18n.t("review.decision.base_missing")
             current = with_decision(current, engine.decision(Phase.REQUEST, missing, (), "review"))
         return with_phase(current, Phase.PLAN if planned else Phase.EXECUTE)

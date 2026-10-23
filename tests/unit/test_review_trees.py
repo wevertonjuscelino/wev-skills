@@ -230,8 +230,11 @@ class RunBaseTest(RepoCase):
         path = self.root / "state" / "runs" / "r1" / "state.json"
         return RunState.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
-    def start(self) -> None:
-        (self.root / "wev.json").write_text(json.dumps({"state_dir": "state"}))
+    def start(self, review: bool = True) -> None:
+        config: dict[str, object] = {"state_dir": "state"}
+        if review:
+            config["review"] = {"depth": "quick", "agent": "r"}
+        (self.root / "wev.json").write_text(json.dumps(config))
         previous = os.getcwd()
         os.chdir(self.root)
         self.addCleanup(os.chdir, previous)
@@ -266,6 +269,14 @@ class RunBaseTest(RepoCase):
         with i18n.use_language("en"):
             expected = i18n.t("review.decision.base_missing")
         self.assertIn(expected, [d.decision for d in state.decisions])
+
+    def test_with_review_off_base_stays_empty_and_no_decision_is_recorded(self) -> None:
+        self.start(review=False)
+        state = self.state()
+        self.assertEqual(state.base, "")
+        with i18n.use_language("en"):
+            missing = i18n.t("review.decision.base_missing")
+        self.assertNotIn(missing, [d.decision for d in state.decisions])
 
     def test_state_without_base_loads(self) -> None:
         self.start()
