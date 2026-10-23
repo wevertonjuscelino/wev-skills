@@ -5,7 +5,7 @@ from __future__ import annotations
 from wev_skills import i18n
 from wev_skills.agents.spec import AgentSpec
 from wev_skills.config import LimitsConfig
-from wev_skills.core.errors import ProviderError
+from wev_skills.core.errors import ProviderError, StateConflict
 from wev_skills.core.textsafe import clean_text
 from wev_skills.decisions.local import LocalPolicyProvider
 from wev_skills.evaluation.cases import CASES_DIR, Case
@@ -42,6 +42,10 @@ def review_sample(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Fail
             )  # fmt: skip
             try:
                 result = find_and_vote(inputs)
+            except StateConflict as exc:  # a diff over the prompt cap fails the sample, unrun
+                if exc.code != "review_diff_too_large":
+                    raise
+                return False, Failure(case, str(exc), diff[:CONTEXT_CHARS]), 0
             except ProviderError as exc:
                 if exc.code not in INCOMPLETE_CODES:
                     raise

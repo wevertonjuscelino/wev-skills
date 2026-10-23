@@ -6,11 +6,23 @@ import json
 from collections.abc import Sequence
 
 from wev_skills import i18n
+from wev_skills.core.errors import StateConflict
 from wev_skills.review.findings import BODY_MAX, MAX_FINDINGS, TITLE_MAX, RawFinding
 from wev_skills.review.guide import ReviewGuide
 from wev_skills.security.redact import redact
 from wev_skills.security.untrusted import wrap
 from wev_skills.state.review_records import FindingRecord
+
+MAX_PROMPT_CHARS = 100_000
+"""Refused, never cut: ``wrap`` caps at twice as much, so it cannot cut a diff."""
+
+
+def check_size(prompt: str, lang: str) -> str:
+    """``prompt`` when it fits; else the round is refused before any agent runs."""
+    if len(prompt) > MAX_PROMPT_CHARS:
+        text = i18n.t("review.error.diff_too_large", lang, size=len(prompt), cap=MAX_PROMPT_CHARS)
+        raise StateConflict("review_diff_too_large", text)
+    return prompt
 
 
 def _fenced(text: str, source: str) -> str:

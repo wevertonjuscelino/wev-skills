@@ -54,5 +54,6 @@
   "review.gate.config_weakened": "Cannot finish: this run lowered review.depth or changed review.agent or agents.project_dir in the config file. Make that change outside a run.",
   "review.pr.none": "Not given.",
   "review.pr.dismissed": "Dismissed: {id} [{tag}] {outcome}: {reason}",
-  "review.pr.risk_tier": "Risk tier: {tier}"
+  "review.pr.risk_tier": "Risk tier: {tier}",
+  "review.error.diff_too_large": "The review input is {size} characters, over the limit of {cap}; nothing was run. Split the work into smaller runs and review again."
 }

@@ -40,7 +40,8 @@ class FakeAgent:
         verifier = '"votes"' in objective
         queue = self.verifier_replies if verifier else self.finder_replies
         if not queue:
-            return None
+            empty = '{"votes": []}' if verifier else '{"findings": []}'
+            return AgentRunResult(True, empty) if verifier or '"findings"' in objective else None
         reply = queue.pop(0)
         return reply if isinstance(reply, AgentRunResult) else AgentRunResult(True, reply)
 

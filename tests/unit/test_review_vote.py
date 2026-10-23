@@ -10,7 +10,7 @@ from tests.unit._agent_helpers import make
 from wev_skills.config import LimitsConfig
 from wev_skills.config_review import ReviewShape
 from wev_skills.core.contracts import AgentRunResult
-from wev_skills.core.errors import ProviderError
+from wev_skills.core.errors import ProviderError, StateConflict
 from wev_skills.core.ports import READ_ONLY_TOOLS
 from wev_skills.decisions.local import LocalPolicyProvider
 from wev_skills.review.findings import finding_id
@@ -214,12 +214,36 @@ class VoteTest(unittest.TestCase):
         self.assertEqual(caught.exception.code, "review_agent_failed")
         self.assertEqual(caught.exception.details["runs_used"], 2)
 
-    def test_malformed_finder_output_counts_as_no_findings(self) -> None:
-        agent = FakeAgent(finder_replies=["not json at all"])
-        result = find_and_vote(self.inputs(agent, ReviewShape(1, 1, 1)))
-        self.assertEqual((result.kept, result.runs_used), ((), 1))
-
     def test_runs_used_counts_every_run(self) -> None:
         agent = FakeAgent(finder_replies=[found(item())] * 3, verifier_replies=[votes(vote(0))] * 2)
         result = find_and_vote(self.inputs(agent, ReviewShape(3, 2, 1)))
         self.assertEqual((result.runs_used, agent.runs), (5, 5))
+
+    def test_prose_finder_answers_are_incomplete_when_none_parsed(self) -> None:
+        for reply in ("Looks fine to me.", "{not json", json.dumps({"other": []}), found() * 30000):
+            agent = FakeAgent(finder_replies=[reply])
+            with self.assertRaises(ProviderError) as caught:
+                find_and_vote(self.inputs(agent, ReviewShape(1, 1, 1)))
+            self.assertEqual(caught.exception.code, "review_incomplete")
+
+    def test_one_parsed_finder_is_enough(self) -> None:
+        agent = FakeAgent(finder_replies=["prose", found()])
+        result = find_and_vote(self.inputs(agent, ReviewShape(2, 1, 1)))
+        self.assertEqual(result.kept, ())
+
+    def test_garbled_ballot_does_not_count_toward_the_quorum(self) -> None:
+        agent = FakeAgent(
+            finder_replies=[found(item())], verifier_replies=[votes(vote(0)), "I agree with all"]
+        )
+        with self.assertRaises(ProviderError) as caught:
+            find_and_vote(self.inputs(agent, ReviewShape(1, 2, 2)))
+        self.assertEqual(caught.exception.code, "review_incomplete")
+
+    def test_oversized_prompt_is_refused_before_any_agent_runs(self) -> None:
+        agent = FakeAgent(finder_replies=[found()])
+        big = self.inputs(agent, ReviewShape(1, 1, 1), diff="x" * 100_001)
+        with self.assertRaises(StateConflict) as caught:
+            find_and_vote(big)
+        self.assertEqual(caught.exception.code, "review_diff_too_large")
+        self.assertEqual(agent.runs, 0)
+        self.assertIn("over the limit of 100000", str(caught.exception))

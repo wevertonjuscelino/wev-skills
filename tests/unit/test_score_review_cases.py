@@ -118,6 +118,14 @@ class ScoreReviewCaseTest(ReviewScoreCase):
         # the one finder run, plus the lesson request the failed case then triggers
         self.assertEqual((report.baseline, report.runs_used), ({"r1": 0}, 2))
 
+    def test_oversized_diff_fails_the_sample_without_running_an_agent(self) -> None:
+        path = self.root / "evals" / "cases" / "r1" / "change.diff"
+        path.write_text(path.read_text().replace("line 21 is broken", "x" * 100_000))
+        git(self.root, "commit", "-qam", "big diff")
+        agent = SpecAgent()
+        self.assertEqual(self.score(agent).baseline, {"r1": 0})
+        self.assertEqual(agent.runs, 0)
+
     def test_runs_per_sample_in_plan_and_cap(self) -> None:
         self.assertEqual(planned_runs(2, 0, 0, 3, 0, runs_per_sample=2), 12)
         self.assertEqual(planned_runs(2, 0, 0, 3, 0), 6)

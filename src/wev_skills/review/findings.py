@@ -51,15 +51,25 @@ def finding_id(file: str, line: int, title: str) -> str:
     return digest[:12]
 
 
-def _items(answer: str, key: str) -> list[Any]:
+def _list(answer: str, key: str) -> list[Any] | None:
+    """The ``key`` list of a short JSON object answer; ``None`` for any other answer."""
     if len(answer) > MAX_ANSWER_CHARS:
-        return []
+        return None
     try:
         data = json.loads(unfence(answer))
     except ValueError, RecursionError:
-        return []
+        return None
     items = data.get(key) if isinstance(data, dict) else None
-    return items if isinstance(items, list) else []
+    return items if isinstance(items, list) else None
+
+
+def _items(answer: str, key: str) -> list[Any]:
+    return _list(answer, key) or []
+
+
+def answered(answer: str, key: str) -> bool:
+    """A run answered only with an object holding a ``key`` list (``findings`` or ``votes``)."""
+    return _list(answer, key) is not None
 
 
 def _clean(text: object, limit: int, multiline: bool = False) -> str | None:

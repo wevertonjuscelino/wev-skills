@@ -54,5 +54,6 @@
   "review.gate.config_weakened": "Não é possível encerrar: esta execução reduziu review.depth ou alterou review.agent ou agents.project_dir no arquivo de configuração. Faça essa mudança fora de uma execução.",
   "review.pr.none": "Não informado.",
   "review.pr.dismissed": "Descartado: {id} [{tag}] {outcome}: {reason}",
-  "review.pr.risk_tier": "Nível de risco: {tier}"
+  "review.pr.risk_tier": "Nível de risco: {tier}",
+  "review.error.diff_too_large": "A entrada da revisão tem {size} caracteres, acima do limite de {cap}; nada foi executado. Divida o trabalho em execuções menores e revise de novo."
 }

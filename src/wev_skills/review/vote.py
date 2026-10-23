@@ -16,13 +16,14 @@ from wev_skills.core.ports import READ_ONLY_TOOLS, AgentRunner
 from wev_skills.review.findings import (
     RawFinding,
     Vote,
+    answered,
     finding_id,
     parse_findings,
     parse_votes,
     proven,
 )
 from wev_skills.review.guide import ReviewGuide, skipped
-from wev_skills.review.prompts import finder_prompt, verifier_prompt
+from wev_skills.review.prompts import check_size, finder_prompt, verifier_prompt
 from wev_skills.state.review_records import FindingRecord
 
 DUPLICATE_LINE_WINDOW = 3
@@ -69,18 +70,22 @@ def _run_all(inputs: VoteInputs, prompt: str, count: int) -> list[AgentRunResult
 
 
 def _found(inputs: VoteInputs) -> list[RawFinding]:
-    prompt = finder_prompt(
-        inputs.diff, inputs.intent, inputs.guide, inputs.claude_md, inputs.posted, inputs.lang
+    prompt = check_size(
+        finder_prompt(
+            inputs.diff, inputs.intent, inputs.guide, inputs.claude_md, inputs.posted, inputs.lang
+        ),
+        inputs.lang,
     )
     results = _run_all(inputs, prompt, inputs.shape.finders)
     details = {"runs_used": len(results)}
     if all(not r.ok and not r.timed_out for r in results):
         message = i18n.t("review.error.agent_failed", inputs.lang, count=len(results))
         raise ProviderError("review_agent_failed", message, details)
-    if not any(r.ok for r in results):
+    good = [r for r in results if r.ok and answered(r.output, "findings")]
+    if not good:
         message = i18n.t("review.error.incomplete_finders", inputs.lang)
         raise ProviderError("review_incomplete", message, details)
-    return [raw for r in results if r.ok for raw in parse_findings(r.output)]
+    return [raw for r in good for raw in parse_findings(r.output)]
 
 
 def _near(a: RawFinding, b: RawFinding) -> bool:
@@ -104,10 +109,14 @@ def _candidates(inputs: VoteInputs, found: Sequence[RawFinding]) -> tuple[list[R
 
 def _ballots(inputs: VoteInputs, candidates: Sequence[RawFinding]) -> list[Mapping[int, Vote]]:
     """One ``index -> vote`` map per verifier that answered (a failed run did not)."""
-    prompt = verifier_prompt(inputs.diff, candidates, inputs.rechecks, inputs.guide, inputs.lang)
+    prompt = check_size(
+        verifier_prompt(inputs.diff, candidates, inputs.rechecks, inputs.guide, inputs.lang),
+        inputs.lang,
+    )
     results = _run_all(inputs, prompt, inputs.shape.verifiers)
     count = len(candidates) + len(inputs.rechecks)
-    return [{v.index: v for v in parse_votes(r.output, count)} for r in results if r.ok]
+    good = [r for r in results if r.ok and answered(r.output, "votes")]
+    return [{v.index: v for v in parse_votes(r.output, count)} for r in good]
 
 
 def _passes(inputs: VoteInputs, verdicts: Sequence[Verdict]) -> bool:
