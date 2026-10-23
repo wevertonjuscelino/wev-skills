@@ -52,5 +52,6 @@
   "review.gate.reviewer_unscored": "Não é possível encerrar: {paths} mudou e nenhuma comparação registrada mostra o revisor melhorando nesta árvore. Pontue a mudança antes.",
   "review.gate.config_weakened": "Não é possível encerrar: esta execução reduziu review.depth ou alterou review.agent ou agents.project_dir no arquivo de configuração. Faça essa mudança fora de uma execução.",
   "review.pr.none": "Não informado.",
-  "review.pr.dismissed": "Descartado: {id} [{tag}] {outcome}: {reason}"
+  "review.pr.dismissed": "Descartado: {id} [{tag}] {outcome}: {reason}",
+  "review.pr.risk_tier": "Nível de risco: {tier}"
 }

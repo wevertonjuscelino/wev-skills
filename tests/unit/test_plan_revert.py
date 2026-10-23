@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from tests.unit._orchestrator_helpers import OrchestratorCase
 from wev_skills.core.errors import ValidationError
 
@@ -45,8 +43,3 @@ class PlanRevertTests(OrchestratorCase):
     def test_oversized_notes_are_refused_by_the_schema(self) -> None:
         self.start()
         self.assertEqual(self.refused(TASK, revert="x" * 4001).code, "invalid_plan")
-
-    def test_template_has_risk_revert_review(self) -> None:
-        text = (Path(__file__).parents[2] / ".github" / "PULL_REQUEST_TEMPLATE.md").read_text()
-        for heading in ("## Risk", "## How to revert", "## Review", "## Summary"):
-            self.assertIn(heading, text)

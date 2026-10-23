@@ -291,16 +291,18 @@ def _approvals(state: RunState, approvals: Sequence[Mapping[str, Any]]) -> list[
 
 
 def _review(state: RunState, lang: str | None) -> dict[str, Any]:
-    """The review rounds in one block: the count-first summary and each dismissed finding."""
+    """The review rounds in one block: the open and the dismissed findings, as lists."""
     found = all_findings(state.review_rounds)
     skipped = state.review_rounds[-1].skipped if state.review_rounds else 0
+    keys = ("id", "tag", "file", "line", "title")
+    live = [{k: getattr(f, k) for k in keys} for f in found if f.status == "open"]
     dismissed = [
         {"id": f.id, "tag": f.tag, "outcome": f.outcome, "reason": f.reason}
         for f in found
         if f.status == "dismissed"
     ]
     summary = summarize(found, skipped, i18n.resolve_language(lang))
-    return {"summary": summary, "dismissed": dismissed}
+    return {"summary": summary, "skipped": skipped, "open": live, "dismissed": dismissed}
 
 
 def build_report(

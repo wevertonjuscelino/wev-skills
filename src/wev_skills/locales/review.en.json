@@ -52,5 +52,6 @@
   "review.gate.reviewer_unscored": "Cannot finish: {paths} changed and no recorded comparison shows the reviewer improving on this tree. Score the change first.",
   "review.gate.config_weakened": "Cannot finish: this run lowered review.depth or changed review.agent or agents.project_dir in the config file. Make that change outside a run.",
   "review.pr.none": "Not given.",
-  "review.pr.dismissed": "Dismissed: {id} [{tag}] {outcome}: {reason}"
+  "review.pr.dismissed": "Dismissed: {id} [{tag}] {outcome}: {reason}",
+  "review.pr.risk_tier": "Risk tier: {tier}"
 }
