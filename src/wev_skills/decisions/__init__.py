@@ -44,7 +44,9 @@ class DecisionProvider(Protocol):
 
     def evaluate_result(self, contract: TaskContract, result: TaskResult) -> Verdict: ...
 
-    def resolve_conflict(self, verdicts: Sequence[Verdict]) -> Verdict: ...
+    def resolve_conflict(
+        self, verdicts: Sequence[Verdict], quorum: int | None = None
+    ) -> Verdict: ...
 
     def should_escalate(
         self, history: Sequence[AttemptRecord], max_attempts: int | None = None

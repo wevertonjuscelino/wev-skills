@@ -248,8 +248,8 @@ class JevProvider:
     def evaluate_result(self, contract: TaskContract, result: TaskResult) -> Verdict:
         return self._local.evaluate_result(contract, result)
 
-    def resolve_conflict(self, verdicts: Sequence[Verdict]) -> Verdict:
-        return self._local.resolve_conflict(verdicts)
+    def resolve_conflict(self, verdicts: Sequence[Verdict], quorum: int | None = None) -> Verdict:
+        return self._local.resolve_conflict(verdicts, quorum)
 
     def should_escalate(
         self, history: Sequence[AttemptRecord], max_attempts: int | None = None

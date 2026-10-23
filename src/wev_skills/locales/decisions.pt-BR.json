@@ -39,6 +39,7 @@
   "decisions.error.negative_signal": "files_touched_estimate e unknowns não podem ser negativos.",
   "decisions.error.subtasks": "independent_subtasks deve ser pelo menos 1.",
   "decisions.error.no_agents": "Não há agentes disponíveis para receber a tarefa.",
+  "decisions.error.bad_quorum": "O quórum deve ficar entre 1 e o número de vereditos ({count}), recebido {quorum}.",
   "decisions.error.no_verdicts": "É preciso ao menos um veredito para resolver um conflito.",
   "decisions.error.unknown_provider": "Provedor de decisão desconhecido: {name}.",
   "models.base.high_risk": "Nível premium: a tarefa é de risco alto.",

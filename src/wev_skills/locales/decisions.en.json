@@ -39,6 +39,7 @@
   "decisions.error.negative_signal": "files_touched_estimate and unknowns must not be negative.",
   "decisions.error.subtasks": "independent_subtasks must be at least 1.",
   "decisions.error.no_agents": "No agents are available to route the task to.",
+  "decisions.error.bad_quorum": "The quorum must be between 1 and the number of verdicts ({count}), got {quorum}.",
   "decisions.error.no_verdicts": "At least one verdict is required to resolve a conflict.",
   "decisions.error.unknown_provider": "Unknown decision provider: {name}.",
   "models.base.high_risk": "Premium tier: the task is high risk.",
