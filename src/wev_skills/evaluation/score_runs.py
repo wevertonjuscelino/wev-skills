@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,12 +75,17 @@ def _attempt(setup: Setup, spec: AgentSpec, case: Case, path: Path) -> tuple[boo
 
 
 def _run_once(setup: Setup, spec: AgentSpec, case: Case) -> tuple[bool, Failure | None]:
+    started = time.monotonic()
     with case_workspace(setup.runner, setup.root, case, setup.scratch) as path:
         try:
-            return _attempt(setup, spec, case, path)
+            ok, failure = _attempt(setup, spec, case, path)
         except BaseException as exc:  # the agent may have planted git state: no git call
             skip_git_cleanup(exc)
             raise
+    key = "evaluation.scoring.progress_pass" if ok else "evaluation.scoring.progress_fail"
+    seconds = round(time.monotonic() - started)
+    print(i18n.t(key, case=case.id, seconds=seconds), file=sys.stderr, flush=True)
+    return ok, failure
 
 
 def run_configuration(setup: Setup, spec: AgentSpec, cases: Sequence[Case]) -> Tally:
