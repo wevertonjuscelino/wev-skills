@@ -26,11 +26,12 @@ from wev_skills.core.contracts import Mode
 from wev_skills.core.errors import StateConflict, ValidationError, WevError
 from wev_skills.core.orchestrator import START_MODES, Orchestrator
 from wev_skills.core.report_markdown import render_markdown
+from wev_skills.core.report_pr import render_pr
 from wev_skills.intake.store import load_brief
 from wev_skills.security import untrusted
 from wev_skills.state.model import Phase, with_discovery
 
-FORMATS = ("json", "md")
+FORMATS = ("json", "md", "pr")
 
 
 def _start(args: argparse.Namespace) -> dict[str, Any]:
@@ -163,6 +164,8 @@ def _report(args: argparse.Namespace) -> CommandResult:
     report = orchestrator_for(args, finished_ok=True).report(lang)
     if args.format == "md":
         return CommandResult(render_markdown(report, lang), raw=True)
+    if args.format == "pr":
+        return CommandResult(render_pr(report, lang), raw=True)
     return CommandResult(report)
 
 

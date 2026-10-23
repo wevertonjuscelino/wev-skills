@@ -6,7 +6,7 @@ from dataclasses import replace
 
 from wev_skills import i18n
 from wev_skills.core import plan_amend, planning, progress
-from wev_skills.core.contracts import Mode, Plan, RiskLevel
+from wev_skills.core.contracts import Mode, Plan, RiskLevel, higher_risk, risk_rank
 from wev_skills.core.engine import Engine, set_assignment
 from wev_skills.core.errors import ValidationError
 from wev_skills.state.model import (
@@ -19,6 +19,8 @@ from wev_skills.state.model import (
 )
 
 MODEL_SOURCE = "model-router"
+SYNTHESIZED_EVENT = "plan.synthesized"
+"""The engine's own one-task plan; it has no author to write risk and revert notes."""
 
 
 def _with_plan(state: RunState, plan: Plan) -> RunState:
@@ -46,6 +48,19 @@ def _decisions(engine: Engine, state: RunState, item: planning.Assignment) -> li
     return records
 
 
+def _require_revert(state: RunState, plan: Plan) -> None:
+    """A medium or high risk run (or task) needs risk notes and a way back, in the plan."""
+    run_risk = state.classification.risk if state.classification else RiskLevel.LOW
+    top = higher_risk(run_risk, *(task.risk for task in plan.tasks))
+    if risk_rank(top) < risk_rank(RiskLevel.MEDIUM):
+        return
+    if plan.risk_notes.strip() and plan.revert.strip():
+        return
+    raise ValidationError(
+        "plan_needs_revert", i18n.t("orch.error.plan_needs_revert", risk=top.value)
+    )
+
+
 def adopt_plan(engine: Engine, plan: Plan, event: str, amend_reason: str | None = None) -> RunState:
     """Validate against the run, assign agents and models, and record each choice.
 
@@ -54,6 +69,8 @@ def adopt_plan(engine: Engine, plan: Plan, event: str, amend_reason: str | None 
     state = engine.load()
     if state.strategy is None:
         raise ValidationError("run_not_started", i18n.t("orch.error.not_started"))
+    if event != SYNTHESIZED_EVENT:
+        _require_revert(state, plan)
     dropped = planning.dropped_with_history(state, plan)
     if dropped:
         message = i18n.t("orch.error.plan_drops", tasks=", ".join(dropped))

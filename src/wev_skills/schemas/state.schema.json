@@ -95,7 +95,9 @@
       "additionalProperties": false,
       "properties": {
         "objective": { "type": "string" },
-        "tasks": { "type": "array", "items": { "$ref": "#/$defs/planTask" } }
+        "tasks": { "type": "array", "items": { "$ref": "#/$defs/planTask" } },
+        "risk_notes": { "type": "string" },
+        "revert": { "type": "string" }
       }
     },
     "planTask": {

@@ -6,7 +6,9 @@
   "additionalProperties": false,
   "properties": {
     "objective": { "type": "string", "minLength": 1 },
-    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } }
+    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } },
+    "risk_notes": { "type": "string", "maxLength": 4000 },
+    "revert": { "type": "string", "maxLength": 4000 }
   },
   "$defs": {
     "stringList": { "type": "array", "items": { "type": "string" } },

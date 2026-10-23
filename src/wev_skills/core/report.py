@@ -13,8 +13,10 @@ from wev_skills.core.engine import APPROVAL_SOURCE
 from wev_skills.core.task_outcomes import SELF_DECLARED
 from wev_skills.core.textsafe import clean_data
 from wev_skills.guards.execution import GuardVerdict
+from wev_skills.review.summary import summarize
 from wev_skills.state.model import RunState
 from wev_skills.state.records import VerificationRecord
+from wev_skills.state.review_records import all_findings
 from wev_skills.verification.engine import SUPPORT_MANUAL, SUPPORT_NONE
 
 JSON_FIELD_MAX_CHARS = 2000
@@ -288,6 +290,19 @@ def _approvals(state: RunState, approvals: Sequence[Mapping[str, Any]]) -> list[
     return rows
 
 
+def _review(state: RunState, lang: str | None) -> dict[str, Any]:
+    """The review rounds in one block: the count-first summary and each dismissed finding."""
+    found = all_findings(state.review_rounds)
+    skipped = state.review_rounds[-1].skipped if state.review_rounds else 0
+    dismissed = [
+        {"id": f.id, "tag": f.tag, "outcome": f.outcome, "reason": f.reason}
+        for f in found
+        if f.status == "dismissed"
+    ]
+    summary = summarize(found, skipped, i18n.resolve_language(lang))
+    return {"summary": summary, "dismissed": dismissed}
+
+
 def build_report(
     state: RunState,
     approvals: Sequence[Mapping[str, Any]],
@@ -325,6 +340,9 @@ def build_report(
             "acknowledgements": _acknowledgements(state),
         },
         "changed_files": files,
+        "risk_notes": state.plan.risk_notes if state.plan else "",
+        "revert": state.plan.revert if state.plan else "",
+        "review": _review(state, lang),
         "plan_amendments": [item.to_dict() for item in state.plan_amendments],
         "notices": [i18n.t(f"orch.notice.{name}", lang) for name in NOTICES],
     }

@@ -143,14 +143,19 @@ class OrchestratorCase(unittest.TestCase):
         fields = {"files_touched_estimate": 1, **signals}
         return self.orch().start(objective, mode, TaskSignals(objective, **fields), RUN_ID)
 
-    def plan_file(self, *tasks: dict[str, Any], objective: str = "Do the work") -> str:
+    def plan_file(
+        self, *tasks: dict[str, Any], objective: str = "Do the work", **notes: str
+    ) -> str:
+        """A plan file. It carries risk and revert notes (override with ``risk_notes=""``)."""
         path = self.root / "plan.json"
         filled = [{"title": t["id"], "objective": f"do {t['id']}", **t} for t in tasks]
-        path.write_text(json.dumps({"objective": objective, "tasks": filled}), encoding="utf-8")
+        head = {"risk_notes": "Test plan.", "revert": "git revert the commit.", **notes}
+        body = {"objective": objective, "tasks": filled, **head}
+        path.write_text(json.dumps(body), encoding="utf-8")
         return str(path)
 
-    def set_plan(self, *tasks: dict[str, Any]) -> dict[str, Any]:
-        return self.orch().set_plan(self.plan_file(*tasks))
+    def set_plan(self, *tasks: dict[str, Any], **notes: str) -> dict[str, Any]:
+        return self.orch().set_plan(self.plan_file(*tasks, **notes))
 
     def state(self) -> Any:
         return self.orch().load()
