@@ -7,10 +7,12 @@ local data an agent can edit, so ``review_stats`` skips lines it cannot trust.
 from __future__ import annotations
 
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from wev_skills import i18n
 from wev_skills.core.fsutil import append_line
 from wev_skills.state.review_records import FindingRecord, ReviewRoundRecord
 
@@ -23,6 +25,12 @@ ROUND_COUNTS = (*TAGS, "skipped", "runs_used")
 
 def _write(path: Path, line: dict[str, Any]) -> None:
     append_line(path, json.dumps(line, ensure_ascii=False))
+
+
+def warn_unwritten(error: OSError, lang: str | None = None) -> None:
+    """The round or the outcome is already committed to the run; a stats file that cannot be
+    written costs only the stats, so it is a warning and never a failure."""
+    print(i18n.t("review.warn.stats_unwritten", lang, error=error), file=sys.stderr)
 
 
 def record_round(path: Path, at: str, run_id: str, record: ReviewRoundRecord) -> None:
@@ -71,7 +79,7 @@ def _read(path: Path) -> list[dict[str, Any]]:
     for raw in text.splitlines():
         try:
             line = _valid(json.loads(raw))
-        except ValueError:
+        except ValueError, RecursionError:
             continue
         if line is not None:
             lines.append(line)

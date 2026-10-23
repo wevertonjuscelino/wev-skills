@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from tests.unit._orchestrator_helpers import RUN_ID, TickClock, catalog
+from tests.unit._orchestrator_helpers import RUN_ID, TickClock, catalog, isolate_user_config
 from wev_skills import i18n
 from wev_skills.config import load_config
 from wev_skills.core import wiring
@@ -55,6 +55,7 @@ class ReviewRepo(unittest.TestCase):
     def setUp(self) -> None:
         self.root = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, self.root, True)
+        self.home = isolate_user_config(self)
         git(self.root, "init", "-q")
         (self.root / ".gitignore").write_text(".wev/\nstate/\n")
         (self.root / "Makefile").write_text("test:\n\t@true\n")

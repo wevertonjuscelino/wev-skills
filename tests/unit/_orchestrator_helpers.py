@@ -7,12 +7,15 @@ git queries the engine sends from attributes a test sets, and every other argv f
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import tempfile
 import unittest
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 from tests.unit._agent_helpers import make
 from wev_skills import i18n
@@ -112,11 +115,23 @@ def catalog() -> wiring.AgentCatalog:
     return wiring.AgentCatalog(registry, AgentFactory(registry), frozenset())
 
 
+def isolate_user_config(case: unittest.TestCase) -> Path:
+    """Point HOME and XDG_CONFIG_HOME at a temp dir for ``case``: anything that resolves the
+    configuration (the finish gate does) must never read the real user's file."""
+    home = Path(tempfile.mkdtemp(prefix="wev-home-")).resolve()
+    case.addCleanup(shutil.rmtree, home, True)
+    env = mock.patch.dict(os.environ, {"HOME": str(home), "XDG_CONFIG_HOME": str(home / "config")})
+    env.start()
+    case.addCleanup(env.stop)
+    return home
+
+
 class OrchestratorCase(unittest.TestCase):
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name).resolve()
+        self.home = isolate_user_config(self)
         self.runner = FakeRunner(str(self.root))
         self.clock = TickClock()
         self.overrides: dict[str, Any] = {}

@@ -13,7 +13,13 @@ from wev_skills.core.engine import Engine, with_trip
 from wev_skills.core.errors import GuardTripped, StateConflict, ValidationError
 from wev_skills.core.ports import AgentRunner
 from wev_skills.review.guide import load_guide
-from wev_skills.review.stats import BY_ENGINE, REVIEWS_FILE, record_outcome, record_round
+from wev_skills.review.stats import (
+    BY_ENGINE,
+    REVIEWS_FILE,
+    record_outcome,
+    record_round,
+    warn_unwritten,
+)
 from wev_skills.review.summary import STATUS_OPEN, summarize
 from wev_skills.review.trees import diff_trees, touched_lines, touched_or_cut_lines, write_tree
 from wev_skills.review.vote import VoteInputs, VoteResult, find_and_vote
@@ -156,14 +162,21 @@ def _vote(
 
 
 def _record(
-    engine: Engine, state: RunState, record: ReviewRoundRecord, closed: list[FindingRecord]
+    engine: Engine,
+    state: RunState,
+    record: ReviewRoundRecord,
+    closed: list[FindingRecord],
+    lang: str,
 ) -> None:
     """Append the round and its engine-fixed findings to reviews.jsonl, after the commit."""
     path, at = engine.services.state_dir / REVIEWS_FILE, engine.stamp()
-    record_round(path, at, state.run_id, record)
     depths = {r.number: r.depth for r in state.review_rounds}
-    for finding in closed:
-        record_outcome(path, at, state.run_id, finding, depths[finding.round], BY_ENGINE)
+    try:
+        record_round(path, at, state.run_id, record)
+        for finding in closed:
+            record_outcome(path, at, state.run_id, finding, depths[finding.round], BY_ENGINE)
+    except OSError as exc:
+        warn_unwritten(exc, lang)
 
 
 def run_round(engine: Engine, agent: AgentRunner, lang: str) -> ReviewRoundRecord:
@@ -199,5 +212,5 @@ def run_round(engine: Engine, agent: AgentRunner, lang: str) -> ReviewRoundRecor
         event,
         base=state,
     )
-    _record(engine, state, record, closed)
+    _record(engine, state, record, closed, lang)
     return record

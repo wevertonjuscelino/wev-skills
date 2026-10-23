@@ -290,8 +290,10 @@ def _approvals(state: RunState, approvals: Sequence[Mapping[str, Any]]) -> list[
     return rows
 
 
-def _review(state: RunState, lang: str | None) -> dict[str, Any]:
-    """The review rounds in one block: the open and the dismissed findings, as lists."""
+def _review(state: RunState, lang: str | None, stale: bool) -> dict[str, Any]:
+    """The review rounds in one block: the open and the dismissed findings, as lists.
+    ``status`` is ``not_reviewed`` (no round ran), ``stale`` (the tree moved after the last
+    round) or ``current``; only a current round may say "Nothing to fix"."""
     found = all_findings(state.review_rounds)
     skipped = state.review_rounds[-1].skipped if state.review_rounds else 0
     keys = ("id", "tag", "file", "line", "title")
@@ -301,8 +303,15 @@ def _review(state: RunState, lang: str | None) -> dict[str, Any]:
         for f in found
         if f.status == "dismissed"
     ]
-    summary = summarize(found, skipped, i18n.resolve_language(lang))
-    return {"summary": summary, "skipped": skipped, "open": live, "dismissed": dismissed}
+    language = i18n.resolve_language(lang)
+    status = "not_reviewed" if not state.review_rounds else "stale" if stale else "current"
+    summary = summarize(found, skipped, language)
+    if status != "current":
+        summary = i18n.t(f"review.summary.{status}", language)
+    return {
+        "status": status, "summary": summary, "skipped": skipped, "open": live,
+        "dismissed": dismissed,
+    }  # fmt: skip
 
 
 def build_report(
@@ -311,11 +320,13 @@ def build_report(
     verdict: GuardVerdict,
     lang: str | None = None,
     changed: Sequence[str] = (),
+    review_stale: bool = False,
 ) -> dict[str, Any]:
     """The delivery report. Recorded text is cleaned of control characters and escapes.
 
     ``changed`` lists the tasks that are "verified, then changed": the caller compares the
     tree with the last verified record when the report is asked for, not continuously.
+    ``review_stale`` says the tree moved after the last review round.
     """
     plan_tasks = state.plan.tasks if state.plan else ()
     tasks = [_task(state, task, lang, task.id in changed) for task in plan_tasks]
@@ -344,7 +355,7 @@ def build_report(
         "changed_files": files,
         "risk_notes": state.plan.risk_notes if state.plan else "",
         "revert": state.plan.revert if state.plan else "",
-        "review": _review(state, lang),
+        "review": _review(state, lang, review_stale),
         "plan_amendments": [item.to_dict() for item in state.plan_amendments],
         "notices": [i18n.t(f"orch.notice.{name}", lang) for name in NOTICES],
     }

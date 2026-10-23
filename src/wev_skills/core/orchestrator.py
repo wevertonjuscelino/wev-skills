@@ -178,15 +178,25 @@ class Orchestrator(Engine):
         config = self.services.config
         runner, root = self.services.runner, Path(self.cwd(state))
         changed: frozenset[str] = frozenset()
-        weakened = False
+        weakened, tree, comparisons = False, "", []
         if config.review.depth != DEPTH_OFF:  # with review off this gate does no git work
             if state.base:
-                changed = changed_paths(runner, root, state.base, write_tree(runner, root))
+                tree = write_tree(runner, root)
+                changed = changed_paths(runner, root, state.base, tree)
             weakened = config_weakened(config, current_config(state.config_source, root))
-        comparisons = read_comparisons(self.services.state_dir / SCORES_FILE)
-        return finish_refusal(
-            state, config, self.fingerprint(state), changed, comparisons, weakened
-        )
+            comparisons = read_comparisons(self.services.state_dir / SCORES_FILE)
+        return finish_refusal(state, config, tree, changed, comparisons, weakened)
+
+    def _review_stale(self, state: RunState) -> bool:
+        """The tree moved after the last review round. A closed run passed the gate, so it is
+        not compared again."""
+        if not state.review_rounds or state.phase is Phase.DONE:
+            return False
+        try:
+            tree = write_tree(self.services.runner, Path(self.cwd(state)))
+        except StateConflict:
+            return True
+        return tree != state.review_rounds[-1].tree
 
     def _changed(self, state: RunState) -> tuple[str, ...]:
         """Tasks that are "verified, then changed": computed now for an open run, read from
@@ -210,7 +220,9 @@ class Orchestrator(Engine):
         approvals = [r.to_dict() for r in self.services.approvals.list()]
         verdict = self.run_verdict(state)
         changed = self._changed(state)
-        built = report.build_report(state, approvals, verdict, lang, changed)
+        built = report.build_report(
+            state, approvals, verdict, lang, changed, self._review_stale(state)
+        )
         fields = self._steps(state, verdict)
         if changed and state.phase is not Phase.DONE and fields["next_step"].startswith(FINISH):
             recheck = [f"wev task check {task_id} --run {state.run_id}" for task_id in changed]

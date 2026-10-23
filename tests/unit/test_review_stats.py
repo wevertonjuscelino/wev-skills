@@ -10,7 +10,7 @@ from pathlib import Path
 from tests.fixtures.fake_agent import FakeAgent
 from tests.fixtures.operator_prompt import ScriptedPrompt
 from tests.unit import test_review_commands, test_review_round
-from tests.unit._review_helpers import vote, votes
+from tests.unit._review_helpers import found, item, vote, votes
 from wev_skills.review.stats import REVIEWS_FILE, review_stats
 
 
@@ -40,6 +40,24 @@ class WrittenLines(test_review_commands.ReviewCommandCase):
         raw = (self.root / "state" / REVIEWS_FILE).read_text()
         for text in ("Big", "Small", "SECRET", "false alarm", "wrong."):
             self.assertNotIn(text, raw)
+
+    def test_an_unwritable_stats_file_warns_and_never_fails_the_round(self) -> None:
+        (self.root / "state").mkdir(exist_ok=True)
+        (self.root / "state" / REVIEWS_FILE).mkdir()  # appending to a directory: OSError
+        agent = FakeAgent(finder_replies=[found(item(5))], verifier_replies=[votes(vote(0))])
+        code, out, err = self.cli("review", "run", agent=agent)
+        self.assertEqual((code, len(out["round"]["findings"])), (0, 1))
+        self.assertIn("Could not write reviews.jsonl", err)
+        self.assertEqual(len(self.cli("review", "show")[1]["open"]), 1)  # the round is recorded
+
+    def test_an_unwritable_stats_file_warns_and_never_fails_a_resolution(self) -> None:
+        _, nit = self.review_two()
+        path = self.root / "state" / REVIEWS_FILE
+        path.unlink()
+        path.mkdir()
+        code, out, err = self.cli("review", "resolve", nit, "--as", "intentional", "--reason", "x")
+        self.assertEqual((code, out["finding"]["status"]), (0, "dismissed"))
+        self.assertIn("Could not write reviews.jsonl", err)
 
     def test_refused_resolution_writes_nothing(self) -> None:
         important, _ = self.review_two()
@@ -119,6 +137,13 @@ class Stats(unittest.TestCase):
         self.assertEqual(
             review_stats(self.path)["clean_case_candidates"], [{"run_id": "a", "finding": "p1"}]
         )
+
+    def test_unreadable_and_deeply_nested_lines_are_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(review_stats(Path(tmp))["depths"], {})  # a directory: OSError
+            path = Path(tmp) / "r.jsonl"
+            path.write_text("[" * 200_000 + "\n")
+            self.assertEqual(review_stats(path)["depths"], {})
 
     def test_missing_file_gives_empty_stats(self) -> None:
         self.assertEqual(

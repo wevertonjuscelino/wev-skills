@@ -55,5 +55,8 @@
   "review.pr.none": "Não informado.",
   "review.pr.dismissed": "Descartado: {id} [{tag}] {outcome}: {reason}",
   "review.pr.risk_tier": "Nível de risco: {tier}",
-  "review.error.diff_too_large": "A entrada da revisão tem {size} caracteres, acima do limite de {cap}; nada foi executado. Divida o trabalho em execuções menores e revise de novo."
+  "review.error.diff_too_large": "A entrada da revisão tem {size} caracteres, acima do limite de {cap}; nada foi executado. Divida o trabalho em execuções menores e revise de novo.",
+  "review.warn.stats_unwritten": "Não foi possível gravar reviews.jsonl ({error}); a revisão está registrada na execução, só as estatísticas ficam sem esta linha",
+  "review.summary.not_reviewed": "Não revisado",
+  "review.summary.stale": "A revisão está desatualizada: a árvore de trabalho mudou depois da última rodada de revisão"
 }

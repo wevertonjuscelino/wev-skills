@@ -75,6 +75,36 @@ class BuiltReportTests(OrchestratorCase):
         self.assertEqual(built["review"]["dismissed"], [])
         self.assertIn("## Review", render_pr(built, "en"))
 
+    def test_no_round_says_not_reviewed_never_nothing_to_fix(self) -> None:
+        self.start()
+        self.set_plan({"id": "a"})
+        built = self.orch().report("en")
+        self.assertEqual(built["review"]["status"], "not_reviewed")
+        body = render_pr(built, "en")
+        self.assertIn("Not reviewed", body)
+        self.assertNotIn("Nothing to fix", body)
+        self.assertIn("Não revisado", render_pr(self.orch().report("pt-BR"), "pt-BR"))
+
+    def test_a_round_on_an_older_tree_is_stale_not_clean(self) -> None:
+        rnd = ReviewRoundRecord(1, "t", "full", "older-tree", "fp", "standard")
+        self.start()
+        self.set_plan({"id": "a"})
+        self.orch().commit(lambda s: replace(s, review_rounds=(rnd,)), "x", {})
+        built = self.orch().report("en")
+        self.assertEqual(built["review"]["status"], "stale")
+        body = render_pr(built, "en")
+        self.assertIn("Review is stale", body)
+        self.assertNotIn("Nothing to fix", body)
+
+    def test_a_current_round_with_nothing_open_says_nothing_to_fix(self) -> None:
+        rnd = ReviewRoundRecord(1, "t", "full", "tree123", "fp", "standard")
+        self.start()
+        self.set_plan({"id": "a"})
+        self.orch().commit(lambda s: replace(s, review_rounds=(rnd,)), "x", {})
+        built = self.orch().report("en")
+        self.assertEqual(built["review"]["status"], "current")
+        self.assertIn("Nothing to fix", render_pr(built, "en"))
+
     def test_findings_render_one_line_each_and_cannot_forge_a_heading(self) -> None:
         def finding(fid: str, tag: str, title: str) -> FindingRecord:
             return FindingRecord(fid, 1, "a.py", 3, title, "b", tag, False, 2, 3)
@@ -83,7 +113,7 @@ class BuiltReportTests(OrchestratorCase):
             finding("f1", "important", "bad\n## Fake\x1b[31m\n- injected"),
             finding("f2", "nit", "naming"),
         )
-        rnd = ReviewRoundRecord(1, "t", "full", "tree", "fp", "standard", found, skipped=2)
+        rnd = ReviewRoundRecord(1, "t", "full", "tree123", "fp", "standard", found, skipped=2)
         self.start()
         self.set_plan({"id": "a"})
         self.orch().commit(lambda s: replace(s, review_rounds=(rnd,)), "x", {})

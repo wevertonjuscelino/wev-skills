@@ -55,5 +55,8 @@
   "review.pr.none": "Not given.",
   "review.pr.dismissed": "Dismissed: {id} [{tag}] {outcome}: {reason}",
   "review.pr.risk_tier": "Risk tier: {tier}",
-  "review.error.diff_too_large": "The review input is {size} characters, over the limit of {cap}; nothing was run. Split the work into smaller runs and review again."
+  "review.error.diff_too_large": "The review input is {size} characters, over the limit of {cap}; nothing was run. Split the work into smaller runs and review again.",
+  "review.warn.stats_unwritten": "Could not write reviews.jsonl ({error}); the review is recorded in the run, only the stats lack this line",
+  "review.summary.not_reviewed": "Not reviewed",
+  "review.summary.stale": "Review is stale: the working tree changed after the last review round"
 }

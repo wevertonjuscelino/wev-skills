@@ -12,7 +12,7 @@ from pathlib import Path
 from wev_skills import i18n
 from wev_skills.agents.spec import AgentSpec, validate_data
 from wev_skills.config import Config
-from wev_skills.core import wiring
+from wev_skills.core import fsutil, wiring
 from wev_skills.core._codec import Serializable
 from wev_skills.core.engine import excluded_paths
 from wev_skills.core.errors import GuardTripped, NotFound, StateConflict, ValidationError
@@ -22,12 +22,13 @@ from wev_skills.core.ports import AgentRunner, Runner
 from wev_skills.evaluation import cases as case_store
 from wev_skills.evaluation.cases import REVIEW_KIND
 from wev_skills.evaluation.gitguard import tamper_guard
-from wev_skills.evaluation.ratchet import improves
+from wev_skills.evaluation.ratchet import improves, not_lower
 from wev_skills.evaluation.score_runs import run_configuration
 from wev_skills.evaluation.scoring import SCORES_FILE, load_spec, review_parts, scratch_setup
 from wev_skills.evaluation.workspace import run_git
 from wev_skills.governance.audit import AuditLog
 from wev_skills.review.guide import FILE_NAME, MAX_CHARS, ReviewGuide, parse_guide
+from wev_skills.review.trees import write_tree
 from wev_skills.state.model import iso_utc
 
 COMMIT_ID = re.compile(r"[0-9a-f]{40}([0-9a-f]{24})?")
@@ -37,10 +38,12 @@ COMMIT_ID = re.compile(r"[0-9a-f]{40}([0-9a-f]{24})?")
 class CompareReport(Serializable):
     compare: str
     fingerprint: str
+    tree: str
     depth: str
     baseline: dict[str, int]
     current: dict[str, int]
     improves: bool
+    not_lower: bool
     runs_used: int
 
 
@@ -128,11 +131,13 @@ def compare_reviewer(
     guard()
     if case_store.case_set_digest(root) != digest:
         raise StateConflict("cases_changed", i18n.t("evaluation.scoring.cases_changed"))
-    state = wiring.state_dir(config, root)
+    # ignored before the tree is written, so the scores line appended below leaves it unchanged
+    state = fsutil.ensure_ignored_dir(wiring.state_dir(config, root))
     fingerprint = tree_fingerprint(runner, str(root), excluded_paths(str(root), state))
     report = CompareReport(
-        sha, fingerprint, config.review.depth, before.passes, after.passes,
-        improves(before.passes, after.passes), before.runs + after.runs,
+        sha, fingerprint, write_tree(runner, root), config.review.depth, before.passes,
+        after.passes, improves(before.passes, after.passes),
+        not_lower(before.passes, after.passes), before.runs + after.runs,
     )  # fmt: skip
     audit.append("specialists.compare", {"specialist": agent_id, "rev": rev, "sha": sha})
     line = {**report.to_dict(), "agent": agent_id, "at": iso_utc(time.time())}

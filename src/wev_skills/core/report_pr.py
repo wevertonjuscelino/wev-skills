@@ -49,7 +49,12 @@ def _review(report: Mapping[str, Any], lang: str) -> list[str]:
     is one cleaned line, so a model-written title cannot open a heading or a list item."""
     live = report["review"]["open"]
     tags = [clean_text(f["tag"]) for f in live]
-    if live:
+    status = report["review"].get("status", "current")
+    if status == "not_reviewed":
+        return [i18n.t("review.summary.not_reviewed", lang)]
+    if status == "stale":
+        head = i18n.t("review.summary.stale", lang)
+    elif live:
         counts = ", ".join(i18n.t(f"review.tag.{tag}", lang, count=tags.count(tag)) for tag in TAGS)
         head = i18n.t("review.summary.open", lang, counts=counts)
     else:

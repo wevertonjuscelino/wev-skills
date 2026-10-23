@@ -19,6 +19,7 @@ from wev_skills.evaluation.compare import compare_reviewer
 from wev_skills.evaluation.scoring import SCORES_FILE, planned_runs, score_specialist
 from wev_skills.governance.audit import AuditLog
 from wev_skills.review.gate import finish_refusal, read_comparisons
+from wev_skills.review.trees import write_tree
 from wev_skills.state.model import RunState
 from wev_skills.state.review_records import ReviewRoundRecord
 
@@ -179,13 +180,12 @@ class ScoreReviewCaseTest(ReviewScoreCase):
 
 
 class CompareReviewerTest(ReviewScoreCase):
-    def gate(self, report) -> object:  # type: ignore[no-untyped-def]
+    def gate(self, report, reviewed: str = "") -> object:  # type: ignore[no-untyped-def]
         """What ``run finish`` says about a changed reviewer, given the scores file."""
-        record = ReviewRoundRecord(1, "now", "full", "t", report.fingerprint, "quick")
+        record = ReviewRoundRecord(1, "now", "full", reviewed or report.tree, "fp", "quick")
         state = RunState("run-1", "goal", Mode.EXECUTE, "now", "now", review_rounds=(record,))
-        return finish_refusal(
-            state, self.config, report.fingerprint, {REVIEWER_PATH}, self.history()
-        )
+        tree = write_tree(SubprocessRunner(), self.root)
+        return finish_refusal(state, self.config, tree, {REVIEWER_PATH}, self.history())
 
     def test_compare_records_improves_true_and_gate_accepts(self) -> None:
         self.sharpen()
@@ -197,6 +197,28 @@ class CompareReviewerTest(ReviewScoreCase):
         self.assertEqual(self.history()[0]["depth"], "quick")
         self.assertIsNone(self.gate(report))
 
+    def test_a_commit_after_the_comparison_keeps_it_valid(self) -> None:
+        self.sharpen()
+        report = self.compare(SpecAgent())
+        self.assertEqual(self.history()[0]["tree"], report.tree)
+        git(self.root, "commit", "-qam", "sharp")  # same content, new HEAD
+        self.assertIsNone(self.gate(report))
+
+    def test_an_edit_after_the_comparison_voids_it(self) -> None:
+        self.sharpen()
+        report = self.compare(SpecAgent())
+        (self.root / "a.py").write_text("changed\n")  # and a round reviews that tree
+        refusal = self.gate(report, reviewed=write_tree(SubprocessRunner(), self.root))
+        self.assertEqual(getattr(refusal, "code", None), "reviewer_unscored")
+
+    def test_a_tie_is_recorded_not_improving_but_not_lower_and_the_gate_accepts(self) -> None:
+        report = self.compare(SpecAgent())  # the reviewer is unchanged: 0 and 0
+        self.assertEqual(
+            (report.baseline, report.current, report.improves, report.not_lower),
+            ({"r1": 0}, {"r1": 0}, False, True),
+        )
+        self.assertIsNone(self.gate(report))
+
     def test_compare_records_improves_false_and_gate_refuses(self) -> None:
         self.sharpen()
         git(self.root, "commit", "-qam", "sharp")
@@ -204,7 +226,7 @@ class CompareReviewerTest(ReviewScoreCase):
         git(self.root, "checkout", "-q", self.rev, "--", REVIEWER_PATH)  # working tree: dull
         report = self.compare(SpecAgent(), sharp_rev)
         self.assertEqual(
-            (report.baseline, report.current, report.improves), ({"r1": 1}, {"r1": 0}, False)
+            (report.baseline, report.current, report.not_lower), ({"r1": 1}, {"r1": 0}, False)
         )
         refusal = self.gate(report)
         self.assertEqual(getattr(refusal, "code", None), "reviewer_unscored")

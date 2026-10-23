@@ -7,6 +7,7 @@ from typing import Any
 
 from wev_skills import i18n
 from wev_skills.config import pinned_snapshot
+from wev_skills.config_review import DEPTH_OFF
 from wev_skills.core import active, fsutil, planning, steps
 from wev_skills.core.contracts import Classification, Mode, Strategy, TaskSignals
 from wev_skills.core.discovery import CheckSuggestion, discover_checks
@@ -56,6 +57,8 @@ def strategy_for(engine: Engine, classification: Classification, mode: Mode) -> 
 def _run_base(engine: Engine) -> str:
     """The tree the run starts from; empty when git cannot record it, so a start still works."""
     services = engine.services
+    if services.config.review.depth == DEPTH_OFF:  # review off changes nothing: no tree is written
+        return ""
     try:
         return write_tree(services.runner, services.root)
     except StateConflict:
