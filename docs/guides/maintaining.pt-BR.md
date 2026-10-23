@@ -71,7 +71,7 @@ Esta é a configuração de `wevertonjuscelino/wev-skills`, guardada aqui para p
 
 - Descrição e tópicos: uma descrição de uma linha do motor e do plugin, e tópicos como `claude-code`, `claude-code-plugin`, `ai-agents`, `agent-orchestration`, `cli` e `python`.
 - Recursos: Issues ligado, Discussions ligado (com uma categoria Q&A, para a qual o [SUPPORT.pt-BR.md](../../SUPPORT.pt-BR.md) aponta), Wiki desligada, Projects desligado. A documentação vive no repositório.
-- Merge: permitir commits de merge (a versão os conta); squash e rebase desligados. "Automatically delete head branches" pode continuar ligado para branches de feature, mas nunca pode apagar `dev`: o ruleset de `dev` bloqueia a exclusão, e o job de release recria `dev` por avanço de qualquer forma. O branch padrão continua `main`.
+- Merge: permitir commits de merge (a versão os conta); squash e rebase desligados. "Automatically delete head branches" desligado: o merge do pull request de `dev` para `main` apagou `dev` em 2026-10-22, porque o papel de admin do dono passa por cima da regra de exclusão do ruleset de `dev`. O job de release recria `dev` por avanço, mas o que for aberto contra `dev` nesse intervalo falha. Apague à mão os branches de feature já mergeados. O branch padrão continua `main`.
 
 **Segurança** (Settings, Code security):
 

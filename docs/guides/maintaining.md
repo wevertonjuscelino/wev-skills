@@ -71,7 +71,7 @@ This is the configuration of `wevertonjuscelino/wev-skills`, kept here so that i
 
 - Description and topics: a one-line description of the engine and the plugin, and topics such as `claude-code`, `claude-code-plugin`, `ai-agents`, `agent-orchestration`, `cli` and `python`.
 - Features: Issues on, Discussions on (with a Q&A category, which [SUPPORT.md](../../SUPPORT.md) points to), Wiki off, Projects off. Documentation lives in the repository.
-- Merge settings: allow merge commits (the version counts them); squash and rebase merging off. "Automatically delete head branches" may stay on for feature branches, but it must never delete `dev`: the `dev` ruleset blocks deletion, and the release job recreates `dev` by fast-forward anyway. The default branch stays `main`.
+- Merge settings: allow merge commits (the version counts them); squash and rebase merging off. "Automatically delete head branches" off: merging the `dev` to `main` pull request deleted `dev` on 2026-10-22, because the owner's admin role bypasses the `dev` ruleset's deletion rule. The release job recreates `dev` by fast-forward, but anything opened against `dev` in between fails. Delete merged feature branches by hand. The default branch stays `main`.
 
 **Security** (Settings, Code security):
 
