@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wev-skills"
-version = "6.0.0"
+version = "7.0.0"
 description = "Evidence-oriented orchestration system for AI coding agents."
 requires-python = ">=3.14"
 authors = [{ name = "Weverton Juscelino" }]

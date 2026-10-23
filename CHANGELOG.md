@@ -6,8 +6,22 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
-- Scored cases: `evals/cases/<id>.json` with three first cases, `wev cases list|validate [--at-base]`, `wev specialists score <id>` and `wev specialists scores [<id>]`, and `specialists.score_samples|score_max_runs|score_max_new_lessons|score_timeout_seconds|score_on_finish` (the last scores the specialists that ended a task at `run finish`). A lesson enters as accepted by `score` when no case loses a pass and the total rises; ablation retires one the same way; a person's decision stays final. Model-written lessons come only from failed cases, pass a text filter and are shown inside the untrusted-data fence. Implemented and tested with fake runners and agents; the real `claude -p` path is implemented but untested until the owner runs it, and the owner must confirm on the first real run that the wev hooks fire under `--restricted`. `specialists score` is person-only (asked on Claude Code, denied on the other harnesses). Residual risks are listed in `SECURITY.md` under "Unattended scoring" and "Known limits".
 - `wev specialists score` prints one progress line per agent run to stderr (case, pass or fail, seconds), and Ctrl-C in any `wev` command prints a short message and exits 130 instead of a traceback. Implemented and tested.
+
+## [7.0.0] - 2026-10-23
+
+### Added
+
+- Scored cases: `evals/cases/<id>.json` with three first cases, `wev cases list|validate [--at-base]`, `wev specialists score <id>` and `wev specialists scores [<id>]`, and `specialists.score_samples|score_max_runs|score_max_new_lessons|score_timeout_seconds|score_on_finish` (the last scores the specialists that ended a task at `run finish`). A lesson enters as accepted by `score` when no case loses a pass and the total rises; ablation retires one the same way; a person's decision stays final. Model-written lessons come only from failed cases, pass a text filter and are shown inside the untrusted-data fence. Implemented and tested with fake runners and agents; the real `claude -p` path is implemented but untested until the owner runs it, and the owner must confirm on the first real run that the wev hooks fire under `--restricted`. `specialists score` is person-only (asked on Claude Code, denied on the other harnesses). Residual risks are listed in `SECURITY.md` under "Unattended scoring" and "Known limits".
+- scored cases and specialists that evolve by score ([#18](https://github.com/wevertonjuscelino/wev-skills/pull/18))
+
+### Fixed
+
+- judge the linux-core dependency check by the installer summary line ([#17](https://github.com/wevertonjuscelino/wev-skills/pull/17))
+
+### Documentation
+
+- add the installation process to the README ([#16](https://github.com/wevertonjuscelino/wev-skills/pull/16))
 
 ## [6.0.0] - 2026-10-22
 
@@ -180,7 +194,8 @@ First published as 0.1.0 and renumbered on 2026-10-15 under the release-counting
 - When the JEV program is not found, the recorded fallback reason says it was not found on the allowed path and names the two fixes (`decision.jev.command` as an absolute path, or `permissions.exec_path`); an absolute path must be a regular executable file.
 - `wev agent export` named `agent-specs/examples/<id>.json` as the source of every agent; `wev agent list --dir` failed on a JSON file that is not a spec; remote alias errors showed the alias inside literal quotes.
 
-[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/wevertonjuscelino/wev-skills/compare/v7.0.0...HEAD
+[7.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v6.0.0...v7.0.0
 [6.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v5.0.0...v6.0.0
 [5.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/wevertonjuscelino/wev-skills/compare/v3.0.0...v4.0.0
