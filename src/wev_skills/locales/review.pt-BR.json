@@ -46,5 +46,8 @@
   "review.label.important": "Importante",
   "review.label.nit": "Detalhe",
   "review.label.pre_existing": "Preexistente",
-  "review.resolved_by.round": "rodada de revisão {number}"
+  "review.resolved_by.round": "rodada de revisão {number}",
+  "review.gate.open_important": "Não é possível encerrar: há achados Importantes da revisão ainda abertos ({ids}). Corrija-os ou descarte-os com um motivo.",
+  "review.gate.stale": "Não é possível encerrar: a árvore de trabalho mudou desde a última rodada de revisão (ou nenhuma rodou). Rode uma rodada de revisão antes.",
+  "review.gate.reviewer_unscored": "Não é possível encerrar: {paths} mudou e nenhuma comparação registrada mostra o revisor melhorando nesta árvore. Pontue a mudança antes."
 }

@@ -8,9 +8,11 @@ Task-level operations live in ``task_flow``, ``task_exec`` and ``task_outcomes``
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from wev_skills import i18n
+from wev_skills.config_review import DEPTH_OFF
 from wev_skills.core import (
     active,
     brief,
@@ -32,9 +34,12 @@ from wev_skills.core import (
 )
 from wev_skills.core.contracts import Evidence, Mode, Plan, TaskSignals, TaskStatus
 from wev_skills.core.engine import Engine, restamp_started
-from wev_skills.core.errors import StateConflict
+from wev_skills.core.errors import StateConflict, WevError
 from wev_skills.core.run_start import START_MODES
+from wev_skills.evaluation.scoring import SCORES_FILE
 from wev_skills.guards.execution import GuardVerdict
+from wev_skills.review.gate import finish_refusal, read_comparisons
+from wev_skills.review.trees import diff_trees, touched_lines, write_tree
 from wev_skills.state.model import Phase, RunState, with_decision, with_phase, with_repo
 from wev_skills.state.resume import check_drift
 
@@ -138,6 +143,10 @@ class Orchestrator(Engine):
         The tree is compared once more with the last verified record; what changed after
         it is stored with the run, so the closed record is not judged by later work."""
         state = self.reconciled(self.load())
+        if state.phase is not Phase.DONE:
+            refusal = self._review_refusal(state)
+            if refusal is not None:
+                raise refusal
         changed = self._changed(state)
         complete = progress.run_complete(state) and not changed
         if state.phase is not Phase.DONE:
@@ -158,6 +167,16 @@ class Orchestrator(Engine):
             "changed_after_verification": list(changed),
             **self.step_fields(state),
         }
+
+    def _review_refusal(self, state: RunState) -> WevError | None:
+        config = self.services.config
+        touched: dict[str, frozenset[int]] = {}
+        if config.review.depth != DEPTH_OFF and state.base:
+            runner, root = self.services.runner, Path(self.cwd(state))
+            now = write_tree(runner, root)
+            touched = touched_lines(diff_trees(runner, root, state.base, now, context=0))
+        comparisons = read_comparisons(self.services.state_dir / SCORES_FILE)
+        return finish_refusal(state, config, self.fingerprint(state), touched, comparisons)
 
     def _changed(self, state: RunState) -> tuple[str, ...]:
         """Tasks that are "verified, then changed": computed now for an open run, read from
