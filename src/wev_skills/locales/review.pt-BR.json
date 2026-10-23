@@ -50,7 +50,7 @@
   "review.resolved_by.round": "rodada de revisão {number}",
   "review.gate.open_important": "Não é possível encerrar: há achados Importantes da revisão ainda abertos ({ids}). Corrija-os ou descarte-os com um motivo.",
   "review.gate.stale": "Não é possível encerrar: a árvore de trabalho mudou desde a última rodada de revisão (ou nenhuma rodou). Rode uma rodada de revisão antes.",
-  "review.gate.reviewer_unscored": "Não é possível encerrar: {paths} mudou e nenhuma comparação registrada mostra o revisor melhorando nesta árvore. Pontue a mudança antes.",
+  "review.gate.reviewer_unscored": "Não é possível encerrar: {paths} mudou e nenhuma comparação registrada mostra o revisor mantendo a nota (nenhum caso perde uma aprovação) nesta árvore. Pontue a mudança antes.",
   "review.gate.config_weakened": "Não é possível encerrar: esta execução reduziu review.depth ou alterou review.agent ou agents.project_dir no arquivo de configuração. Faça essa mudança fora de uma execução.",
   "review.pr.none": "Não informado.",
   "review.pr.dismissed": "Descartado: {id} [{tag}] {outcome}: {reason}",

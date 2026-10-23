@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Layered review upgrade note: task reviews (`task review`) recorded before this change carry no tree fingerprint and no longer count as accepted, so a run in flight that needs an independent review must have its tasks reviewed again. `review_stale` and the `--compare` record are judged on the content tree (a commit alone changes nothing); a reviewer change passes the finish gate when no case loses a pass (a tie counts, a rule the owner has yet to confirm); a review prompt over 100,000 characters is refused (`review_diff_too_large`); with `review.depth` off nothing about review is computed or read. Implemented and tested with fake agents.
+
 ### Added
 
 - Scored cases: `evals/cases/<id>.json` with three first cases, `wev cases list|validate [--at-base]`, `wev specialists score <id>` and `wev specialists scores [<id>]`, and `specialists.score_samples|score_max_runs|score_max_new_lessons|score_timeout_seconds|score_on_finish` (the last scores the specialists that ended a task at `run finish`). A lesson enters as accepted by `score` when no case loses a pass and the total rises; ablation retires one the same way; a person's decision stays final. Model-written lessons come only from failed cases, pass a text filter and are shown inside the untrusted-data fence. Implemented and tested with fake runners and agents; the real `claude -p` path is implemented but untested until the owner runs it, and the owner must confirm on the first real run that the wev hooks fire under `--restricted`. `specialists score` is person-only (asked on Claude Code, denied on the other harnesses). Residual risks are listed in `SECURITY.md` under "Unattended scoring" and "Known limits".

@@ -50,7 +50,7 @@
   "review.resolved_by.round": "review round {number}",
   "review.gate.open_important": "Cannot finish: Important review findings are still open ({ids}). Fix them or dismiss them with a reason.",
   "review.gate.stale": "Cannot finish: the working tree changed since the last review round (or none ran). Run a review round first.",
-  "review.gate.reviewer_unscored": "Cannot finish: {paths} changed and no recorded comparison shows the reviewer improving on this tree. Score the change first.",
+  "review.gate.reviewer_unscored": "Cannot finish: {paths} changed and no recorded comparison shows the reviewer holding its score (no case loses a pass) on this tree. Score the change first.",
   "review.gate.config_weakened": "Cannot finish: this run lowered review.depth or changed review.agent or agents.project_dir in the config file. Make that change outside a run.",
   "review.pr.none": "Not given.",
   "review.pr.dismissed": "Dismissed: {id} [{tag}] {outcome}: {reason}",

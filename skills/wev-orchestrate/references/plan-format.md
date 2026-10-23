@@ -2,7 +2,7 @@
 
 `plan set --file plan.json` validates the file, stores it, and assigns an agent and a model to each task. Only these keys are allowed (extra keys are rejected):
 
-- Top level: `objective` (string, required), `tasks` (array, required), `risk_notes` and `revert` (strings; required for a medium or high-risk run, otherwise `plan set` fails with `plan_needs_revert`: say what could go wrong and how to undo the change).
+- Top level: `objective` (string, required), `tasks` (array, required), `risk_notes` and `revert` (strings; required for a medium or high-risk run unless the engine synthesizes the one-task plan, otherwise `plan set` fails with `plan_needs_revert`: say what could go wrong and how to undo the change).
 - Each task: `id` (required; letters, digits, dot, underscore, hyphen; at most 64 characters), `title` (required), `objective` (required), `depends_on` (list of task ids), `files` (list of paths the task edits), `risk` (`low`, `medium` or `high`), `acceptance_criteria` (list of statements), `checks` (list of checks run by `task check`: a command string, or an object `{"command": ..., "criteria": [...]}` that ties the command to specific acceptance criteria by zero-based index or by exact text; at least one criterion per object), `agent_hint` (string), `read_only` (boolean; true for a task that changes no files, such as a review, an audit or research), `status` (set by the engine; leave it out).
 
 Guidance:

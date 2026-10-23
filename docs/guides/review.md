@@ -23,7 +23,7 @@ In `wev.config.json` (the keys are in [configuration and providers](configuratio
 
 `agent` is required when `depth` is not `off`. Depth presets, finders / verifiers / quorum: `quick` 1/1/1, `standard` 3/3/2, `deep` 5/5/3. A high-risk run uses at least `standard` when review is on; `off` stays off whatever the risk. The configuration is pinned by `run start`, like every other key.
 
-`run start` also records a base tree: HEAD plus uncommitted and untracked changes, written with a temporary index and no filters or attribute drivers. It is an unreachable git object, so `git gc --prune` can delete it. A run older than the prune window (two weeks by default) with review on fails closed (`review_tree_failed`).
+With review on, `run start` also records a base tree: HEAD plus uncommitted and untracked changes, written with a temporary index and no filters or attribute drivers. It is an unreachable git object, so `git gc --prune` can delete it. A run older than the prune window (two weeks by default) with review on fails closed (`review_tree_failed`). With `review.depth` off, `run start` writes no tree and the run records no base: review off changes nothing for the run, its report or `run finish`.
 
 ## Write `REVIEW.md`
 
@@ -72,7 +72,8 @@ A round starts the finders and then the verifiers as unattended `claude -p` runs
 
 - Each finding is tagged Important, Nit or Pre-existing. A finding stays when its verifier votes reach the quorum.
 - The model's text is untrusted: it is redacted and fenced before it is stored or shown, and a finding that does not parse is dropped.
-- A round where nobody really reviewed fails (`review_incomplete`, or `review_agent_failed` when every finder ended without an answer) instead of reporting "nothing to fix", and it records no round.
+- A round where nobody really reviewed fails (`review_incomplete`, or `review_agent_failed` when every finder ended without an answer) instead of reporting "nothing to fix", and it records no round. A run counts as having answered only when its answer parses to a JSON object with a `findings` list (finders) or a `votes` list (verifiers); prose, malformed JSON, a missing key or an over-long answer counts as no answer.
+- The prompt of a finder or a verifier is capped at 100,000 characters. A larger one is refused before any agent runs (`review_diff_too_large`, exit 5, with the size): split the work into smaller runs. The diff is never truncated silently. In scoring, a review case whose prompt is over the cap fails that sample with that reason and no agent run (the case needs a smaller diff).
 - At most `review.max_rounds` rounds (default 3) per run. The first `review.full_rounds` (default 2) run every finder over the whole change; later rounds are diff-only and narrow to what changed since the last round.
 - Reaching the round cap trips the `review_rounds` guard (exit 6, visible in `wev guard check`). A person clears it with `guard acknowledge`, which allows one more round.
 
@@ -92,15 +93,17 @@ With review on, `run finish` refuses:
 | Code | When |
 |---|---|
 | `review_open_important` | an Important finding is still open |
-| `review_stale` | no round yet, or the tree changed since the last round |
-| `reviewer_unscored` | `REVIEW.md` or the reviewer spec changed and no improving `specialists score --compare` record exists for the current tree |
+| `review_stale` | no round yet, or the content of the working tree differs from the tree the last round reviewed (a commit that leaves the files as they were does not make the round stale) |
+| `reviewer_unscored` | `REVIEW.md` or the reviewer spec changed and no `specialists score --compare` record for the current tree shows the reviewer holding its score: no case loses a pass (a tie counts) |
 | `review_config_weakened` | the re-resolved review configuration is lower than the pinned one |
 
-With review off, `run finish` does no git work for review.
+With review off, `run finish` does no git work for review and does not read `.wev/scores.jsonl`.
+
+Staleness is judged on the content tree (a git tree written with a temporary index), not on HEAD, so committing after a review or a comparison changes nothing; editing a file does. The comparison record keeps its `fingerprint` for history, adds the `tree` it was made on, and carries both `improves` (no case loses a pass and the total rises) and `not_lower` (no case loses a pass). The gate recomputes `not_lower` from the stored counts, so a hand-edited flag does not pass; lesson decisions in `specialists score` still use the stricter `improves`. This looser rule for a reviewer change is a ruling the owner has yet to confirm.
 
 ## Plans and the pull request body
 
-A plan for a medium or high-risk run needs `risk_notes` and `revert` (refused with `plan_needs_revert`); the one-task plan the engine synthesizes when planning is `never` is exempt, and its PR body says "Not given.". `wev run report --format pr` prints Summary, What was tested, Risk (tier, reasons, notes), How to revert and Review.
+A plan for a medium or high-risk run needs `risk_notes` and `revert` (refused with `plan_needs_revert`); the one-task plan the engine synthesizes when planning is `never` is exempt, and its PR body says "Not given.". `wev run report --format pr` prints Summary, What was tested, Risk (tier, reasons, notes), How to revert and Review. The Review section says "Not reviewed" when no round ran (also with review off), says the review is stale when the tree changed after the last round, and says "Nothing to fix" only for a current round with nothing open.
 
 ## Review cases and scoring the reviewer
 
@@ -113,9 +116,15 @@ bin/wev specialists score wev-reviewer --compare <rev>   # person-only; reviewer
 
 `--compare` works for `review.agent` only and records the resolved revision; `run finish` reads that record for `reviewer_unscored`. Both spend tokens and are person-only: Claude Code asks, other harnesses deny, an agent never runs them.
 
+## Upgrading
+
+Task reviews (`task review`) recorded before this change carry no tree fingerprint and no longer count as accepted. A run in flight that requires an independent review needs its tasks reviewed again after the upgrade.
+
 ## Limits
 
 - Review is a guardrail for a fallible agent, not a boundary against an adversarial one. The agent's file tools can still edit the run state, the findings and `.wev/reviews.jsonl` (see [SECURITY.md](../../SECURITY.md)).
 - `Read`, `Glob` and `Grep` are granted unscoped, so a finder can read files outside the repository, as scoring's unattended runs can; finding text is redacted before it is stored. Scoping reads to the workspace is a follow-up.
 - A run started with an explicit `--config` can edit the repository's `wev.config.json` to lower review for later runs that do not pass `--config`. Only the person reviewing the PR sees it.
+- A write to `.wev/reviews.jsonl` that fails after a round or a closing is committed is reported as a warning, not as a failure: the run holds the truth, only the stats lack a line.
+- `.wev/scores.jsonl` is a local file the agent can edit too: one appended line with matching numbers passes `reviewer_unscored`. See [SECURITY.md](../../SECURITY.md).
 - Model verdicts are signals, not proof: a vote that agrees is not a correct finding. Check the findings with low agreement.
