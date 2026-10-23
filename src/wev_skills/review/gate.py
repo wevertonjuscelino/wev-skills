@@ -8,7 +8,14 @@ from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 
 from wev_skills import i18n
-from wev_skills.config import CONFIG_FILE_NAME, DEFAULT_PROJECT_DIR, Config
+from wev_skills.config import (
+    CONFIG_FILE_NAME,
+    SOURCE_DEFAULTS,
+    SOURCE_JOIN,
+    Config,
+    resolve_config,
+    user_config_path,
+)
 from wev_skills.config_review import DEPTH_OFF, PRESETS
 from wev_skills.core.errors import StateConflict, WevError
 from wev_skills.evaluation.ratchet import improves
@@ -29,31 +36,30 @@ def reviewer_path(config: Config) -> str:
     return _norm(f"{config.agents.project_dir}/{config.review.agent}.json")
 
 
-def _review_settings(text: str | None) -> tuple[int, str, str] | None:
-    """(depth rank, agent, project dir) of a config file's text; defaults when it is
-    missing, None when it cannot be read."""
-    if text is None:
-        return 0, "", _norm(DEFAULT_PROJECT_DIR)
+def current_config(source: str, root: Path) -> Config | None:
+    """The effective configuration now, resolved as the run's start did: the single file of
+    ``source`` when it is neither the repository file nor the user file (an explicit
+    ``--config``), else the user file under the repository's. None when it cannot be resolved."""
+    files = [] if source == SOURCE_DEFAULTS else source.split(SOURCE_JOIN)
+    tiers = {str(root / CONFIG_FILE_NAME), str(user_config_path())}
+    explicit = files[0] if len(files) == 1 and files[0] not in tiers else None
     try:
-        data = json.loads(text)
-        review, agents = data.get("review", {}), data.get("agents", {})
-        rank = DEPTHS.index(review.get("depth", DEPTH_OFF))
-        agent, project_dir = review.get("agent", ""), agents.get("project_dir", DEFAULT_PROJECT_DIR)
-        if not isinstance(agent, str) or not isinstance(project_dir, str):
-            return None
-        return rank, agent, _norm(project_dir)
-    except ValueError, AttributeError:
+        return resolve_config(explicit, root).config
+    except WevError:
         return None
 
 
-def config_weakened(before: str | None, after: str | None) -> bool:
-    """True when the run's edit of the config file lowers ``review.depth`` or changes
-    ``review.agent`` or ``agents.project_dir``; a file that cannot be read counts."""
-    now = _review_settings(after)
-    if now is None:
+def config_weakened(pinned: Config, current: Config | None) -> bool:
+    """True when ``current`` lowers the pinned ``review.depth`` or changes ``review.agent`` or
+    ``agents.project_dir``; a configuration that cannot be read counts. Only meaningful when
+    the pinned depth is not off (turning review on is never weakening)."""
+    if current is None:
         return True
-    old = _review_settings(before) or (0, "", _norm(DEFAULT_PROJECT_DIR))
-    return now[0] < old[0] or now[1:] != old[1:]
+    return (
+        DEPTHS.index(current.review.depth) < DEPTHS.index(pinned.review.depth)
+        or current.review.agent != pinned.review.agent
+        or _norm(current.agents.project_dir) != _norm(pinned.agents.project_dir)
+    )
 
 
 def _pass_counts(value: object) -> dict[str, int] | None:
@@ -81,7 +87,7 @@ def finish_refusal(
     fingerprint: str,
     changed: Collection[str],
     comparisons: Sequence[Mapping[str, object]],
-    config_texts: tuple[str | None, str | None] = (None, None),
+    weakened: bool = False,
 ) -> WevError | None:
     """Why ``run finish`` must refuse, or None. Order: an open Important finding, a review
     that does not cover the tree, a changed reviewer that no comparison vouches for."""
@@ -90,7 +96,7 @@ def finish_refusal(
     if open_ids:
         text = i18n.t("review.gate.open_important", ids=", ".join(open_ids))
         return StateConflict("review_open_important", text)
-    if CONFIG_FILE_NAME in changed and config_weakened(*config_texts):
+    if weakened:
         return StateConflict("review_config_weakened", i18n.t("review.gate.config_weakened"))
     depth = config.review.depth
     if depth == DEPTH_OFF:

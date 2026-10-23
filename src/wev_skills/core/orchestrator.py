@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from wev_skills import i18n
-from wev_skills.config import CONFIG_FILE_NAME
+from wev_skills.config_review import DEPTH_OFF
 from wev_skills.core import (
     active,
     brief,
@@ -38,8 +38,13 @@ from wev_skills.core.errors import StateConflict, WevError
 from wev_skills.core.run_start import START_MODES
 from wev_skills.evaluation.scoring import SCORES_FILE
 from wev_skills.guards.execution import GuardVerdict
-from wev_skills.review.changed import changed_paths, file_at
-from wev_skills.review.gate import finish_refusal, read_comparisons
+from wev_skills.review.changed import changed_paths
+from wev_skills.review.gate import (
+    config_weakened,
+    current_config,
+    finish_refusal,
+    read_comparisons,
+)
 from wev_skills.review.trees import write_tree
 from wev_skills.state.model import Phase, RunState, with_decision, with_phase, with_repo
 from wev_skills.state.resume import check_drift
@@ -173,17 +178,15 @@ class Orchestrator(Engine):
         config = self.services.config
         runner, root = self.services.runner, Path(self.cwd(state))
         changed: frozenset[str] = frozenset()
-        texts: tuple[str | None, str | None] = (None, None)
-        if state.base:
-            changed = changed_paths(runner, root, state.base, write_tree(runner, root))
-        if CONFIG_FILE_NAME in changed:
-            now = root / CONFIG_FILE_NAME
-            texts = (
-                file_at(runner, root, state.base, CONFIG_FILE_NAME),
-                now.read_text(encoding="utf-8") if now.is_file() else None,
-            )
+        weakened = False
+        if config.review.depth != DEPTH_OFF:  # with review off this gate does no git work
+            if state.base:
+                changed = changed_paths(runner, root, state.base, write_tree(runner, root))
+            weakened = config_weakened(config, current_config(state.config_source, root))
         comparisons = read_comparisons(self.services.state_dir / SCORES_FILE)
-        return finish_refusal(state, config, self.fingerprint(state), changed, comparisons, texts)
+        return finish_refusal(
+            state, config, self.fingerprint(state), changed, comparisons, weakened
+        )
 
     def _changed(self, state: RunState) -> tuple[str, ...]:
         """Tasks that are "verified, then changed": computed now for an open run, read from

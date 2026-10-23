@@ -15,9 +15,3 @@ def changed_paths(runner: Runner, root: Path, base: str, now: str) -> frozenset[
     argv = ("diff", "--name-only", "--no-renames", "--no-ext-diff", "--no-textconv", "-z")
     out = _checked(run_git(runner, root, *argv, base, now), "diff --name-only")
     return frozenset(name for name in out.split("\0") if name)
-
-
-def file_at(runner: Runner, root: Path, rev: str, path: str) -> str | None:
-    """The text of ``path`` in tree ``rev``, or None when it does not exist there."""
-    result = run_git(runner, root, "show", f"{rev}:{path}")
-    return None if result.timed_out or result.exit_code != 0 else result.stdout
