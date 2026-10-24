@@ -12,6 +12,7 @@ long to analyze within the hook's timeout.
 
 from __future__ import annotations
 
+import glob
 import os
 import shlex
 from collections.abc import Sequence
@@ -22,7 +23,7 @@ from wev_skills import i18n
 from wev_skills.adapters.claude_code import engine_cli
 from wev_skills.core.contracts import Mode, PermissionDecision, PermissionOutcome, RiskLevel
 from wev_skills.security import commands, git_rules, untrusted
-from wev_skills.security.paths import place_within
+from wev_skills.security.paths import has_glob, place_within
 from wev_skills.security.permissions import PermissionPolicy
 from wev_skills.security.redact import redact
 from wev_skills.security.shell import SimpleCommand, split_commands
@@ -38,7 +39,20 @@ MAX_SHOWN_COMMAND = 200
 CD_COMMANDS = frozenset({"cd", "pushd"})
 CD_UNKNOWN = frozenset({"popd"})
 ENVIRONMENT_COMMANDS = frozenset(
-    {"env", "export", "declare", "typeset", "readonly", "local", "set", "unset", "shopt", "hash"}
+    {
+        "env",
+        "export",
+        "declare",
+        "typeset",
+        "readonly",
+        "local",
+        "set",
+        "unset",
+        "shopt",
+        "setopt",
+        "unsetopt",
+        "hash",
+    }
 )
 """Shell words that change variables or lookup for what runs after them, plus ``env``."""
 GIT_DIRECTORY_OPTION = "-C"
@@ -161,6 +175,24 @@ def _program_rewritten(part: SimpleCommand) -> bool:
     return any(start < len(flags) and flags[start] for start in starts)
 
 
+def _shell_globs(part: SimpleCommand, cwd: str) -> frozenset[str]:
+    """Unquoted globs the shell expands to at least one file in ``cwd``: their ``*`` skips
+    names that start with a dot. A glob that matches nothing reaches the program as written
+    (``find -name *`` would then match dotted names), and a word also written quoted keeps
+    the strict check."""
+    pairs = list(zip(part.argv, part.rewritten, strict=False))
+    plain = {word for word, rewritten in pairs if not rewritten}
+    return frozenset(
+        word
+        for word, rewritten in pairs
+        if rewritten
+        and word not in plain
+        and "$" not in word
+        and has_glob(word)
+        and glob.glob(word, root_dir=cwd)
+    )
+
+
 def _program_verdicts(
     part: SimpleCommand, context: GuardContext, cwd: str, compound: bool
 ) -> list[HookVerdict]:
@@ -180,7 +212,11 @@ def _program_verdicts(
     place = git_directory(argv, cwd)
     if place != cwd and not _inside(context.root, place):
         found.append(_ask("git_outside", directory=shown([place])))
-    decision = context.policy.check_command(argv, place, mode, context.risk, consume=False)
+    # Another part of the line may change the files or the shell options the glob meets.
+    globs = frozenset() if compound else _shell_globs(part, cwd)
+    decision = context.policy.check_command(
+        argv, place, mode, context.risk, consume=False, shell_globs=globs
+    )
     return [*found, _from_policy(decision, part, compound)]
 
 

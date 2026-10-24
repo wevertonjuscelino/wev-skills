@@ -158,13 +158,24 @@ def has_glob(text: str) -> bool:
     return any(char in GLOB_CHARS for char in text)
 
 
-def glob_may_match_protected(pattern: PathLike, root: PathLike, protected: Iterable[str]) -> bool:
+def _glob_hit(name: str, part: str, hidden: bool) -> bool:
+    """``part`` can name ``name``; with ``hidden`` false a part that does not start with a
+    dot never names a dotted name, as in the shell's own expansion."""
+    if not hidden and name.startswith(".") and not part.startswith("."):
+        return False
+    return fnmatchcase(name, part)
+
+
+def glob_may_match_protected(
+    pattern: PathLike, root: PathLike, protected: Iterable[str], *, hidden: bool = True
+) -> bool:
     """True when ``pattern``, read as a glob, can name a protected path.
 
     Programs such as ``find``, ``git`` and ``rg`` expand patterns themselves, so a literal
     ``.e*`` reaches a protected file without ever spelling its name. Each component of the
     pattern is matched against the protected names; a located entry (one with a separator)
-    is matched component by component from ``root``.
+    is matched component by component from ``root``. ``hidden=False`` is for a word the
+    shell itself expands: its ``*``, ``?`` and ``[`` skip names that start with a dot.
     """
     text = os.fspath(pattern)
     if not has_glob(text):
@@ -175,13 +186,13 @@ def glob_may_match_protected(pattern: PathLike, root: PathLike, protected: Itera
         if not entry:
             continue
         if os.sep not in entry and "/" not in entry:
-            if any(fnmatchcase(entry.casefold(), part) for part in parts):
+            if any(_glob_hit(entry.casefold(), part, hidden) for part in parts):
                 return True
             continue
         located = os.path.normpath(os.path.join(base, entry))
         target = os.path.normpath(os.path.join(base, text))
         wanted, given = Path(located).parts, Path(target).parts
         pairs = list(zip(wanted, given, strict=False))
-        if len(given) >= len(wanted) and all(fnmatchcase(fold(w), fold(g)) for w, g in pairs):
+        if len(given) >= len(wanted) and all(_glob_hit(fold(w), fold(g), hidden) for w, g in pairs):
             return True
     return False

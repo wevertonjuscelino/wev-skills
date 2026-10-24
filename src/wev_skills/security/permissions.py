@@ -123,14 +123,18 @@ class PermissionPolicy:
             return self._approvals.consume(action, cwd)
         return self._approvals.is_granted(action, cwd)
 
-    def _protected_argument(self, expanded: Sequence[Sequence[str]], cwd: str | None) -> str | None:
+    def _protected_argument(
+        self, expanded: Sequence[Sequence[str]], cwd: str | None, shell_globs: frozenset[str]
+    ) -> str | None:
         root = cwd or os.getcwd()
         tokens = dict.fromkeys(token for argv in expanded for token in argv)
+        protected = self._config.protected_paths
         for token in tokens:
             for candidate in _path_candidates(token):
-                if is_protected(candidate, root, self._config.protected_paths):
+                if is_protected(candidate, root, protected):
                     return candidate
-                if glob_may_match_protected(candidate, root, self._config.protected_paths):
+                hidden = not (candidate == token and token in shell_globs)
+                if glob_may_match_protected(candidate, root, protected, hidden=hidden):
                     return candidate
         return None
 
@@ -211,7 +215,10 @@ class PermissionPolicy:
         risk: RiskLevel,
         *,
         consume: bool = True,
+        shell_globs: frozenset[str] = frozenset(),
     ) -> PermissionDecision:
+        """``shell_globs``: words of ``argv`` the shell expanded itself (an unquoted glob
+        that matched files), so their ``*`` could not name a dotted protected path."""
         deny = PermissionOutcome.DENY
         try:
             checked = commands.parse(argv, allow_shell=self._config.allow_shell)
@@ -232,7 +239,9 @@ class PermissionPolicy:
         read_only = is_read_only(checked) and not found.is_risky
         if mode is Mode.PLAN and not read_only:
             return _decision(deny, "plan_mode")
-        protected = self._protected_argument(expansion.commands, cwd)
+        if len(expansion.commands) != 1 or expansion.opaque:
+            shell_globs = frozenset()  # a wrapped or inlined word was not expanded by this shell
+        protected = self._protected_argument(expansion.commands, cwd, shell_globs)
         if protected is not None:
             return _decision(deny, "protected_path", path=redact(protected))
         pending = (

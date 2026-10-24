@@ -68,7 +68,7 @@ O que decorre disso:
 - Um agente com `may_mutate: false` pode rodar comandos de somente leitura, as verificações declaradas da própria tarefa e os comandos de verificação descobertos no repositório em `run start` (por exemplo `make test`, `make lint`), por correspondência exata do argv; todo o resto é recusado com `agent_read_only`. Esses comandos ainda passam pela política, então um que exige aprovação continua exigindo.
 - Procura um nome de programa sem caminho apenas em `permissions.exec_path`, nunca em `$PATH`, registra o caminho resolvido e recusa um programa que resolve para dentro da árvore de trabalho da execução. Um programa indicado por caminho relativo precisa de aprovação.
 - Classifica comandos como destrutivos, privilegiados, de rede, de efeito externo ou não analisáveis, incluindo abreviações por prefixo único das opções longas do git, configuração do git passada na linha de comando, subcomandos desconhecidos do git e invólucros como `nohup`, `timeout`, `script` e `nice`.
-- Nega um argumento, literal ou glob, que nomeie um caminho protegido (`.git`, o arquivo dot-env, o diretório de estado e o que a configuração acrescentar).
+- Nega um argumento, literal ou glob, que nomeie um caminho protegido (`.git`, o arquivo dot-env, o diretório de estado e o que a configuração acrescentar). Um glob sem aspas que o shell expande para ao menos um arquivo, sem parte que comece com ponto, não é tomado como nome de um caminho protegido que começa com ponto, porque o `*` do shell ignora esses nomes (Bash sem `dotglob`); ele continua sendo uma pergunta, como todo glob. Um padrão entre aspas, que um programa como o `find` pode expandir sozinho, e um glob que não casa nada continuam negados.
 
 ### Aprovações
 
