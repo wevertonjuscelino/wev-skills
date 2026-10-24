@@ -334,6 +334,12 @@ class ProtectedPathTests(ExecuteModeCase):
             with self.subTest(line=line):
                 self.assertEqual(self.decision(line), ASK)
 
+    def test_shell_options_that_change_globbing_are_not_allowed_silently(self) -> None:
+        """``dotglob`` (bash) and ``globdots`` (zsh) make ``*`` match dotted names."""
+        for line in ("shopt -s dotglob", "setopt globdots", "unsetopt globdots"):
+            with self.subTest(line=line):
+                self.assertIn(self.decision(line), (ASK, DENY))
+
     def test_quoted_or_dot_globs_stay_denied(self) -> None:
         """A quoted pattern reaches a program that may expand it itself (``find``, ``git``),
         and a component that starts with a dot can match a protected name. A glob that
@@ -349,6 +355,9 @@ class ProtectedPathTests(ExecuteModeCase):
             "ls .e*",
             "ls tests/.e*",
             "ls tests/* 'tests/*'",
+            "true; ls tests/*",
+            "nohup ls tests/*",
+            "timeout 5 find tests -name *",
         ):
             with self.subTest(line=line):
                 self.assertEqual(self.decision(line), DENY)

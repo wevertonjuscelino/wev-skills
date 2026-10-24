@@ -239,6 +239,8 @@ class PermissionPolicy:
         read_only = is_read_only(checked) and not found.is_risky
         if mode is Mode.PLAN and not read_only:
             return _decision(deny, "plan_mode")
+        if len(expansion.commands) != 1 or expansion.opaque:
+            shell_globs = frozenset()  # a wrapped or inlined word was not expanded by this shell
         protected = self._protected_argument(expansion.commands, cwd, shell_globs)
         if protected is not None:
             return _decision(deny, "protected_path", path=redact(protected))

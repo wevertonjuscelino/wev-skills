@@ -39,7 +39,20 @@ MAX_SHOWN_COMMAND = 200
 CD_COMMANDS = frozenset({"cd", "pushd"})
 CD_UNKNOWN = frozenset({"popd"})
 ENVIRONMENT_COMMANDS = frozenset(
-    {"env", "export", "declare", "typeset", "readonly", "local", "set", "unset", "shopt", "hash"}
+    {
+        "env",
+        "export",
+        "declare",
+        "typeset",
+        "readonly",
+        "local",
+        "set",
+        "unset",
+        "shopt",
+        "setopt",
+        "unsetopt",
+        "hash",
+    }
 )
 """Shell words that change variables or lookup for what runs after them, plus ``env``."""
 GIT_DIRECTORY_OPTION = "-C"
@@ -199,7 +212,8 @@ def _program_verdicts(
     place = git_directory(argv, cwd)
     if place != cwd and not _inside(context.root, place):
         found.append(_ask("git_outside", directory=shown([place])))
-    globs = _shell_globs(part, cwd)
+    # Another part of the line may change the files or the shell options the glob meets.
+    globs = frozenset() if compound else _shell_globs(part, cwd)
     decision = context.policy.check_command(
         argv, place, mode, context.risk, consume=False, shell_globs=globs
     )
