@@ -323,6 +323,36 @@ class ProtectedPathTests(ExecuteModeCase):
             with self.subTest(line=line):
                 self.assertEqual(self.decision(line), DENY)
 
+    def test_a_shell_glob_without_a_leading_dot_is_not_a_protected_path(self) -> None:
+        """The shell expands these words and its ``*`` skips names that start with a dot,
+        so they cannot name a protected path: no hard deny, only the usual ask for a word
+        the shell rewrites."""
+        for name in ("tests/a.py", "src/b.py", "d/x"):
+            (self.work / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.work / name).write_text("")
+        for line in ("ls tests/*", "ls src/*.py", "cat */x"):
+            with self.subTest(line=line):
+                self.assertEqual(self.decision(line), ASK)
+
+    def test_quoted_or_dot_globs_stay_denied(self) -> None:
+        """A quoted pattern reaches a program that may expand it itself (``find``, ``git``),
+        and a component that starts with a dot can match a protected name. A glob that
+        matches nothing reaches the program as written, so it stays strict too."""
+        (self.work / "tests").mkdir(exist_ok=True)
+        (self.work / "tests" / "a.py").write_text("")
+        for line in (
+            "ls nothing/*",
+            "find tests -name *t",
+            "ls 'tests/*'",
+            'ls "src/*"',
+            "find tests -name '*'",
+            "ls .e*",
+            "ls tests/.e*",
+            "ls tests/* 'tests/*'",
+        ):
+            with self.subTest(line=line):
+                self.assertEqual(self.decision(line), DENY)
+
 
 def load_tests(loader, tests, pattern):  # type: ignore[no-untyped-def]
     """Only the classes defined here; the imported base case is not run twice."""

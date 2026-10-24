@@ -13,6 +13,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - `wev specialists score` keeps each agent run's event stream, redacted and cut at 2,000,000 characters, in `.wev/score-logs/<score id>/<case>-<n>.jsonl`; the unattended run now uses `--output-format stream-json --verbose`. Implemented and tested with a fake CLI. The docs record that the wev hooks fire inside the unattended run, checked by hand on 2026-10-23.
 - `wev specialists score` prints one progress line per agent run to stderr (case, pass or fail, seconds), and Ctrl-C in any `wev` command prints a short message and exits 130 instead of a traceback. Implemented and tested.
 
+### Fixed
+
+- The Bash guard no longer denies an unquoted glob such as `ls tests/*` as a protected path when the shell expands it to real files and no part starts with a dot (the shell's `*` skips dotted names); it stays an ask like every glob. Quoted patterns and globs that match nothing keep the strict check. Implemented and tested.
+
 ## [7.0.0] - 2026-10-23
 
 ### Added

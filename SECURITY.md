@@ -68,7 +68,7 @@ What follows from that:
 - An agent with `may_mutate: false` may run read-only commands, the task's own declared checks and the check commands discovered in the repository at `run start` (for example `make test`, `make lint`), by exact argv match; everything else is refused with `agent_read_only`. Those commands still go through the policy, so one that needs approval still needs it.
 - Looks a bare program name up only in `permissions.exec_path`, never in `$PATH`, records the resolved path, and refuses a program that resolves inside the run's working tree. A program named by a relative path needs approval.
 - Classifies commands as destructive, privileged, network, external-effect or unanalyzable, including unique-prefix abbreviations of git long options, git configuration given on the command line, unknown git subcommands, and wrappers such as `nohup`, `timeout`, `script` and `nice`.
-- Denies a literal or glob argument that names a protected path (`.git`, the dot-env file, the state directory, and what the configuration adds).
+- Denies a literal or glob argument that names a protected path (`.git`, the dot-env file, the state directory, and what the configuration adds). An unquoted glob that the shell expands to at least one file, with no part starting with a dot, is not taken to name a dotted protected path, because the shell's `*` skips such names (Bash without `dotglob`); it is still an ask, as every glob is. A quoted pattern, which a program such as `find` may expand itself, and a glob that matches nothing stay denied.
 
 ### Approvals
 
